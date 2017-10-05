@@ -1,0 +1,53 @@
+############################################################################
+# apps/modbus/functions/Make.defs
+#
+#   Copyright (C) 2012 Gregory Nutt. All rights reserved.
+#   Author: Gregory Nutt <gnutt@nuttx.org>
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in
+#    the documentation and/or other materials provided with the
+#    distribution.
+# 3. Neither the name NuttX nor the names of its contributors may be
+#    used to endorse or promote products derived from this software
+#    without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+# OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+# AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+#
+############################################################################
+
+ifeq ($(CONFIG_BEAR_SSL),y)
+
+CSRCS += i15_add.c i15_bitlen.c i15_decmod.c i15_decode.c i15_decred.c i15_encode.c
+CSRCS += i15_fmont.c i15_iszero.c i15_modpow.c i15_modpow2.c i15_montmul.c
+CSRCS += i15_mulacc.c i15_muladd.c i15_ninv15.c i15_reduce.c i15_rshift.c
+CSRCS += i15_sub.c i15_tmont.c i31_add.c i31_bitlen.c i31_decmod.c i31_decode.c
+CSRCS += i31_decred.c i31_encode.c i31_fmont.c i31_iszero.c i31_modpow.c
+CSRCS += i31_modpow2.c i31_montmul.c i31_mulacc.c i31_muladd.c i31_ninv31.c
+CSRCS += i31_reduce.c i31_rshift.c i31_sub.c i31_tmont.c i32_add.c i32_bitlen.c
+CSRCS += i32_decmod.c i32_decode.c i32_decred.c i32_div32.c i32_encode.c
+CSRCS += i32_fmont.c i32_iszero.c i32_modpow.c i32_montmul.c i32_mulacc.c
+CSRCS += i32_muladd.c i32_ninv32.c i32_reduce.c i32_sub.c i32_tmont.c i62_modpow2.c
+
+DEPPATH += --dep-path int
+VPATH += :int
+CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/BearSSL/int}
+
+endif
