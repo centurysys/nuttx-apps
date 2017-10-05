@@ -35,7 +35,7 @@
 
 ifeq ($(CONFIG_BEAR_SSL),y)
 
-CSRCS = hmac_drbg.c sysrng.c
+CSRCS += hmac_drbg.c sysrng.c
 
 DEPPATH += --dep-path rand
 VPATH += :rand
