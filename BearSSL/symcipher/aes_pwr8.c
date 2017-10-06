@@ -30,7 +30,7 @@
  * POWER8 opcodes.
  */
 
-#if BR_POWER8
+#if defined(BR_POWER8)
 
 static void
 key_schedule_128(unsigned char *sk, const unsigned char *key)
@@ -38,7 +38,7 @@ key_schedule_128(unsigned char *sk, const unsigned char *key)
 	long cc;
 
 	static const uint32_t fmod[] = { 0x11B, 0x11B, 0x11B, 0x11B };
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	static const uint32_t idx2be[] = {
 		0x03020100, 0x07060504, 0x0B0A0908, 0x0F0E0D0C
 	};
@@ -64,7 +64,7 @@ key_schedule_128(unsigned char *sk, const unsigned char *key)
 		 * v8 = constant for byteswapping words
 		 */
 		vspltisw(0, 0)
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vspltisw(1, -8)
 #else
 		vspltisw(1, 8)
@@ -73,14 +73,14 @@ key_schedule_128(unsigned char *sk, const unsigned char *key)
 		vspltisw(3, 1)
 		vspltisw(6, 8)
 		lxvw4x(39, 0, %[fmod])
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		lxvw4x(40, 0, %[idx2be])
 #endif
 
 		/*
 		 * First subkey is a copy of the key itself.
 		 */
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(4, 2, 2, 8)
 		stxvw4x(36, 0, %[sk])
 #else
@@ -99,7 +99,7 @@ key_schedule_128(unsigned char *sk, const unsigned char *key)
 		/* Compute SubWord(RotWord(temp)) xor Rcon  (into v4, splat) */
 		vrlw(4, 2, 1)
 		vsbox(4, 4)
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vxor(4, 4, 3)
 #else
 		vsldoi(5, 3, 0, 3)
@@ -117,7 +117,7 @@ key_schedule_128(unsigned char *sk, const unsigned char *key)
 		vxor(2, 2, 4)
 
 		/* Store next subkey */
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(4, 2, 2, 8)
 		stxvw4x(36, 0, %[sk])
 #else
@@ -135,7 +135,7 @@ key_schedule_128(unsigned char *sk, const unsigned char *key)
 
 : [sk] "+b" (sk), [cc] "+b" (cc)
 : [key] "b" (key), [fmod] "b" (fmod)
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	, [idx2be] "b" (idx2be)
 #endif
 : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "ctr", "memory"
@@ -147,7 +147,7 @@ key_schedule_192(unsigned char *sk, const unsigned char *key)
 {
 	long cc;
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	static const uint32_t idx2be[] = {
 		0x03020100, 0x07060504, 0x0B0A0908, 0x0F0E0D0C
 	};
@@ -174,7 +174,7 @@ key_schedule_192(unsigned char *sk, const unsigned char *key)
 		 * The left two words of v3 are ignored.
 		 */
 		vspltisw(0, 0)
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vspltisw(1, -8)
 #else
 		vspltisw(1, 8)
@@ -184,11 +184,11 @@ key_schedule_192(unsigned char *sk, const unsigned char *key)
 		lxvw4x(35, %[cc], %[key])
 		vsldoi(3, 3, 0, 8)
 		vspltisw(5, 1)
-#if !BR_POWER8_LE
+#if !defined(BR_POWER8_LE)
 		vsldoi(5, 5, 0, 3)
 #endif
 		vspltisw(6, 8)
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		lxvw4x(40, 0, %[idx2be])
 #endif
 
@@ -240,7 +240,7 @@ key_schedule_192(unsigned char *sk, const unsigned char *key)
 		/*
 		 * Write out the two left 128-bit words
 		 */
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(10, 2, 2, 8)
 		vperm(11, 3, 3, 8)
 		stxvw4x(42, 0, %[sk])
@@ -263,7 +263,7 @@ key_schedule_192(unsigned char *sk, const unsigned char *key)
 		 * The loop wrote the first 50 subkey words, but we need
 		 * to produce 52, so we must do one last write.
 		 */
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(10, 2, 2, 8)
 		stxvw4x(42, 0, %[sk])
 #else
@@ -272,7 +272,7 @@ key_schedule_192(unsigned char *sk, const unsigned char *key)
 
 : [sk] "+b" (sk), [cc] "+b" (cc)
 : [key] "b" (key)
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	, [idx2be] "b" (idx2be)
 #endif
 : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
@@ -285,7 +285,7 @@ key_schedule_256(unsigned char *sk, const unsigned char *key)
 {
 	long cc;
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	static const uint32_t idx2be[] = {
 		0x03020100, 0x07060504, 0x0B0A0908, 0x0F0E0D0C
 	};
@@ -312,7 +312,7 @@ key_schedule_256(unsigned char *sk, const unsigned char *key)
 		 * The left two words of v3 are ignored.
 		 */
 		vspltisw(0, 0)
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vspltisw(1, -8)
 #else
 		vspltisw(1, 8)
@@ -321,11 +321,11 @@ key_schedule_256(unsigned char *sk, const unsigned char *key)
 		lxvw4x(34, 0, %[key])
 		lxvw4x(35, %[cc], %[key])
 		vspltisw(6, 1)
-#if !BR_POWER8_LE
+#if !defined(BR_POWER8_LE)
 		vsldoi(6, 6, 0, 3)
 #endif
 		vspltisw(7, 8)
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		lxvw4x(40, 0, %[idx2be])
 #endif
 
@@ -378,7 +378,7 @@ key_schedule_256(unsigned char *sk, const unsigned char *key)
 		/*
 		 * Write out the two left 128-bit words
 		 */
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(10, 2, 2, 8)
 		vperm(11, 3, 3, 8)
 		stxvw4x(42, 0, %[sk])
@@ -401,7 +401,7 @@ key_schedule_256(unsigned char *sk, const unsigned char *key)
 		 * The loop wrote the first 14 subkeys, but we need 15,
 		 * so we must do an extra write.
 		 */
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(10, 2, 2, 8)
 		stxvw4x(42, 0, %[sk])
 #else
@@ -410,7 +410,7 @@ key_schedule_256(unsigned char *sk, const unsigned char *key)
 
 : [sk] "+b" (sk), [cc] "+b" (cc)
 : [key] "b" (key)
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	, [idx2be] "b" (idx2be)
 #endif
 : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",

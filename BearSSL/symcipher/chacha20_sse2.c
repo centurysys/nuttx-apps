@@ -25,7 +25,7 @@
 #define BR_ENABLE_INTRINSICS   1
 #include "inner.h"
 
-#if BR_SSE2
+#if defined(BR_SSE2)
 
 /*
  * This file contains a ChaCha20 implementation that leverages SSE2
@@ -43,7 +43,7 @@ br_chacha20_sse2_get(void)
 	 * In 32-bit mode, we use CPUID to detect the SSE2 feature.
 	 */
 
-#if BR_amd64
+#if defined(BR_amd64)
 	return &br_chacha20_sse2_run;
 #else
 

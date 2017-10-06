@@ -65,14 +65,14 @@
 
 #endif
 
-#if BR_USE_URANDOM
+#if defined(BR_USE_URANDOM)
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
 #endif
 
-#if BR_USE_WIN32_RAND
+#if defined(BR_USE_WIN32_RAND)
 #include <windows.h>
 #include <wincrypt.h>
 #pragma comment(lib, "advapi32")

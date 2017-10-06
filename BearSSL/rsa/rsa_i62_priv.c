@@ -24,7 +24,7 @@
 
 #include "inner.h"
 
-#if BR_INT128 || BR_UMUL128
+#if defined(BR_INT128) || defined(BR_UMUL128)
 
 #define U      (2 + ((BR_MAX_RSA_FACTOR + 30) / 31))
 #define TLEN   (4 * U)  /* TLEN is counted in 64-bit words */

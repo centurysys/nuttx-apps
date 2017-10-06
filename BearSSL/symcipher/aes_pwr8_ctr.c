@@ -25,7 +25,7 @@
 #define BR_POWER_ASM_MACROS   1
 #include "inner.h"
 
-#if BR_POWER8
+#if defined(BR_POWER8)
 
 /* see bearssl_block.h */
 void
@@ -42,7 +42,7 @@ ctr_128(const unsigned char *sk, const unsigned char *ivbuf,
 {
 	long cc0, cc1, cc2, cc3;
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	static const uint32_t idx2be[] = {
 		0x03020100, 0x07060504, 0x0B0A0908, 0x0F0E0D0C
 	};
@@ -83,7 +83,7 @@ ctr_128(const unsigned char *sk, const unsigned char *ivbuf,
 		lxvw4x(42, %[cc0], %[sk])
 		li(%[cc0], 0)
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		/*
 		 * v15 = constant for byteswapping words
 		 */
@@ -101,7 +101,7 @@ ctr_128(const unsigned char *sk, const unsigned char *ivbuf,
 		lxvw4x(49, %[cc1], %[ivbuf])
 		lxvw4x(50, %[cc2], %[ivbuf])
 		lxvw4x(51, %[cc3], %[ivbuf])
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(16, 16, 16, 15)
 		vperm(17, 17, 17, 15)
 		vperm(18, 18, 18, 15)
@@ -175,7 +175,7 @@ ctr_128(const unsigned char *sk, const unsigned char *ivbuf,
 		vcipherlast(18, 18, 10)
 		vcipherlast(19, 19, 10)
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(16, 16, 16, 15)
 		vperm(17, 17, 17, 15)
 		vperm(18, 18, 18, 15)
@@ -210,7 +210,7 @@ ctr_128(const unsigned char *sk, const unsigned char *ivbuf,
   [buf] "+b" (buf)
 : [sk] "b" (sk), [ivbuf] "b" (ivbuf), [num_blocks] "b" (num_blocks >> 2),
   [ctrinc] "b" (ctrinc)
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	, [idx2be] "b" (idx2be)
 #endif
 : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9",
@@ -226,7 +226,7 @@ ctr_192(const unsigned char *sk, const unsigned char *ivbuf,
 {
 	long cc0, cc1, cc2, cc3;
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	static const uint32_t idx2be[] = {
 		0x03020100, 0x07060504, 0x0B0A0908, 0x0F0E0D0C
 	};
@@ -271,7 +271,7 @@ ctr_192(const unsigned char *sk, const unsigned char *ivbuf,
 		lxvw4x(44, %[cc0], %[sk])
 		li(%[cc0], 0)
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		/*
 		 * v15 = constant for byteswapping words
 		 */
@@ -289,7 +289,7 @@ ctr_192(const unsigned char *sk, const unsigned char *ivbuf,
 		lxvw4x(49, %[cc1], %[ivbuf])
 		lxvw4x(50, %[cc2], %[ivbuf])
 		lxvw4x(51, %[cc3], %[ivbuf])
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(16, 16, 16, 15)
 		vperm(17, 17, 17, 15)
 		vperm(18, 18, 18, 15)
@@ -371,7 +371,7 @@ ctr_192(const unsigned char *sk, const unsigned char *ivbuf,
 		vcipherlast(18, 18, 12)
 		vcipherlast(19, 19, 12)
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(16, 16, 16, 15)
 		vperm(17, 17, 17, 15)
 		vperm(18, 18, 18, 15)
@@ -406,7 +406,7 @@ ctr_192(const unsigned char *sk, const unsigned char *ivbuf,
   [buf] "+b" (buf)
 : [sk] "b" (sk), [ivbuf] "b" (ivbuf), [num_blocks] "b" (num_blocks >> 2),
   [ctrinc] "b" (ctrinc)
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	, [idx2be] "b" (idx2be)
 #endif
 : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9",
@@ -422,7 +422,7 @@ ctr_256(const unsigned char *sk, const unsigned char *ivbuf,
 {
 	long cc0, cc1, cc2, cc3;
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	static const uint32_t idx2be[] = {
 		0x03020100, 0x07060504, 0x0B0A0908, 0x0F0E0D0C
 	};
@@ -471,7 +471,7 @@ ctr_256(const unsigned char *sk, const unsigned char *ivbuf,
 		lxvw4x(46, %[cc0], %[sk])
 		li(%[cc0], 0)
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		/*
 		 * v15 = constant for byteswapping words
 		 */
@@ -489,7 +489,7 @@ ctr_256(const unsigned char *sk, const unsigned char *ivbuf,
 		lxvw4x(49, %[cc1], %[ivbuf])
 		lxvw4x(50, %[cc2], %[ivbuf])
 		lxvw4x(51, %[cc3], %[ivbuf])
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(16, 16, 16, 15)
 		vperm(17, 17, 17, 15)
 		vperm(18, 18, 18, 15)
@@ -579,7 +579,7 @@ ctr_256(const unsigned char *sk, const unsigned char *ivbuf,
 		vcipherlast(18, 18, 14)
 		vcipherlast(19, 19, 14)
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(16, 16, 16, 15)
 		vperm(17, 17, 17, 15)
 		vperm(18, 18, 18, 15)
@@ -614,7 +614,7 @@ ctr_256(const unsigned char *sk, const unsigned char *ivbuf,
   [buf] "+b" (buf)
 : [sk] "b" (sk), [ivbuf] "b" (ivbuf), [num_blocks] "b" (num_blocks >> 2),
   [ctrinc] "b" (ctrinc)
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	, [idx2be] "b" (idx2be)
 #endif
 : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9",

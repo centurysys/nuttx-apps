@@ -36,7 +36,7 @@
  * unsigned type: it is standard, we do it all the time, and for
  * good reasons.
  */
-#if _MSC_VER
+#ifdef _MSC_VER
 #pragma warning( disable : 4146 )
 #endif
 
@@ -109,7 +109,7 @@
  * Set BR_LOMUL on platforms where it makes sense.
  */
 #ifndef BR_LOMUL
-#if BR_ARMEL_CORTEXM_GCC
+#if defined(BR_ARMEL_CORTEXM_GCC)
 #define BR_LOMUL   1
 #endif
 #endif
@@ -118,13 +118,13 @@
  * Architecture detection.
  */
 #ifndef BR_i386
-#if __i386__ || _M_IX86
+#if defined(__i386__) || defined(_M_IX86)
 #define BR_i386   1
 #endif
 #endif
 
 #ifndef BR_amd64
-#if __x86_64__ || _M_X64
+#if defined(__x86_64__) || defined(_M_X64)
 #define BR_amd64   1
 #endif
 #endif
@@ -147,7 +147,7 @@
  * GCC thresholds are on versions 4.4 to 4.9 and 5.0.
  */
 #ifndef BR_GCC
-#if __GNUC__ && !__clang__
+#if defined(__GNUC__) && !defined(__clang__)
 #define BR_GCC   1
 
 #if __GNUC__ > 4
@@ -166,22 +166,22 @@
 #define BR_GCC_4_4   1
 #endif
 
-#if BR_GCC_5_0
+#ifdef BR_GCC_5_0
 #define BR_GCC_4_9   1
 #endif
-#if BR_GCC_4_9
+#ifdef BR_GCC_4_9
 #define BR_GCC_4_8   1
 #endif
-#if BR_GCC_4_8
+#ifdef BR_GCC_4_8
 #define BR_GCC_4_7   1
 #endif
-#if BR_GCC_4_7
+#ifdef BR_GCC_4_7
 #define BR_GCC_4_6   1
 #endif
-#if BR_GCC_4_6
+#ifdef BR_GCC_4_6
 #define BR_GCC_4_5   1
 #endif
-#if BR_GCC_4_5
+#ifdef BR_GCC_4_5
 #define BR_GCC_4_4   1
 #endif
 
@@ -192,7 +192,7 @@
  * Clang thresholds are on versions 3.7.0 and 3.8.0.
  */
 #ifndef BR_CLANG
-#if __clang__
+#ifdef __clang__
 #define BR_CLANG   1
 
 #if __clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 8)
@@ -201,7 +201,7 @@
 #define BR_CLANG_3_7   1
 #endif
 
-#if BR_CLANG_3_8
+#if defined(BR_CLANG_3_8)
 #define BR_CLANG_3_7   1
 #endif
 
@@ -212,7 +212,7 @@
  * MS Visual C thresholds are on Visual Studio 2005 to 2015.
  */
 #ifndef BR_MSC
-#if _MSC_VER
+#ifdef _MSC_VER
 #define BR_MSC   1
 
 #if _MSC_VER >= 1900
@@ -229,19 +229,19 @@
 #define BR_MSC_2005   1
 #endif
 
-#if BR_MSC_2015
+#if defined(BR_MSC_2015)
 #define BR_MSC_2013   1
 #endif
-#if BR_MSC_2013
+#if defined(BR_MSC_2013)
 #define BR_MSC_2012   1
 #endif
-#if BR_MSC_2012
+#if defined(BR_MSC_2012)
 #define BR_MSC_2010   1
 #endif
-#if BR_MSC_2010
+#if defined(BR_MSC_2010)
 #define BR_MSC_2008   1
 #endif
-#if BR_MSC_2008
+#if defined(BR_MSC_2008)
 #define BR_MSC_2005   1
 #endif
 
@@ -252,7 +252,7 @@
  * GCC 4.4+ and Clang 3.7+ allow tagging specific functions with a
  * 'target' attribute that activates support for specific opcodes.
  */
-#if BR_GCC_4_4 || BR_CLANG_3_7
+#if defined(BR_GCC_4_4) || defined(BR_CLANG_3_7)
 #define BR_TARGET(x)   __attribute__((target(x)))
 #else
 #define BR_TARGET(x)
@@ -263,7 +263,8 @@
  * GCC 4.8+, Clang 3.7+ and MSC 2012+.
  */
 #ifndef BR_AES_X86NI
-#if (BR_i386 || BR_amd64) && (BR_GCC_4_8 || BR_CLANG_3_7 || BR_MSC_2012)
+#if (defined(BR_i386) || defined(BR_amd64)) && \
+  (defined(BR_GCC_4_8) || defined(BR_CLANG_3_7) || defined(BR_MSC_2012))
 #define BR_AES_X86NI   1
 #endif
 #endif
@@ -273,7 +274,8 @@
  * GCC 4.4+, Clang 3.7+ and MSC 2005+.
  */
 #ifndef BR_SSE2
-#if (BR_i386 || BR_amd64) && (BR_GCC_4_4 || BR_CLANG_3_7 || BR_MSC_2005)
+#if (defined(BR_i386) || defined(BR_amd64)) && \
+  (defined(BR_GCC_4_4) || defined(BR_CLANG_3_7) || defined(BR_MSC_2005))
 #define BR_SSE2   1
 #endif
 #endif
@@ -283,7 +285,8 @@
  * GCC 4.6+, Clang 3.7+ and MSC 2012+.
  */
 #ifndef BR_RDRAND
-#if (BR_i386 || BR_amd64) && (BR_GCC_4_6 || BR_CLANG_3_7 || BR_MSC_2012)
+#if (defined(BR_i386) || defined(BR_amd64)) && \
+  (defined(BR_GCC_4_6) || defined(BR_CLANG_3_7) || defined(BR_MSC_2012))
 #define BR_RDRAND   1
 #endif
 #endif
@@ -327,7 +330,7 @@
  * avoid if possible).
  */
 #ifndef BR_POWER8
-#if __GNUC__ && ((_ARCH_PWR8 || _ARCH_PPC) && __CRYPTO__)
+#if __GNUC__ && ((defined(_ARCH_PWR8) || defined(_ARCH_PPC)) && __CRYPTO__)
 #define BR_POWER8   1
 #endif
 #endif
@@ -335,23 +338,23 @@
 /*
  * Detect endinanness on POWER8.
  */
-#if BR_POWER8
-#if defined BR_POWER8_LE
+#if defined(BR_POWER8)
+#if defined(BR_POWER8_LE)
 #undef BR_POWER8_BE
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 #define BR_POWER8_BE   0
 #else
 #define BR_POWER8_BE   1
 #endif
-#elif defined BR_POWER8_BE
+#elif defined(BR_POWER8_BE)
 #undef BR_POWER8_LE
-#if BR_POWER8_BE
+#if defined(BR_POWER8_BE)
 #define BR_POWER8_LE   0
 #else
 #define BR_POWER8_LE   1
 #endif
 #else
-#if __LITTLE_ENDIAN__
+#if defined(__LITTLE_ENDIAN__)
 #define BR_POWER8_LE   1
 #define BR_POWER8_BE   0
 #else
@@ -367,7 +370,7 @@
 #if !defined BR_INT128 && !defined BR_UMUL128
 #ifdef __SIZEOF_INT128__
 #define BR_INT128    1
-#elif _M_X64
+#elif defined(_M_X64)
 #define BR_UMUL128   1
 #endif
 #endif
@@ -383,14 +386,16 @@
  */
 #if !defined BR_LE_UNALIGNED && !defined BR_BE_UNALIGNED
 
-#if __i386 || __i386__ || __x86_64__ || _M_IX86 || _M_X64
+#if defined(__i386) || defined(__i386__) || defined(__x86_64__) || \
+  defined(_M_IX86) || defined(_M_X64)
 #define BR_LE_UNALIGNED   1
-#elif BR_POWER8_BE
+#elif defined(BR_POWER8_BE)
 #define BR_BE_UNALIGNED   1
-#elif BR_POWER8_LE
+#elif defined(BR_POWER8_LE)
 #define BR_LE_UNALIGNED   1
-#elif (__powerpc__ || __powerpc64__ || _M_PPC || _ARCH_PPC || _ARCH_PPC64) \
-	&& __BIG_ENDIAN__
+#elif (defined(__powerpc__) || defined(__powerpc64__) || defined(_M_PPC) || \
+       defined(_ARCH_PPC) || defined(_ARCH_PPC64)                       \
+       && defined(__BIG_ENDIAN__))
 #define BR_BE_UNALIGNED   1
 #endif
 
@@ -451,7 +456,7 @@ typedef union {
 static inline void
 br_enc16le(void *dst, unsigned x)
 {
-#if BR_LE_UNALIGNED
+#ifdef BR_LE_UNALIGNED
 	((br_union_u16 *)dst)->u = x;
 #else
 	unsigned char *buf;
@@ -465,7 +470,7 @@ br_enc16le(void *dst, unsigned x)
 static inline void
 br_enc16be(void *dst, unsigned x)
 {
-#if BR_BE_UNALIGNED
+#ifdef BR_BE_UNALIGNED
 	((br_union_u16 *)dst)->u = x;
 #else
 	unsigned char *buf;
@@ -479,7 +484,7 @@ br_enc16be(void *dst, unsigned x)
 static inline unsigned
 br_dec16le(const void *src)
 {
-#if BR_LE_UNALIGNED
+#ifdef BR_LE_UNALIGNED
 	return ((const br_union_u16 *)src)->u;
 #else
 	const unsigned char *buf;
@@ -492,7 +497,7 @@ br_dec16le(const void *src)
 static inline unsigned
 br_dec16be(const void *src)
 {
-#if BR_BE_UNALIGNED
+#ifdef BR_BE_UNALIGNED
 	return ((const br_union_u16 *)src)->u;
 #else
 	const unsigned char *buf;
@@ -505,7 +510,7 @@ br_dec16be(const void *src)
 static inline void
 br_enc32le(void *dst, uint32_t x)
 {
-#if BR_LE_UNALIGNED
+#ifdef BR_LE_UNALIGNED
 	((br_union_u32 *)dst)->u = x;
 #else
 	unsigned char *buf;
@@ -521,7 +526,7 @@ br_enc32le(void *dst, uint32_t x)
 static inline void
 br_enc32be(void *dst, uint32_t x)
 {
-#if BR_BE_UNALIGNED
+#ifdef BR_BE_UNALIGNED
 	((br_union_u32 *)dst)->u = x;
 #else
 	unsigned char *buf;
@@ -537,7 +542,7 @@ br_enc32be(void *dst, uint32_t x)
 static inline uint32_t
 br_dec32le(const void *src)
 {
-#if BR_LE_UNALIGNED
+#ifdef BR_LE_UNALIGNED
 	return ((const br_union_u32 *)src)->u;
 #else
 	const unsigned char *buf;
@@ -553,7 +558,7 @@ br_dec32le(const void *src)
 static inline uint32_t
 br_dec32be(const void *src)
 {
-#if BR_BE_UNALIGNED
+#ifdef BR_BE_UNALIGNED
 	return ((const br_union_u32 *)src)->u;
 #else
 	const unsigned char *buf;
@@ -569,7 +574,7 @@ br_dec32be(const void *src)
 static inline void
 br_enc64le(void *dst, uint64_t x)
 {
-#if BR_LE_UNALIGNED
+#ifdef BR_LE_UNALIGNED
 	((br_union_u64 *)dst)->u = x;
 #else
 	unsigned char *buf;
@@ -583,7 +588,7 @@ br_enc64le(void *dst, uint64_t x)
 static inline void
 br_enc64be(void *dst, uint64_t x)
 {
-#if BR_BE_UNALIGNED
+#ifdef BR_BE_UNALIGNED
 	((br_union_u64 *)dst)->u = x;
 #else
 	unsigned char *buf;
@@ -597,7 +602,7 @@ br_enc64be(void *dst, uint64_t x)
 static inline uint64_t
 br_dec64le(const void *src)
 {
-#if BR_LE_UNALIGNED
+#ifdef BR_LE_UNALIGNED
 	return ((const br_union_u64 *)src)->u;
 #else
 	const unsigned char *buf;
@@ -611,7 +616,7 @@ br_dec64le(const void *src)
 static inline uint64_t
 br_dec64be(const void *src)
 {
-#if BR_BE_UNALIGNED
+#ifdef BR_BE_UNALIGNED
 	return ((const br_union_u64 *)src)->u;
 #else
 	const unsigned char *buf;
@@ -914,7 +919,7 @@ MAX(uint32_t x, uint32_t y)
  */
 #define MUL(x, y)   ((uint64_t)(x) * (uint64_t)(y))
 
-#if BR_CT_MUL31
+#ifdef BR_CT_MUL31
 
 /*
  * Alternate implementation of MUL31, that will be constant-time on some
@@ -967,7 +972,7 @@ MUL31_lo(uint32_t x, uint32_t y)
  * operation constant-time on some platforms, where the basic 32-bit
  * multiplication is not constant-time.
  */
-#if BR_CT_MUL15
+#ifdef BR_CT_MUL15
 #define MUL15(x, y)   (((uint32_t)(x) | (uint32_t)0x80000000) \
                        * ((uint32_t)(y) | (uint32_t)0x80000000) \
 		       & (uint32_t)0x7FFFFFFF)
@@ -990,7 +995,7 @@ MUL31_lo(uint32_t x, uint32_t y)
  * implementation-defined behaviour. Unfortunately, it is also slower
  * and yields bigger code, which is why it is deactivated by default.
  */
-#if BR_NO_ARITH_SHIFT
+#ifdef BR_NO_ARITH_SHIFT
 #define ARSH(x, n)   (((uint32_t)(x) >> (n)) \
                       | ((-((uint32_t)(x) >> 31)) << (32 - (n))))
 #else
@@ -2147,7 +2152,7 @@ int br_ssl_choose_hash(unsigned bf);
  * files that use some inline assembly for PowerPC / POWER machines.
  */
 
-#if BR_POWER_ASM_MACROS
+#ifdef BR_POWER_ASM_MACROS
 
 #define lxvw4x(xt, ra, rb)        lxvw4x_(xt, ra, rb)
 #define stxvw4x(xt, ra, rb)       stxvw4x_(xt, ra, rb)
@@ -2236,12 +2241,13 @@ int br_ssl_choose_hash(unsigned bf);
  *    BR_TARGET().
  */
 
-#if BR_ENABLE_INTRINSICS && (BR_GCC_4_4 || BR_CLANG_3_7 || BR_MSC_2005)
+#if defined(BR_ENABLE_INTRINSICS) && \
+  (defined(BR_GCC_4_4) || defined(BR_CLANG_3_7) || defined(BR_MSC_2005))
 
 /*
  * x86 intrinsics (both 32-bit and 64-bit).
  */
-#if BR_i386 || BR_amd64
+#if defined(BR_i386) || defined(BR_amd64)
 
 /*
  * On GCC before version 5.0, we need to use the pragma to enable the
@@ -2250,8 +2256,8 @@ int br_ssl_choose_hash(unsigned bf);
  * push_options / pop_options mechanism, because it tends to trigger
  * some internal compiler errors.
  */
-#if BR_GCC && !BR_GCC_5_0
-#if BR_GCC_4_6
+#if defined(BR_GCC) && !defined(BR_GCC_5_0)
+#if defined(BR_GCC_4_6)
 #define BR_TARGETS_X86_UP \
 	_Pragma("GCC push_options") \
 	_Pragma("GCC target(\"sse2,ssse3,sse4.1,aes,pclmul,rdrnd\")")
@@ -2265,7 +2271,7 @@ int br_ssl_choose_hash(unsigned bf);
 #pragma GCC diagnostic ignored "-Wpsabi"
 #endif
 
-#if BR_CLANG && !BR_CLANG_3_8
+#if defined(BR_CLANG) && !defined(BR_CLANG_3_8)
 #undef __SSE2__
 #undef __SSE3__
 #undef __SSSE3__
@@ -2289,7 +2295,7 @@ int br_ssl_choose_hash(unsigned bf);
 #define BR_TARGETS_X86_DOWN
 #endif
 
-#if BR_GCC || BR_CLANG
+#if defined(BR_GCC) || defined(BR_CLANG)
 BR_TARGETS_X86_UP
 #include <x86intrin.h>
 #include <cpuid.h>
@@ -2297,7 +2303,7 @@ BR_TARGETS_X86_UP
 BR_TARGETS_X86_DOWN
 #endif
 
-#if BR_MSC
+#if defined(BR_MSC)
 #include <stdlib.h>
 #include <intrin.h>
 #include <immintrin.h>
@@ -2308,7 +2314,7 @@ static inline int
 br_cpuid(uint32_t mask_eax, uint32_t mask_ebx,
 	uint32_t mask_ecx, uint32_t mask_edx)
 {
-#if BR_GCC || BR_CLANG
+#if defined(BR_GCC) || defined(BR_CLANG)
 	unsigned eax, ebx, ecx, edx;
 
 	if (__get_cpuid(1, &eax, &ebx, &ecx, &edx)) {
@@ -2320,7 +2326,7 @@ br_cpuid(uint32_t mask_eax, uint32_t mask_ebx,
 			return 1;
 		}
 	}
-#elif BR_MSC
+#elif defined(BR_MSC)
 	int info[4];
 
 	__cpuid(info, 1);

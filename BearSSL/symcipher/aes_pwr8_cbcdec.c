@@ -25,7 +25,7 @@
 #define BR_POWER_ASM_MACROS   1
 #include "inner.h"
 
-#if BR_POWER8
+#if defined(BR_POWER8)
 
 /* see bearssl_block.h */
 void
@@ -42,7 +42,7 @@ cbcdec_128(const unsigned char *sk,
 {
 	long cc0, cc1, cc2, cc3;
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	static const uint32_t idx2be[] = {
 		0x03020100, 0x07060504, 0x0B0A0908, 0x0F0E0D0C
 	};
@@ -80,7 +80,7 @@ cbcdec_128(const unsigned char *sk,
 		lxvw4x(42, %[cc0], %[sk])
 		li(%[cc0], 0)
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		/*
 		 * v15 = constant for byteswapping words
 		 */
@@ -90,7 +90,7 @@ cbcdec_128(const unsigned char *sk,
 		 * Load IV into v24.
 		 */
 		lxvw4x(56, 0, %[iv])
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(24, 24, 24, 15)
 #endif
 
@@ -104,7 +104,7 @@ cbcdec_128(const unsigned char *sk,
 		lxvw4x(49, %[cc1], %[buf])
 		lxvw4x(50, %[cc2], %[buf])
 		lxvw4x(51, %[cc3], %[buf])
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(16, 16, 16, 15)
 		vperm(17, 17, 17, 15)
 		vperm(18, 18, 18, 15)
@@ -174,7 +174,7 @@ cbcdec_128(const unsigned char *sk,
 		/*
 		 * Store back result (with byteswap)
 		 */
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(16, 16, 16, 15)
 		vperm(17, 17, 17, 15)
 		vperm(18, 18, 18, 15)
@@ -197,7 +197,7 @@ cbcdec_128(const unsigned char *sk,
 : [cc0] "+b" (cc0), [cc1] "+b" (cc1), [cc2] "+b" (cc2), [cc3] "+b" (cc3),
   [buf] "+b" (buf)
 : [sk] "b" (sk), [iv] "b" (iv), [num_blocks] "b" (num_blocks >> 2)
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	, [idx2be] "b" (idx2be)
 #endif
 : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9",
@@ -213,7 +213,7 @@ cbcdec_192(const unsigned char *sk,
 {
 	long cc0, cc1, cc2, cc3;
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	static const uint32_t idx2be[] = {
 		0x03020100, 0x07060504, 0x0B0A0908, 0x0F0E0D0C
 	};
@@ -255,7 +255,7 @@ cbcdec_192(const unsigned char *sk,
 		lxvw4x(44, %[cc0], %[sk])
 		li(%[cc0], 0)
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		/*
 		 * v15 = constant for byteswapping words
 		 */
@@ -265,7 +265,7 @@ cbcdec_192(const unsigned char *sk,
 		 * Load IV into v24.
 		 */
 		lxvw4x(56, 0, %[iv])
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(24, 24, 24, 15)
 #endif
 
@@ -279,7 +279,7 @@ cbcdec_192(const unsigned char *sk,
 		lxvw4x(49, %[cc1], %[buf])
 		lxvw4x(50, %[cc2], %[buf])
 		lxvw4x(51, %[cc3], %[buf])
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(16, 16, 16, 15)
 		vperm(17, 17, 17, 15)
 		vperm(18, 18, 18, 15)
@@ -357,7 +357,7 @@ cbcdec_192(const unsigned char *sk,
 		/*
 		 * Store back result (with byteswap)
 		 */
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(16, 16, 16, 15)
 		vperm(17, 17, 17, 15)
 		vperm(18, 18, 18, 15)
@@ -380,7 +380,7 @@ cbcdec_192(const unsigned char *sk,
 : [cc0] "+b" (cc0), [cc1] "+b" (cc1), [cc2] "+b" (cc2), [cc3] "+b" (cc3),
   [buf] "+b" (buf)
 : [sk] "b" (sk), [iv] "b" (iv), [num_blocks] "b" (num_blocks >> 2)
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	, [idx2be] "b" (idx2be)
 #endif
 : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9",
@@ -396,7 +396,7 @@ cbcdec_256(const unsigned char *sk,
 {
 	long cc0, cc1, cc2, cc3;
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	static const uint32_t idx2be[] = {
 		0x03020100, 0x07060504, 0x0B0A0908, 0x0F0E0D0C
 	};
@@ -442,7 +442,7 @@ cbcdec_256(const unsigned char *sk,
 		lxvw4x(46, %[cc0], %[sk])
 		li(%[cc0], 0)
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		/*
 		 * v15 = constant for byteswapping words
 		 */
@@ -452,7 +452,7 @@ cbcdec_256(const unsigned char *sk,
 		 * Load IV into v24.
 		 */
 		lxvw4x(56, 0, %[iv])
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(24, 24, 24, 15)
 #endif
 
@@ -466,7 +466,7 @@ cbcdec_256(const unsigned char *sk,
 		lxvw4x(49, %[cc1], %[buf])
 		lxvw4x(50, %[cc2], %[buf])
 		lxvw4x(51, %[cc3], %[buf])
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(16, 16, 16, 15)
 		vperm(17, 17, 17, 15)
 		vperm(18, 18, 18, 15)
@@ -552,7 +552,7 @@ cbcdec_256(const unsigned char *sk,
 		/*
 		 * Store back result (with byteswap)
 		 */
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		vperm(16, 16, 16, 15)
 		vperm(17, 17, 17, 15)
 		vperm(18, 18, 18, 15)
@@ -575,7 +575,7 @@ cbcdec_256(const unsigned char *sk,
 : [cc0] "+b" (cc0), [cc1] "+b" (cc1), [cc2] "+b" (cc2), [cc3] "+b" (cc3),
   [buf] "+b" (buf)
 : [sk] "b" (sk), [iv] "b" (iv), [num_blocks] "b" (num_blocks >> 2)
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	, [idx2be] "b" (idx2be)
 #endif
 : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9",

@@ -24,7 +24,7 @@
 
 #include "inner.h"
 
-#if BR_INT128 || BR_UMUL128
+#if defined(BR_INT128) || defined(BR_UMUL128)
 
 /* see bearssl_rsa.h */
 uint32_t

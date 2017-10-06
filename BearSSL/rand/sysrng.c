@@ -25,20 +25,20 @@
 #define BR_ENABLE_INTRINSICS   1
 #include "inner.h"
 
-#if BR_USE_URANDOM
+#ifdef BR_USE_URANDOM
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
 #endif
 
-#if BR_USE_WIN32_RAND
+#ifdef BR_USE_WIN32_RAND
 #include <windows.h>
 #include <wincrypt.h>
 #pragma comment(lib, "advapi32")
 #endif
 
-#if BR_RDRAND
+#ifdef BR_RDRAND
 BR_TARGETS_X86_UP
 BR_TARGET("rdrnd")
 static int
@@ -83,7 +83,7 @@ rdrand_supported(void)
 
 #endif
 
-#if BR_USE_URANDOM
+#ifdef BR_USE_URANDOM
 static int
 seeder_urandom(const br_prng_class **ctx)
 {
@@ -116,7 +116,7 @@ seeder_urandom(const br_prng_class **ctx)
 }
 #endif
 
-#if BR_USE_WIN32_RAND
+#ifdef BR_USE_WIN32_RAND
 static int
 seeder_win32(const br_prng_class **ctx)
 {
@@ -143,7 +143,7 @@ seeder_win32(const br_prng_class **ctx)
 br_prng_seeder
 br_prng_seeder_system(const char **name)
 {
-#if BR_RDRAND
+#ifdef BR_RDRAND
 	if (rdrand_supported()) {
 		if (name != NULL) {
 			*name = "rdrand";
@@ -151,12 +151,12 @@ br_prng_seeder_system(const char **name)
 		return &seeder_rdrand;
 	}
 #endif
-#if BR_USE_URANDOM
+#ifdef BR_USE_URANDOM
 	if (name != NULL) {
 		*name = "urandom";
 	}
 	return &seeder_urandom;
-#elif BR_USE_WIN32_RAND
+#elif defined(BR_USE_WIN32_RAND)
 	if (name != NULL) {
 		*name = "win32";
 	}

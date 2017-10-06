@@ -30,7 +30,7 @@
  * AES-NI opcodes.
  */
 
-#if BR_AES_X86NI
+#if defined(BR_AES_X86NI)
 
 /* see inner.h */
 int

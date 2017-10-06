@@ -24,9 +24,9 @@
 
 #include "inner.h"
 
-#if BR_INT128 || BR_UMUL128
+#if defined(BR_INT128) || defined(BR_UMUL128)
 
-#if BR_INT128
+#if defined(BR_INT128)
 
 /*
  * Compute x*y+v1+v2. Operands are 64-bit, and result is 128-bit, with
@@ -57,7 +57,7 @@
 		(lo) = (uint64_t)fmaz; \
 	} while (0)
 
-#elif BR_UMUL128
+#elif defined(BR_UMUL128)
 
 #include <intrin.h>
 

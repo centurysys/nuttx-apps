@@ -48,7 +48,7 @@ CSRCS += settings.c
 DEPPATH = --dep-path .
 VPATH = .
 
-CFLAGS += -I$(APPDIR)/BearSSL/inc
+CFLAGS += -I$(APPDIR)/BearSSL/inc -DBR_ARMEL_CORTEXM_GCC
 
 include aead/Make.defs
 include codec/Make.defs
