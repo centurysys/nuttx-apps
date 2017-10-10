@@ -223,19 +223,17 @@ int nxflat_main(int argc, char *argv[])
       filename = fullpath;
 #endif
 
-      /* Load the NXFLAT module */
+      /* Execute the NXFLAT module
+       *
+       * NOTE: The standard posix_spawn() interface would be more correct.
+       * The non-standard exec() function is used because it provides a
+       * simple way to pass the symbol table information needed to load the
+       * program.  posix_spawn(), on the other hand, will assume that symbol
+       * table information is available within the OS.
+       */
 
       args[0] = NULL;
       ret = exec(filename, args, exports, NEXPORTS);
-      if (ret < 0)
-        {
-          errmsg("ERROR: Failed to load program '%s'\n", dirlist[i]);
-          exit(1);
-        }
-
-      /* Execute the ELF module */
-
-      ret = exec_module(&bin);
       if (ret < 0)
         {
           errmsg("ERROR: exec(%s) failed: %d\n", dirlist[i], errno);
