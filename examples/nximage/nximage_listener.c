@@ -1,8 +1,7 @@
 /****************************************************************************
- * apps/graphics/traveler/trv_nxlistener.c
- * NX listener logic
+ * examples/nxterm/nximage_listener.c
  *
- *   Copyright (C) 2014, 2016-2017 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2017 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,7 +37,7 @@
  * Included Files
  ****************************************************************************/
 
-#include "trv_types.h"
+#include <nuttx/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,15 +45,17 @@
 
 #include <nuttx/nx/nx.h>
 
+#include "nximage.h"
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Name: trv_nxlistener
+ * Name: nximage_listener
  ****************************************************************************/
 
-FAR void *trv_nxlistener(FAR void *arg)
+FAR void *nximage_listener(FAR void *arg)
 {
   int ret;
 
@@ -70,23 +71,24 @@ FAR void *trv_nxlistener(FAR void *arg)
        * logic with nx_eventnotify and sigwait to pace it).
        */
 
-      ret = nx_eventhandler(g_hnx);
+      ret = nx_eventhandler(g_nximage.hnx);
       if (ret < 0)
         {
           /* An error occurred... assume that we have lost connection with
            * the server.
            */
 
-          trv_abort("Lost server connection: %d\n", errno);
+          printf("nximage_listener: Lost server connection: %d\n", errno);
+          exit(EXIT_FAILURE);
         }
 
       /* If we received a message, we must be connected */
 
-      if (!g_trv_nxrconnected)
+      if (!g_nximage.connected)
         {
-          g_trv_nxrconnected = true;
-          sem_post(&g_trv_nxevent);
-          trv_debug("Connected to server\n");
+          g_nximage.connected = true;
+          sem_post(&g_nximage.eventsem);
+          printf("nximage_listener: Connected\n");
         }
     }
 }

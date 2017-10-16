@@ -1,7 +1,7 @@
 /****************************************************************************
  * apps/graphics/traveler/src/trv_graphics.c
  *
- *   Copyright (C) 2014, 2016 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2014, 2016-2017 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,12 +45,9 @@
 #include "trv_debug.h"
 #include "trv_graphics.h"
 
+#include <sys/boardctl.h>
 #include <string.h>
-
-#ifdef CONFIG_NX_MULTIUSER
-#  include <sys/boardctl.h>
-#  include <semaphore.h>
-#endif
+#include <semaphore.h>
 
 #ifdef CONFIG_VNCSERVER
 #  include <nuttx/video/vnc.h>
@@ -64,14 +61,42 @@
 FAR const struct nx_callback_s *g_trv_nxcallback;
 sem_t g_trv_nxevent = SEM_INITIZIALIZER(0);
 bool g_trv_nxresolution = false;
-#ifdef CONFIG_NX_MULTIUSER
 bool g_trv_nxrconnected = false;
-#endif
 #endif
 
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
+
+/****************************************************************************
+ * Name: trv_use_bgwindow
+ *
+ * Description:
+ *   Get the NX background window
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_NX
+static void trv_use_bgwindow(FAR struct trv_graphics_info_s *ginfo)
+{
+  /* Get the background window */
+
+  ret = nx_requestbkgd(g_hnx, &g_trv_nxcallback, ginfo);
+  if (ret < 0)
+    {
+      trv_abort("nx_requestbkgd failed: %d\n", errno);
+    }
+
+  /* Wait until we have the screen resolution.  We'll have this immediately
+   * unless we are dealing with the NX server.
+   */
+
+  while (!g_trv_nxresolution)
+    {
+      (void)sem_wait(&g_trv_nxevent);
+    }
+}
+#endif
 
 /****************************************************************************
  * Name: trv_get_fbdev
@@ -81,7 +106,7 @@ bool g_trv_nxrconnected = false;
  *
  ****************************************************************************/
 
-#ifndef CONFIG_NX_MULTIUSER
+#ifndef CONFIG_NX
 static FAR struct fb_vtable_s *trv_get_fbdev(void)
 {
   FAR struct fb_vtable_s *fbdev;
@@ -113,11 +138,11 @@ static FAR struct fb_vtable_s *trv_get_fbdev(void)
  * Name: trv_fb_initialize
  *
  * Description:
- *   Get the system framebuffer device
+ *   Get the system framebuffer device (only used on simulator)
  *
  ****************************************************************************/
 
-#if !defined(CONFIG_NX_MULTIUSER) && !defined(CONFIG_NX)
+#ifndef CONFIG_NX
 static void trv_fb_initialize(FAR struct trv_graphics_info_s *ginfo)
 {
   struct fb_videoinfo_s vinfo;
@@ -157,80 +182,11 @@ static void trv_fb_initialize(FAR struct trv_graphics_info_s *ginfo)
 #endif
 
 /****************************************************************************
- * Name: trv_use_bgwindow
- *
- * Description:
- *   Get the NX background window
- *
+ * Name: trv_nx_initialize
  ****************************************************************************/
 
 #ifdef CONFIG_NX
-static void trv_use_bgwindow(FAR struct trv_graphics_info_s *ginfo)
-{
-  /* Get the background window */
-
-  ret = nx_requestbkgd(g_hnx, &g_trv_nxcallback, ginfo);
-  if (ret < 0)
-    {
-      trv_abort("nx_requestbkgd failed: %d\n", errno);
-    }
-
-  /* Wait until we have the screen resolution.  We'll have this immediately
-   * unless we are dealing with the NX server.
-   */
-
-  while (!g_trv_nxresolution)
-    {
-      (void)sem_wait(&g_trv_nxevent);
-    }
-}
-#endif
-
-/****************************************************************************
- * Name: trv_nxsu_initialize
- ****************************************************************************/
-
-#if defined(CONFIG_NX) && !defined(CONFIG_NX_MULTIUSER)
-static inline int trv_nxsu_initialize(FAR struct trv_graphics_info_s *ginfo)
-{
-  FAR struct fb_vtable_s *fbdev;
-  int ret;
-
-  /* Get the framebuffer device */
-
-  fbdev = trv_get_fbdev();
-
-  /* Open NX */
-
-  ginfo->hnx = nx_open(fbdev);
-  if (!ginfo->hnx)
-    {
-      trv_abort("trv_nxsu_initialize: nx_open failed: %d\n", errno);
-    }
-
-#ifdef CONFIG_VNCSERVER
-  /* Setup the VNC server to support keyboard/mouse inputs */
-
-  ret = vnc_default_fbinitialize(0, ginfo->hnx);
-  if (ret < 0)
-    {
-      nx_close(ginfo->hnx);
-      trv_abort("vnc_default_fbinitialize failed: %d\n", ret);
-    }
-#endif
-
-  /* And use the background window */
-
-  trv_use_bgwindow(ginfo);
-}
-#endif
-
-/****************************************************************************
- * Name: trv_nxmu_initialize
- ****************************************************************************/
-
-#ifdef CONFIG_NX_MULTIUSER
-static inline int trv_nxmu_initialize(FAR struct trv_graphics_info_s *ginfo)
+static inline int trv_nx_initialize(FAR struct trv_graphics_info_s *ginfo)
 {
   struct sched_param param;
   pthread_t thread;
@@ -242,16 +198,16 @@ static inline int trv_nxmu_initialize(FAR struct trv_graphics_info_s *ginfo)
   ret = sched_setparam(0, &param);
   if (ret < 0)
     {
-      trv_abort("trv_nxmu_initialize: sched_setparam failed: %d\n" , ret);
+      trv_abort("trv_nx_initialize: sched_setparam failed: %d\n" , ret);
     }
 
   /* Start the NX server kernel thread */
 
-  printf("trv_nxmu_initialize: Starting NX server\n");
+  printf("trv_nx_initialize: Starting NX server\n");
   ret = boardctl(BOARDIOC_NX_START, 0);
   if (ret < 0)
     {
-      trv_abort("trv_nxmu_initialize: Failed to start the NX server: %d\n",
+      trv_abort("trv_nx_initialize: Failed to start the NX server: %d\n",
                 errno);
     }
 
@@ -312,7 +268,7 @@ static inline int trv_nxmu_initialize(FAR struct trv_graphics_info_s *ginfo)
 
   trv_use_bgwindow(ginfo);
 }
-#endif
+#endif /* CONFIG_NX */
 
 /****************************************************************************
  * Name: trv_row_update
@@ -384,12 +340,10 @@ int trv_graphics_initialize(FAR struct trv_graphics_info_s *ginfo)
 
   /* Initialize the graphics device and get information about the display */
 
-#if !defined(CONFIG_NX)
+#ifndef CONFIG_NX
   trv_fb_initialize(ginfo);
-#elif defined(CONFIG_NX_MULTIUSER)
-  trv_nxmu_initialize(ginfo);
 #else
-  trv_nxsu_initialize(ginfo);
+  trv_nx_initialize(ginfo);
 #endif
 
   /* Check the size of the display */

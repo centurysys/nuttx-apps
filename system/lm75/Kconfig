@@ -6,7 +6,7 @@
 menuconfig SYSTEM_LM75
 	bool "Temperature"
 	default n
-	depends on I2C_LM75
+	depends on LM75_I2C
 	---help---
 		Enable support for the NSH temp command.  This command will read the
 		current temperature from an LM-75 (or compatible) temperature sensor
@@ -25,8 +25,8 @@ choice
 config SYSTEM_LM75_FAHRENHEIT
 	bool "Fahrenheit"
 
-config SYSTEM_LM75_CENTIGRADE
-	bool "Centigrade"
+config SYSTEM_LM75_CELSIUS
+	bool "Celsius"
 
 endchoice
 
