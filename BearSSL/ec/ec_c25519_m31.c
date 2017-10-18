@@ -79,7 +79,7 @@ print_int(const char *name, const uint32_t *x)
  * all other compilers to do the same, because underlying CPU offer an
  * arithmetic right shift opcode that could not be used otherwise.
  */
-#if BR_NO_ARITH_SHIFT
+#if defined(BR_NO_ARITH_SHIFT)
 #define ARSH(x, n)   (((uint32_t)(x) >> (n)) \
                     | ((-((uint32_t)(x) >> 31)) << (32 - (n))))
 #else

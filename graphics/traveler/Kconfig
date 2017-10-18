@@ -6,15 +6,39 @@
 config GRAPHICS_TRAVELER
 	bool "Traveler game"
 	default n
+	depends on NX || VIDEO_FB
 	select FSUTILS_INIFILE
 	---help---
 		Enable or disable the graphic Traveler game
 
 if GRAPHICS_TRAVELER
 
-if NX_MULTIUSER
+choice
+	prompt "Video interface"
+	default GRAPHICS_TRAVELER_FB if VIDEO_FB
+	default GRAPHICS_TRAVELER_NX if !VIDEO_FB
 
-comment "Multi-User Configuration Options"
+config GRAPHICS_TRAVELER_FB
+	bool "Framebuffer Driver"
+	depends on VIDEO_FB
+
+config GRAPHICS_TRAVELER_NX
+	bool "NX Graphics"
+	depends on NX
+
+endchoice # Video interface
+
+if GRAPHICS_TRAVELER_FB
+
+config GRAPHICS_TRAVELER_FBDEV
+	string "Framebuffer Device"
+	default "/dev/fb0"
+
+endif # GRAPHICS_TRAVELER_FB
+
+if GRAPHICS_TRAVELER_NX
+
+comment "NX Server Configuration Options"
 
 config GRAPHICS_TRAVELER_STACKSIZE
 	int "Listener Stack Size"
@@ -34,7 +58,7 @@ config GRAPHICS_TRAVELER_CLIENTPRIO
 	---help---
 		The client priority.  Default: 100
 
-endif # NX_MULTIUSER
+endif # GRAPHICS_TRAVELER_NX
 
 comment "Color configuration"
 
@@ -98,7 +122,7 @@ choice
 	prompt "Input device"
 	default GRAPHICS_TRAVELER_AJOYSTICK if AJOYSTICK
 	default GRAPHICS_TRAVELER_DJOYSTICK if DJOYSTICK && !AJOYSTICK
-	default GRAPHICS_TRAVELER_NX_XYINPUT if NX_XYINPUT && !AJOYSTICK && !DJOYSTICK
+	default GRAPHICS_TRAVELER_NX_XYINPUT if GRAPHICS_TRAVELER_NX && NX_XYINPUT && !AJOYSTICK && !DJOYSTICK
 
 config GRAPHICS_TRAVELER_AJOYSTICK
 	bool "Analog joystick"
@@ -112,7 +136,7 @@ config GRAPHICS_TRAVELER_DJOYSTICK
 
 config GRAPHICS_TRAVELER_NX_XYINPUT
 	bool "NX X/Y input"
-	depends on NX_XYINPUT
+	depends on GRAPHICS_TRAVELER_NX && NX_XYINPUT
 
 endchoice # Input device
 

@@ -24,9 +24,9 @@
 
 #include "inner.h"
 
-#if BR_INT128 || BR_UMUL128
+#if defined(BR_INT128) || defined(BR_UMUL128)
 
-#if BR_INT128
+#if defined(BR_INT128)
 
 #define MUL128(hi, lo, x, y)   do { \
 		unsigned __int128 mul128tmp; \
@@ -35,7 +35,7 @@
 		(lo) = (uint64_t)mul128tmp; \
 	} while (0)
 
-#elif BR_UMUL128
+#elif defined(BR_UMUL128)
 
 #include <intrin.h>
 

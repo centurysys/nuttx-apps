@@ -701,6 +701,12 @@ examples/i2cchar
       each time that this test executes.  Not available in the kernel build
       mode.
 
+examples/ina219
+^^^^^^^^^^^^^^^
+
+  This is a simple infinite loop that polls the INA219 sensor and displays
+  the measurements.
+
 examples/ipforward
 ^^^^^^^^^^^^^^^^^^
 
@@ -720,26 +726,6 @@ examples/json
   NuttX coding standards).  As of r42, the SVN repository was last updated
   on 2011-10-10 so I presume that the code is stable and there is no risk
   of maintaining duplicate logic in the NuttX repository.
-
-examples/lcdrw
-^^^^^^^^^^^^^^
-
-  This example may be used to verify if you can or cannot read data
-  correctly from an LCD interface.  At present, this supports only LCDs
-  with RGB565 color format.
-
-  * CONFIG_EXAMPLES_LDCRW_DEVNO
-      LCD device number.  Default: 0
-  * CONFIG_EXAMPLES_LDCRW_XRES
-      LCD X resolution.  Default: 240
-  * CONFIG_EXAMPLES_LDCRW_YRES
-      LCD Y resolution.  Default: 320
-
-  NOTE: This test exercises internal lcd driver interfaces.  As such, it
-  relies on internal OS interfaces that are not normally available to a
-  user-space program.  As a result, this example cannot be used if a
-  NuttX is built as a protected, supervisor kernel (CONFIG_BUILD_PROTECTED
-  or CONFIG_BUILD_KERNEL).
 
 examples/leds
 ^^^^^^^^^^^^
@@ -1066,10 +1052,6 @@ examples/nx
 
     CONFIG_NSH_BUILTIN_APPS -- Build the NX example as a "built-in"
       that can be executed from the NSH command line
-    CONFIG_EXAMPLES_NX_VPLANE -- The plane to select from the frame-
-      buffer driver for use in the test.  Default: 0
-    CONFIG_EXAMPLES_NX_DEVNO - The LCD device to select from the LCD
-      driver for use in the test: Default: 0
     CONFIG_EXAMPLES_NX_BGCOLOR -- The color of the background.  Default depends on
       CONFIG_EXAMPLES_NX_BPP.
     CONFIG_EXAMPLES_NX_COLOR1 -- The color of window 1. Default depends on
@@ -1086,27 +1068,6 @@ examples/nx
       include 2, 4, 8, 16, 24, and 32.  Default is 32.
     CONFIG_EXAMPLES_NX_RAWWINDOWS -- Use raw windows;  Default is to
       use pretty, framed NXTK windows with toolbars.
-    CONFIG_EXAMPLES_NX_EXTERNINIT - The driver for the graphics device on
-      this platform requires some unusual initialization.  This is the
-      for, for example, SPI LCD/OLED devices.  If this configuration is
-      selected, then the platform code must provide an LCD initialization
-      function with a prototype like:
-
-      #ifdef CONFIG_NX_LCDDRIVER
-      FAR struct lcd_dev_s *board_graphics_setup(unsigned int devno);
-      #else
-      FAR struct fb_vtable_s *board_graphics_setup(unsigned int devno);
-      #endif
-
-      and must also define: CONFIG_LIB_BOARDCTL=y and
-      CONFIG_BOARDCTL_GRAPHICS=y so that the boardctl() interface
-      will be available in order to access this function.
-
-  This test can be performed with either the single-user version of
-  NX or with the multiple user version of NX selected with CONFIG_NX_MULTIUSER.
-  If CONFIG_NX_MULTIUSER is defined, then the following configuration
-  options also apply:
-
     CONFIG_EXAMPLES_NX_STACKSIZE -- The stacksize to use when creating
       the NX server.  Default 2048
     CONFIG_EXAMPLES_NX_CLIENTPRIO -- The client priority.  Default: 100
@@ -1116,13 +1077,14 @@ examples/nx
     CONFIG_EXAMPLES_NX_NOTIFYSIGNO -- The signal number to use with
       nx_eventnotify().  Default: 4
 
-  If CONFIG_NX_MULTIUSER is defined, then the example also expects the
-  following settings and will generate an error if they are not as expected:
+  The example also has the following settings and will generate an error
+  if they are not as expected:
 
     CONFIG_DISABLE_MQUEUE=n
     CONFIG_DISABLE_SIGNALS=n
     CONFIG_DISABLE_PTHREAD=n
     CONFIG_NX_BLOCKING=y
+    CONFIG_LIB_BOARDCTL=y
 
 examples/nxterm
 ^^^^^^^^^^^^^^^^^^
@@ -1134,8 +1096,7 @@ examples/nxterm
   an NX winbdow.  Prerequisite configuration settings for this test include:
 
     CONFIG_NX=y              -- NX graphics must be enabled
-    CONFIG_NXTERM=y       -- The NX console driver must be built
-    CONFIG_NX_MULTIUSER=y    -- NX multi-user support must be enabled.
+    CONFIG_NXTERM=y          -- The NX console driver must be built
     CONFIG_DISABLE_MQUEUE=n  -- Message queue support must be available.
     CONFIG_DISABLE_SIGNALS=n -- Signals are needed
     CONFIG_DISABLE_PTHREAD=n -- pthreads are needed
@@ -1145,60 +1106,36 @@ examples/nxterm
   The following configuration options can be selected to customize the
   test:
 
-    CONFIG_EXAMPLES_NXCON_VPLANE -- The plane to select from the frame-
-      buffer driver for use in the test.  Default: 0
-    CONFIG_EXAMPLES_NXCON_DEVNO - The LCD device to select from the LCD
-      driver for use in the test: Default: 0
-    CONFIG_EXAMPLES_NXCON_BGCOLOR -- The color of the background.  Default
+    CONFIG_EXAMPLES_NXTERM_BGCOLOR -- The color of the background.  Default
       Default is a darker royal blue.
-    CONFIG_EXAMPLES_NXCON_WCOLOR -- The color of the window. Default is a light
+    CONFIG_EXAMPLES_NXTERM_WCOLOR -- The color of the window. Default is a light
       slate blue.
-    CONFIG_EXAMPLES_NXCON_FONTID -- Selects the font (see font ID numbers in
+    CONFIG_EXAMPLES_NXTERM_FONTID -- Selects the font (see font ID numbers in
       include/nuttx/nx/nxfonts.h)
-    CONFIG_EXAMPLES_NXCON_FONTCOLOR -- The color of the fonts. Default is
+    CONFIG_EXAMPLES_NXTERM_FONTCOLOR -- The color of the fonts. Default is
       black.
-    CONFIG_EXAMPLES_NXCON_BPP -- Pixels per pixel to use.  Valid options
+    CONFIG_EXAMPLES_NXTERM_BPP -- Pixels per pixel to use.  Valid options
       include 2, 4, 8, 16, 24, and 32.  Default is 32.
-    CONFIG_EXAMPLES_NXCON_TOOLBAR_HEIGHT -- The height of the toolbar.
+    CONFIG_EXAMPLES_NXTERM_TOOLBAR_HEIGHT -- The height of the toolbar.
       Default: 16
-    CONFIG_EXAMPLES_NXCON_TBCOLOR -- The color of the toolbar. Default is
+    CONFIG_EXAMPLES_NXTERM_TBCOLOR -- The color of the toolbar. Default is
       a medium grey.
-    CONFIG_EXAMPLES_NXCON_EXTERNINIT - The driver for the graphics device on
-      this platform requires some unusual initialization.  This is the
-      for, for example, SPI LCD/OLED devices.  If this configuration is
-      selected, then the platform code must provide an LCD initialization
-      function with a prototype like:
-
-      #ifdef CONFIG_NX_LCDDRIVER
-      FAR struct lcd_dev_s *board_graphics_setup(unsigned int devno);
-      #else
-      FAR struct fb_vtable_s *board_graphics_setup(unsigned int devno);
-      #endif
-
-      and must also define: CONFIG_LIB_BOARDCTL=y and
-      CONFIG_BOARDCTL_GRAPHICS=y so that the boardctl() interface
-      will be available in order to access this function.
-
-    CONFIG_EXAMPLES_NXCON_MINOR -- The NX console device minor number.
+    CONFIG_EXAMPLES_NXTERM_MINOR -- The NX console device minor number.
       Default is 0 corresponding to /dev/nxterm0
-    CONFIG_EXAMPLES_NXCON_DEVNAME -- The quoated, full path to the
-      NX console device corresponding to CONFIG_EXAMPLES_NXCON_MINOR.
+    CONFIG_EXAMPLES_NXTERM_DEVNAME -- The quoated, full path to the
+      NX console device corresponding to CONFIG_EXAMPLES_NXTERM_MINOR.
       Default: "/dev/nxterm0"
     CONFIG_EXAMPLES_NXTERM_PRIO - Priority of the NxTerm task.
       Default: SCHED_PRIORITY_DEFAULT
     CONFIG_EXAMPLES_NXTERM_STACKSIZE - Stack size allocated for the
       NxTerm task. Default: 2048
-
-  The following configuration settings determine how to set up the NX
-  server (CONFIG_NX_MULTIUSER):
-
-    CONFIG_EXAMPLES_NXCON_STACKSIZE -- The stacksize to use when creating
+    CONFIG_EXAMPLES_NXTERM_STACKSIZE -- The stacksize to use when creating
       the NX server.  Default 2048
-    CONFIG_EXAMPLES_NXCON_CLIENTPRIO -- The client priority.  Default: 100
-    CONFIG_EXAMPLES_NXCON_SERVERPRIO -- The server priority.  Default: 120
-    CONFIG_EXAMPLES_NXCON_LISTENERPRIO -- The priority of the event listener
+    CONFIG_EXAMPLES_NXTERM_CLIENTPRIO -- The client priority.  Default: 100
+    CONFIG_EXAMPLES_NXTERM_SERVERPRIO -- The server priority.  Default: 120
+    CONFIG_EXAMPLES_NXTERM_LISTENERPRIO -- The priority of the event listener
       thread. Default 80.
-    CONFIG_EXAMPLES_NXCON_NOTIFYSIGNO -- The signal number to use with
+    CONFIG_EXAMPLES_NXTERM_NOTIFYSIGNO -- The signal number to use with
       nx_eventnotify().  Default: 4
 
 examples/nxffs
@@ -1239,21 +1176,6 @@ examplex/nxhello
       background window. Default depends on CONFIG_EXAMPLES_NXHELLO_BPP.
     CONFIG_EXAMPLES_NXHELLO_BPP -- Pixels per pixel to use.  Valid options
       include 2, 4, 8, 16, 24, and 32.  Default is 32.
-    CONFIG_EXAMPLES_NXHELLO_EXTERNINIT - The driver for the graphics device on
-      this platform requires some unusual initialization.  This is the
-      for, for example, SPI LCD/OLED devices.  If this configuration is
-      selected, then the platform code must provide an LCD initialization
-      function with a prototype like:
-
-      #ifdef CONFIG_NX_LCDDRIVER
-      FAR struct lcd_dev_s *board_graphics_setup(unsigned int devno);
-      #else
-      FAR struct fb_vtable_s *board_graphics_setup(unsigned int devno);
-      #endif
-
-      and must also define: CONFIG_LIB_BOARDCTL=y and
-      CONFIG_BOARDCTL_GRAPHICS=y so that the boardctl() interface
-      will be available in order to access this function.
 
 examples/nximage
 ^^^^^^^^^^^^^^^^
@@ -1279,21 +1201,6 @@ examples/nximage
       One of these may be defined to rescale the image vertically by .5, 1.5,
       or 2.0.
     CONFIG_EXAMPLES_NXIMAGE_GREYSCALE -- Grey scale image.  Default: RGB.
-    CONFIG_EXAMPLES_NXIMAGE_EXTERNINIT - The driver for the graphics device on
-      this platform requires some unusual initialization.  This is the
-      for, for example, SPI LCD/OLED devices.  If this configuration is
-      selected, then the platform code must provide an LCD initialization
-      function with a prototype like:
-
-      #ifdef CONFIG_NX_LCDDRIVER
-      FAR struct lcd_dev_s *board_graphics_setup(unsigned int devno);
-      #else
-      FAR struct fb_vtable_s *board_graphics_setup(unsigned int devno);
-      #endif
-
-      and must also define: CONFIG_LIB_BOARDCTL=y and
-      CONFIG_BOARDCTL_GRAPHICS=y so that the boardctl() interface
-      will be available in order to access this function.
 
     How was that run-length encoded image produced?
 
@@ -1341,22 +1248,6 @@ examplex/nxlines
 
     CONFIG_EXAMPLES_NXLINES_BPP -- Pixels per pixel to use.  Valid options
       include 2, 4, 8, 16, 24, and 32.  Default is 16.
-    CONFIG_EXAMPLES_NXLINES_EXTERNINIT - The driver for the graphics device on
-      this platform requires some unusual initialization.  This is the
-      for, for example, SPI LCD/OLED devices.  If this configuration is
-      selected, then the platform code must provide an LCD initialization
-      function with a prototype like:
-
-      #ifdef CONFIG_NX_LCDDRIVER
-      FAR struct lcd_dev_s *board_graphics_setup(unsigned int devno);
-      #else
-      FAR struct fb_vtable_s *board_graphics_setup(unsigned int devno);
-      #endif
-
-      and must also define: CONFIG_LIB_BOARDCTL=y and
-      CONFIG_BOARDCTL_GRAPHICS=y so that the boardctl() interface
-      will be available in order to access this function.
-
     CONFIG_NSH_BUILTIN_APPS - Build the NX lines examples as an NSH built-in
       function.
 
@@ -1379,10 +1270,6 @@ examples/nxtext
 
     CONFIG_NSH_BUILTIN_APPS -- Build the NXTEXT example as a "built-in"
       that can be executed from the NSH command line
-    CONFIG_EXAMPLES_NXTEXT_VPLANE -- The plane to select from the frame-
-      buffer driver for use in the test.  Default: 0
-    CONFIG_EXAMPLES_NXTEXT_DEVNO - The LCD device to select from the LCD
-      driver for use in the test: Default: 0
     CONFIG_EXAMPLES_NXTEXT_BGCOLOR -- The color of the background.  Default
       depends on CONFIG_EXAMPLES_NXTEXT_BPP.
     CONFIG_EXAMPLES_NXTEXT_BGFONTID - Selects the font to use in the
@@ -1400,32 +1287,10 @@ examples/nxtext
     CONFIG_EXAMPLES_NXTEXT_NOGETRUN -- If your display is read-only OR if
       reading is not reliable, then select this configuration to avoid
       reading from the display.
-    CONFIG_EXAMPLES_NXTEXT_EXTERNINIT - The driver for the graphics device on
-      this platform requires some unusual initialization.  This is the
-      for, for example, SPI LCD/OLED devices.  If this configuration is
-      selected, then the platform code must provide an LCD initialization
-      function with a prototype like:
-
-      #ifdef CONFIG_NX_LCDDRIVER
-      FAR struct lcd_dev_s *board_graphics_setup(unsigned int devno);
-      #else
-      FAR struct fb_vtable_s *board_graphics_setup(unsigned int devno);
-      #endif
-
-      and must also define: CONFIG_LIB_BOARDCTL=y and
-      CONFIG_BOARDCTL_GRAPHICS=y so that the boardctl() interface
-      will be available in order to access this function.
-
     CONFIG_EXAMPLES_NXTEXT_BMCACHE - The maximum number of characters that
       can be put in the background window.  Default is 128.
     CONFIG_EXAMPLES_NXTEXT_GLCACHE - The maximum nuber of pre-rendered
       fonts that can be retained for the background window.
-
-  This test can be performed with either the single-user version of
-  NX or with the multiple user version of NX selected with CONFIG_NX_MULTIUSER.
-  If CONFIG_NX_MULTIUSER is defined, then the following configuration
-  options also apply:
-
     CONFIG_EXAMPLES_NXTEXT_STACKSIZE -- The stacksize to use when creating
       the NX server.  Default 2048
     CONFIG_EXAMPLES_NXTEXT_CLIENTPRIO -- The client priority.  Default: 100
@@ -1435,8 +1300,8 @@ examples/nxtext
     CONFIG_EXAMPLES_NXTEXT_NOTIFYSIGNO -- The signal number to use with
       nx_eventnotify().  Default: 4
 
-  If CONFIG_NX_MULTIUSER is defined, then the example also expects the
-  following settings and will generate an error if they are not as expected:
+  The example also expects the following settings and will generate an
+  error if they are not as expected:
 
     CONFIG_DISABLE_MQUEUE=n
     CONFIG_DISABLE_SIGNALS=n
@@ -1644,6 +1509,18 @@ examples/posix_spawn
      be:
 
        LDELFFLAGS = -r -e main -T$(TOPDIR)/binfmt/libelf/gnu-elf.ld
+
+examples/powerled
+^^^^^^^^^^^^^^^^^
+
+  This is a powerled driver example application. This application support three
+  operation modes which can be selected from NSH command line:
+
+    1. Demo mode
+
+    2. Continuous mode
+    
+    3. Flash mode
 
 examples/pty_test
 ^^^^^^^^^^^^^^^^^

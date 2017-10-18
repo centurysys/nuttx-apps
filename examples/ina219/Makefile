@@ -1,7 +1,9 @@
 ############################################################################
-# apps/examples/lcdrw/Makefile
+# apps/examples/ina219/Makefile
 #
-#   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2017 Sebastien Lorquet. All rights reserved.
+#   Author: Sebastien Lorquet <sebastien@lorquet.fr>
+#   Copyright (C) 2008, 2010-2013, 2017 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -35,19 +37,22 @@
 
 -include $(TOPDIR)/Make.defs
 
-# LCD Read/Write Test
+# Hello, World! built-in application info
+
+CONFIG_EXAMPLES_INA219_PRIORITY ?= SCHED_PRIORITY_DEFAULT
+CONFIG_EXAMPLES_INA219_STACKSIZE ?= 2048
+
+APPNAME = ina219
+PRIORITY = $(CONFIG_EXAMPLES_INA219_PRIORITY)
+STACKSIZE = $(CONFIG_EXAMPLES_INA219_STACKSIZE)
+
+# Hello, World! Example
 
 ASRCS =
 CSRCS =
-MAINSRC = lcdrw_main.c
+MAINSRC = ina219_main.c
 
-CONFIG_XYZ_PROGNAME ?= lcdrw$(EXEEXT)
-PROGNAME = $(CONFIG_XYZ_PROGNAME)
-
-# LCD R/W built-in application info
-
-APPNAME = lcdrw
-PRIORITY = SCHED_PRIORITY_DEFAULT
-STACKSIZE = 2048
+CONFIG_EXAMPLES_INA219_PROGNAME ?= ina219$(EXEEXT)
+PROGNAME = $(CONFIG_EXAMPLES_INA219_PROGNAME)
 
 include $(APPDIR)/Application.mk

@@ -50,7 +50,7 @@
  * multiplications, we use the "fast mul" code by default.
  */
 
-#if BR_SLOW_MUL
+#if defined(BR_SLOW_MUL)
 
 /*
  * This implementation uses Karatsuba-like reduction to make fewer

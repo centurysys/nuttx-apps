@@ -42,7 +42,7 @@ br_i15_montymul(uint16_t *d, const uint16_t *x, const uint16_t *y,
 		xu = x[u + 1];
 		f = MUL15((d[1] + MUL15(x[u + 1], y[1])) & 0x7FFF, m0i)
 			& 0x7FFF;
-#if BR_ARMEL_CORTEXM_GCC
+#if defined(BR_ARMEL_CORTEXM_GCC)
 		if (len4 != 0) {
 			uint16_t *limit;
 

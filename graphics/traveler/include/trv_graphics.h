@@ -1,7 +1,7 @@
 /****************************************************************************
  * apps/graphics/traveler/include/trv_graphics.h
  *
- *   Copyright (C) 2014 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2014, 2017 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,7 +44,7 @@
 #include <semaphore.h>
 
 #include <nuttx/video/fb.h>
-#ifdef CONFIG_NX
+#ifdef CONFIG_GRAPHICS_TRAVELER_NX
 #  include <nuttx/nx/nx.h>
 #endif
 
@@ -83,10 +83,11 @@ struct trv_palette_s
 
 struct trv_graphics_info_s
 {
-#ifdef CONFIG_NX
+#ifdef CONFIG_GRAPHICS_TRAVELER_NX
   NXHANDLE hnx;                 /* The connection handle */
   NXHANDLE bgwnd;               /* Background window handle */
 #else
+  int fb;                       /* Framebuffer device file descriptor */
   trv_coord_t xoffset;          /* Horizontal offset to start of data (pixels) */
   trv_coord_t yoffset;          /* Vertical offset to start of data (rows) */
   trv_coord_t stride;           /* Length of a line (bytes) */
@@ -105,13 +106,11 @@ struct trv_graphics_info_s
  * Public Data
  ****************************************************************************/
 
-#ifdef CONFIG_NX
+#ifdef CONFIG_GRAPHICS_TRAVELER_NX
 extern FAR const struct nx_callback_s *g_trv_nxcallback;
 extern sem_t g_trv_nxevent;
 extern volatile bool g_trv_nxresolution;
-#ifdef CONFIG_NX_MULTIUSER
 extern volatile bool g_trv_nxrconnected;
-#endif
 #endif
 
 /****************************************************************************
@@ -123,9 +122,6 @@ void trv_graphics_terminate(FAR struct trv_graphics_info_s *ginfo);
 trv_pixel_t trv_graphics_index2pixel(int index);
 void trv_display_update(struct trv_graphics_info_s *fb);
 trv_pixel_t *trv_get_renderbuffer(uint16_t width, uint16_t height);
-
-#ifdef CONFIG_NX_MULTIUSER
 FAR void *trv_nxlistener(FAR void *arg);
-#endif
 
 #endif /* __APPS_GRAPHICS_TRAVELER_INCLUDE_TRV_GRAPHICS_H */

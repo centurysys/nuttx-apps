@@ -200,11 +200,11 @@ void br_x509_minimal_run(void *t0ctx);
  *  then validation is reported as failed.
  */
 
-#if BR_USE_UNIX_TIME
+#if defined(BR_USE_UNIX_TIME)
 #include <time.h>
 #endif
 
-#if BR_USE_WIN32_TIME
+#if defined(BR_USE_WIN32_TIME)
 #include <windows.h>
 #endif
 
@@ -1400,12 +1400,12 @@ br_x509_minimal_run(void *t0ctx)
 				/* get-system-date */
 
 	if (CTX->days == 0 && CTX->seconds == 0) {
-#if BR_USE_UNIX_TIME
+#if defined(BR_USE_UNIX_TIME)
 		time_t x = time(NULL);
 
 		T0_PUSH((uint32_t)(x / 86400) + 719528);
 		T0_PUSH((uint32_t)(x % 86400));
-#elif BR_USE_WIN32_TIME
+#elif defined(BR_USE_WIN32_TIME)
 		FILETIME ft;
 		uint64_t x;
 

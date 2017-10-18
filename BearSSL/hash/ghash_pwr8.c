@@ -29,7 +29,7 @@
  * This is the GHASH implementation that leverages the POWER8 opcodes.
  */
 
-#if BR_POWER8
+#if defined(BR_POWER8)
 
 /*
  * Some symbolic names for registers.
@@ -71,7 +71,7 @@
  * Fix endianness of a value after reading it or before writing it, if
  * necessary.
  */
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 #define INIT_BSW         lxvw4x(XBSW, 0, %[idx2be])
 #define FIX_ENDIAN(xx)   vperm(xx, xx, xx, BSW)
 #else
@@ -125,7 +125,7 @@ br_ghash_pwr8(void *y, const void *h, const void *data, size_t len)
 	unsigned char tmp[64];
 	long cc0, cc1, cc2, cc3;
 
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	static const uint32_t idx2be[] = {
 		0x03020100, 0x07060504, 0x0B0A0908, 0x0F0E0D0C
 	};
@@ -332,7 +332,7 @@ br_ghash_pwr8(void *y, const void *h, const void *data, size_t len)
 		 * Load next data block and XOR it into y.
 		 */
 		lxvw4x(41, 0, %[buf2])
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 		FIX_ENDIAN(9)
 #endif
 		addi(%[buf2], %[buf2], 16)
@@ -382,7 +382,7 @@ br_ghash_pwr8(void *y, const void *h, const void *data, size_t len)
 : [buf1] "+b" (buf1), [buf2] "+b" (buf2)
 : [y] "b" (y), [h] "b" (h), [num4] "b" (num4), [num1] "b" (num1),
   [cc0] "b" (cc0), [cc1] "b" (cc1), [cc2] "b" (cc2), [cc3] "b" (cc3)
-#if BR_POWER8_LE
+#if defined(BR_POWER8_LE)
 	, [idx2be] "b" (idx2be)
 #endif
 : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9",

@@ -6,6 +6,8 @@
 config EXAMPLES_NXTERM
 	bool "NxTerm example"
 	default n
+	depends on NX
+	select LIB_BOARDCTL
 	---help---
 		Enable the NxTerm example
 

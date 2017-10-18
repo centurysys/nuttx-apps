@@ -61,10 +61,10 @@ cc_choose(const br_ssl_client_certificate_class **pctx,
 	if ((zc->allowed_usages & BR_KEYTYPE_KEYX) != 0
 		&& scurve == zc->sk->curve)
 	{
-		int x;
+		int x2;
 
-		x = (zc->issuer_key_type == BR_KEYTYPE_RSA) ? 16 : 17;
-		if (((auth_types >> x) & 1) != 0) {
+		x2 = (zc->issuer_key_type == BR_KEYTYPE_RSA) ? 16 : 17;
+		if (((auth_types >> x2) & 1) != 0) {
 			choices->auth_type = BR_AUTH_ECDH;
 			choices->hash_id = -1;
 			choices->chain = zc->chain;

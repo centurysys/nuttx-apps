@@ -25,7 +25,7 @@
 #define BR_ENABLE_INTRINSICS   1
 #include "inner.h"
 
-#if BR_AES_X86NI
+#if defined(BR_AES_X86NI)
 
 /* see bearssl_block.h */
 const br_block_cbcdec_class *

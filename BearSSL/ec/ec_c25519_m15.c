@@ -79,7 +79,7 @@ print_int(const char *name, const uint32_t *x)
  * all other compilers to do the same, because underlying CPU offer an
  * arithmetic right shift opcode that could not be used otherwise.
  */
-#if BR_NO_ARITH_SHIFT
+#if defined(BR_NO_ARITH_SHIFT)
 #define ARSH(x, n)   (((uint32_t)(x) >> (n)) \
                     | ((-((uint32_t)(x) >> 31)) << (32 - (n))))
 #else
@@ -167,7 +167,7 @@ norm13(uint32_t *d, const uint32_t *w, size_t len)
  * receives 40 words. All overlaps allowed.
  */
 
-#if BR_SLOW_MUL15
+#if defined(BR_SLOW_MUL15)
 
 static void
 mul20(uint32_t *d, const uint32_t *a, const uint32_t *b)

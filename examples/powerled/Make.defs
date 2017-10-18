@@ -1,9 +1,9 @@
 ############################################################################
-# apps/examples/lcdrw/Make.defs
+# apps/examples/powerled/Make.defs
 # Adds selected applications to apps/ build
 #
-#   Copyright (C) 2015 Gregory Nutt. All rights reserved.
-#   Author: Gregory Nutt <gnutt@nuttx.org>
+#   Copyright (C) 2017 Gregory Nutt. All rights reserved.
+#   Author: Mateusz Szafoni <raiden00@railab.me>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -34,6 +34,6 @@
 #
 ############################################################################
 
-ifeq ($(CONFIG_EXAMPLES_LCDRW),y)
-CONFIGURED_APPS += examples/lcdrw
+ifeq ($(CONFIG_EXAMPLES_POWERLED),y)
+CONFIGURED_APPS += examples/powerled
 endif

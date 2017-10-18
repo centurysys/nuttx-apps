@@ -109,7 +109,7 @@ br_ssl_server_init_full_ec(br_ssl_server_context *cc,
 		BR_KEYTYPE_KEYX | BR_KEYTYPE_SIGN,
 		cert_issuer_key_type,
 		br_ssl_engine_get_ec(&cc->eng),
-#if BR_LOMUL
+#if defined(BR_LOMUL)
 		br_ecdsa_i15_sign_asn1
 #else
 		br_ecdsa_i31_sign_asn1

@@ -1,7 +1,7 @@
 ############################################################################
 # apps/graphics/traveler/Makefile
 #
-#   Copyright (C) 2014, 2016 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2014, 2016-2017 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -67,11 +67,8 @@ endif
 
 MAINSRC = trv_main.c
 
-ifeq ($(CONFIG_NX),y)
-CSRCS  += trv_nxbkgd.c
-ifeq ($(CONFIG_NX_MULTIUSER),y)
-CSRCS  += trv_nxlistener.c
-endif
+ifeq ($(CONFIG_GRAPHICS_TRAVELER_NX),y)
+CSRCS  += trv_nxbkgd.c trv_nxlistener.c
 endif
 
 AOBJS = $(ASRCS:.S=$(OBJEXT))

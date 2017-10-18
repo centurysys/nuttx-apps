@@ -30,7 +30,7 @@
  * (from the AES-NI instructions).
  */
 
-#if BR_AES_X86NI
+#if defined(BR_AES_X86NI)
 
 /*
  * Test CPU support for PCLMULQDQ.
@@ -87,7 +87,7 @@ BR_TARGETS_X86_UP
  * However, this crashes old Clang versions, so, for Clang before 3.8,
  * we use an alternate (and less efficient) version.
  */
-#if BR_CLANG && !BR_CLANG_3_8
+#if defined(BR_CLANG) && !defined(BR_CLANG_3_8)
 #define BYTESWAP_DECL
 #define BYTESWAP_PREP   (void)0
 #define BYTESWAP(x)   do { \
@@ -121,7 +121,7 @@ BR_TARGETS_X86_UP
  * We use a target of "sse2" only, so that Clang may still handle the
  * '__m128i' type and allocate SSE2 registers.
  */
-#if BR_CLANG
+#if defined(BR_CLANG)
 BR_TARGET("sse2")
 static inline __m128i
 pclmulqdq00(__m128i x, __m128i y)

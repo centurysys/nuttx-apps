@@ -1,7 +1,7 @@
 /****************************************************************************
  * apps/graphics/traveler/src/trv_graphics.c
  *
- *   Copyright (C) 2014, 2016 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2014, 2016-2017 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,13 +45,19 @@
 #include "trv_debug.h"
 #include "trv_graphics.h"
 
-#include <string.h>
-
-#ifdef CONFIG_NX_MULTIUSER
-#  include <sys/boardctl.h>
-#  include <semaphore.h>
+#include <sys/boardctl.h>
+#ifdef CONFIG_GRAPHICS_TRAVELER_FB
+#  include <sys/ioctl.h>
+#  include <sys/mman.h>
+#  include <fcntl.h>
+#  include <errno.h>
 #endif
+#include <string.h>
+#include <semaphore.h>
 
+#ifdef CONFIG_GRAPHICS_TRAVELER_FB
+#  include <nuttx/video/fb.h>
+#endif
 #ifdef CONFIG_VNCSERVER
 #  include <nuttx/video/vnc.h>
 #endif
@@ -60,101 +66,16 @@
  * Public Data
  ****************************************************************************/
 
-#ifdef CONFIG_NX
+#ifdef CONFIG_GRAPHICS_TRAVELER_NX
 FAR const struct nx_callback_s *g_trv_nxcallback;
 sem_t g_trv_nxevent = SEM_INITIZIALIZER(0);
 bool g_trv_nxresolution = false;
-#ifdef CONFIG_NX_MULTIUSER
 bool g_trv_nxrconnected = false;
-#endif
 #endif
 
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
-
-/****************************************************************************
- * Name: trv_get_fbdev
- *
- * Description:
- *   Get the system framebuffer device
- *
- ****************************************************************************/
-
-#ifndef CONFIG_NX_MULTIUSER
-static FAR struct fb_vtable_s *trv_get_fbdev(void)
-{
-  FAR struct fb_vtable_s *fbdev;
-  int ret;
-
-  /* Initialize the frame buffer device */
-
-  ret = up_fbinitialize(0);
-  if (ret < 0)
-    {
-      trv_abort("ERROR: up_fbinitialize() failed: %d\n", -ret);
-    }
-
-  /* Set up to use video plane 0.  There is no support for anything but
-   * video plane 0.
-   */
-
-  fbdev = up_fbgetvplane(0,0);
-  if (!fbdev)
-    {
-      trv_abort("ERROR: up_fbgetvplane() failed\n");
-    }
-
-  return fbdev;
-}
-#endif
-
-/****************************************************************************
- * Name: trv_fb_initialize
- *
- * Description:
- *   Get the system framebuffer device
- *
- ****************************************************************************/
-
-#if !defined(CONFIG_NX_MULTIUSER) && !defined(CONFIG_NX)
-static void trv_fb_initialize(FAR struct trv_graphics_info_s *ginfo)
-{
-  struct fb_videoinfo_s vinfo;
-  struct fb_planeinfo_s pinfo;
-  FAR struct fb_vtable_s *fbdev;
-  int ret;
-
-  /* Get the framebuffer device */
-
-  fbdev = trv_get_fbdev();
-
-  /* Get information about video plane 0 */
-
-  ret = fbdev->getvideoinfo(fbdev, &vinfo);
-  if (ret < 0)
-    {
-      trv_abort("ERROR: getvideoinfo() failed\n");
-    }
-
-  ginfo->xres = vinfo.xres;
-  ginfo->yres = vinfo.yres;
-
-  ret = fbdev->getplaneinfo(fbdev, 0, &pinfo);
-  if (ret < 0)
-    {
-      trv_abort("ERROR: getplaneinfo() failed\n");
-    }
-
-  ginfo->stride   = pinfo.stride;
-  ginfo->hwbuffer = pinfo.fbmem;
-
-  if (vinfo.fmt != TRV_COLOR_FMT || pinfo.bpp != TRV_BPP)
-    {
-      trv_abort("ERROR: Bad color format(%d)/bpp(%d)\n", vinfo.fmt, pinfo.bpp);
-    }
-}
-#endif
 
 /****************************************************************************
  * Name: trv_use_bgwindow
@@ -164,7 +85,7 @@ static void trv_fb_initialize(FAR struct trv_graphics_info_s *ginfo)
  *
  ****************************************************************************/
 
-#ifdef CONFIG_NX
+#ifdef CONFIG_GRAPHICS_TRAVELER_NX
 static void trv_use_bgwindow(FAR struct trv_graphics_info_s *ginfo)
 {
   /* Get the background window */
@@ -187,50 +108,101 @@ static void trv_use_bgwindow(FAR struct trv_graphics_info_s *ginfo)
 #endif
 
 /****************************************************************************
- * Name: trv_nxsu_initialize
+ * Name: trv_fb_initialize
+ *
+ * Description:
+ *   Get the system framebuffer device (only used on simulator)
+ *
  ****************************************************************************/
 
-#if defined(CONFIG_NX) && !defined(CONFIG_NX_MULTIUSER)
-static inline int trv_nxsu_initialize(FAR struct trv_graphics_info_s *ginfo)
+#ifdef CONFIG_GRAPHICS_TRAVELER_FB
+static void trv_fb_initialize(FAR struct trv_graphics_info_s *ginfo)
 {
-  FAR struct fb_vtable_s *fbdev;
+  struct fb_videoinfo_s vinfo;
+  struct fb_planeinfo_s pinfo;
   int ret;
 
-  /* Get the framebuffer device */
+  /* Open the framebuffer driver */
 
-  fbdev = trv_get_fbdev();
-
-  /* Open NX */
-
-  ginfo->hnx = nx_open(fbdev);
-  if (!ginfo->hnx)
+  ginfo->fb = open(CONFIG_GRAPHICS_TRAVELER_FBDEV, O_RDWR);
+  if (ginfo->fb < 0)
     {
-      trv_abort("trv_nxsu_initialize: nx_open failed: %d\n", errno);
+      int errcode = errno;
+      trv_abort("ERROR: Failed to open %s: %d\n",
+                CONFIG_GRAPHICS_TRAVELER_FBDEV, errcode);
     }
 
-#ifdef CONFIG_VNCSERVER
-  /* Setup the VNC server to support keyboard/mouse inputs */
+  /* Get the characteristics of the framebuffer */
 
-  ret = vnc_default_fbinitialize(0, ginfo->hnx);
+  ret = ioctl(ginfo->fb, FBIOGET_VIDEOINFO,
+              (unsigned long)((uintptr_t)&vinfo));
   if (ret < 0)
     {
-      nx_close(ginfo->hnx);
-      trv_abort("vnc_default_fbinitialize failed: %d\n", ret);
+      int errcode = errno;
+      close(ginfo->fb);
+
+      trv_abort("ERROR: ioctl(FBIOGET_VIDEOINFO) failed: %d\n",
+                errcode);
     }
-#endif
 
-  /* And use the background window */
+  if (vinfo.fmt != TRV_COLOR_FMT)
+    {
+      close(ginfo->fb);
+      trv_abort("ERROR:  Bad color format %u; supported format %u\n",
+                vinfo.fmt, TRV_COLOR_FMT);
+    }
 
-  trv_use_bgwindow(ginfo);
+  ginfo->xres = vinfo.xres;
+  ginfo->yres = vinfo.yres;
+
+  ret = ioctl(ginfo->fb, FBIOGET_PLANEINFO,
+              (unsigned long)((uintptr_t)&pinfo));
+  if (ret < 0)
+    {
+      int errcode = errno;
+      close(ginfo->fb);
+
+      trv_abort("ERROR: ioctl(FBIOGET_PLANEINFO) failed: %d\n",
+                errcode);
+    }
+
+  if (pinfo.bpp != TRV_BPP)
+    {
+      close(ginfo->fb);
+      trv_abort("ERROR:  Bad pixel depth %u BPP; supported %u BPP\n",
+                pinfo.bpp, TRV_BPP);
+    }
+
+  ginfo->stride = pinfo.stride;
+
+  /* mmap() the framebuffer.
+   *
+   * NOTE: In the FLAT build the frame buffer address returned by the
+   * FBIOGET_PLANEINFO IOCTL command will be the same as the framebuffer
+   * address.  mmap(), however, is the preferred way to get the framebuffer
+   * address because in the KERNEL build, it will perform the necessary
+   * address mapping to make the memory accessible to the application.
+   */
+
+  ginfo->hwbuffer = mmap(NULL, pinfo.fblen, PROT_READ|PROT_WRITE,
+                     MAP_SHARED|MAP_FILE, ginfo->fb, 0);
+  if (ginfo->hwbuffer == MAP_FAILED)
+    {
+      int errcode = errno;
+      close(ginfo->fb);
+
+      trv_abort("ERROR: ioctl(FBIOGET_PLANEINFO) failed: %d\n",
+                errcode);
+    }
 }
 #endif
 
 /****************************************************************************
- * Name: trv_nxmu_initialize
+ * Name: trv_nx_initialize
  ****************************************************************************/
 
-#ifdef CONFIG_NX_MULTIUSER
-static inline int trv_nxmu_initialize(FAR struct trv_graphics_info_s *ginfo)
+#ifdef CONFIG_GRAPHICS_TRAVELER_NX
+static inline int trv_nx_initialize(FAR struct trv_graphics_info_s *ginfo)
 {
   struct sched_param param;
   pthread_t thread;
@@ -242,16 +214,16 @@ static inline int trv_nxmu_initialize(FAR struct trv_graphics_info_s *ginfo)
   ret = sched_setparam(0, &param);
   if (ret < 0)
     {
-      trv_abort("trv_nxmu_initialize: sched_setparam failed: %d\n" , ret);
+      trv_abort("trv_nx_initialize: sched_setparam failed: %d\n" , ret);
     }
 
   /* Start the NX server kernel thread */
 
-  printf("trv_nxmu_initialize: Starting NX server\n");
+  printf("trv_nx_initialize: Starting NX server\n");
   ret = boardctl(BOARDIOC_NX_START, 0);
   if (ret < 0)
     {
-      trv_abort("trv_nxmu_initialize: Failed to start the NX server: %d\n",
+      trv_abort("trv_nx_initialize: Failed to start the NX server: %d\n",
                 errno);
     }
 
@@ -312,7 +284,7 @@ static inline int trv_nxmu_initialize(FAR struct trv_graphics_info_s *ginfo)
 
   trv_use_bgwindow(ginfo);
 }
-#endif
+#endif /* CONFIG_GRAPHICS_TRAVELER_NX */
 
 /****************************************************************************
  * Name: trv_row_update
@@ -356,7 +328,7 @@ void trv_row_update(struct trv_graphics_info_s *ginfo,
  *
  ****************************************************************************/
 
-#ifdef CONFIG_NX
+#ifdef CONFIG_GRAPHICS_TRAVELER_NX
 void trv_display_update(struct trv_graphics_info_s *ginfo,
                         FAR dev_pixel_t *dest, trv_coord_t destrow)
 {
@@ -384,12 +356,10 @@ int trv_graphics_initialize(FAR struct trv_graphics_info_s *ginfo)
 
   /* Initialize the graphics device and get information about the display */
 
-#if !defined(CONFIG_NX)
+#ifdef CONFIG_GRAPHICS_TRAVELER_FB
   trv_fb_initialize(ginfo);
-#elif defined(CONFIG_NX_MULTIUSER)
-  trv_nxmu_initialize(ginfo);
 #else
-  trv_nxsu_initialize(ginfo);
+  trv_nx_initialize(ginfo);
 #endif
 
   /* Check the size of the display */
@@ -450,7 +420,7 @@ int trv_graphics_initialize(FAR struct trv_graphics_info_s *ginfo)
    *   image that must transferred to the window.
    */
 
-#ifdef CONFIG_NX
+#ifdef CONFIG_GRAPHICS_TRAVELER_NX
    ginfo->hwbuffer = (trv_pixel_t*)trv_malloc(ginfo->imgwidth);
    if (!ginfo->hwbuffer)
      {
@@ -485,7 +455,7 @@ void trv_graphics_terminate(FAR struct trv_graphics_info_s *ginfo)
       ginfo->swbuffer = NULL;
     }
 
-#ifdef CONFIG_NX
+#if defined(CONFIG_GRAPHICS_TRAVELER_NX)
   if (ginfo->hwbuffer)
     {
       trv_free(ginfo->hwbuffer);
@@ -494,6 +464,11 @@ void trv_graphics_terminate(FAR struct trv_graphics_info_s *ginfo)
 
   /* Close/disconnect NX */
 #warning "Missing Logic"
+
+#elif defined(CONFIG_GRAPHICS_TRAVELER_FB)
+  close(ginfo->fb);
+  ginfo->hwbuffer = NULL;
+  ginfo->fb       = -1;
 #endif
 }
 
@@ -508,7 +483,7 @@ void trv_display_update(struct trv_graphics_info_s *ginfo)
   FAR const uint8_t *src;
   FAR uint8_t *dest;
   trv_coord_t srcrow;
-#ifdef CONFIG_NX
+#ifdef CONFIG_GRAPHICS_TRAVELER_NX
   trv_coord_t destrow;
 #else
   FAR uint8_t *first;
@@ -527,7 +502,7 @@ void trv_display_update(struct trv_graphics_info_s *ginfo)
 
   /* Loop for each row in the src render buffer */
 
-#ifdef CONFIG_NX
+#ifdef CONFIG_GRAPHICS_TRAVELER_NX
   destrow = 0;
 #endif
 
@@ -538,7 +513,7 @@ void trv_display_update(struct trv_graphics_info_s *ginfo)
       trv_row_update(ginfo, (FAR const trv_pixel_t *)src,
                      (FAR dev_pixel_t *)dest);
 
-#ifdef CONFIG_NX
+#ifdef CONFIG_GRAPHICS_TRAVELER_NX
       /* Transfer the row buffer to the NX window */
 
       trv_row_transfer(ginfo, dest, destrow);
@@ -552,7 +527,7 @@ void trv_display_update(struct trv_graphics_info_s *ginfo)
 
       for (i = 1; i < ginfo->yscale; i++)
         {
-#ifdef CONFIG_NX
+#ifdef CONFIG_GRAPHICS_TRAVELER_NX
           /* Transfer the row buffer to the NX window */
 
           trv_row_transfer(ginfo, dest, destrow);
