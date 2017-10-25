@@ -53,7 +53,6 @@
 #include <sched.h>
 #include <fcntl.h>       /* Needed for open */
 #include <dirent.h>
-#include <netdb.h>       /* Needed for gethostbyname */
 #include <libgen.h>      /* Needed for basename */
 #include <errno.h>
 #include <debug.h>
@@ -114,15 +113,9 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#undef HAVE_PING6
 #undef HAVE_HWADDR
 #undef HAVE_EADDR
 #undef HAVE_RADIOADDR
-
-#if defined(CONFIG_NET_ICMPv6) && defined(CONFIG_NET_ICMPv6_PING) && \
-   !defined(CONFIG_DISABLE_SIGNALS) && !defined(CONFIG_NSH_DISABLE_PING6)
-#  define HAVE_PING6       1
-#endif
 
 #if defined(CONFIG_NET_ETHERNET)
 #  define HAVE_HWADDR      1
@@ -135,10 +128,6 @@
 #    define HAVE_RADIOADDR 1
 #  endif
 #endif
-
-/* Size of the ECHO data */
-
-#define DEFAULT_PING6_DATALEN 56
 
 /* Get the larger value */
 
@@ -165,11 +154,11 @@ typedef struct pktradio_addr_s mac_addr_t;
 #if defined(CONFIG_NET_UDP) && CONFIG_NFILE_DESCRIPTORS > 0
 struct tftpc_args_s
 {
-  bool        binary;    /* true:binary ("octet") false:text ("netascii") */
-  bool        allocated; /* true: destpath is allocated */
-  char       *destpath;  /* Path at destination */
-  const char *srcpath;   /* Path at src */
-  in_addr_t   ipaddr;    /* Host IP address */
+  bool            binary;    /* true:binary ("octet") false:text ("netascii") */
+  bool            allocated; /* true: destpath is allocated */
+  FAR char       *destpath;  /* Path at destination */
+  FAR const char *srcpath;   /* Path at src */
+  in_addr_t       ipaddr;    /* Host IP address */
 };
 #endif
 
@@ -181,123 +170,8 @@ typedef int (*nsh_netdev_callback_t)(FAR struct nsh_vtbl_s *vtbl,
  ****************************************************************************/
 
 /****************************************************************************
- * Private Data
- ****************************************************************************/
-
-#ifdef HAVE_PING6
-static uint16_t g_pingid = 0;
-#endif
-
-/****************************************************************************
  * Private Functions
  ****************************************************************************/
-
-/****************************************************************************
- * Name: ping6_newid
- ****************************************************************************/
-
-#ifdef HAVE_PING6
-static uint16_t ping6_newid(void)
-{
-  irqstate_t save = enter_critical_section();
-  uint16_t ret = ++g_pingid;
-  leave_critical_section(save);
-  return ret;
-}
-#endif /* HAVE_PIN6 */
-
-/****************************************************************************
- * Name: ping6_options
- ****************************************************************************/
-
-#ifdef HAVE_PING6
-static int ping6_options(FAR struct nsh_vtbl_s *vtbl,
-                         int argc, FAR char **argv,
-                         FAR int *count, FAR uint32_t *dsec, FAR char **staddr)
-{
-  FAR const char *fmt = g_fmtarginvalid;
-  bool badarg = false;
-  int option;
-  int tmp;
-
-  /* Get the ping6 options */
-
-  while ((option = getopt(argc, argv, ":c:i:")) != ERROR)
-    {
-      switch (option)
-        {
-          case 'c':
-            tmp = atoi(optarg);
-            if (tmp < 1 || tmp > 10000)
-              {
-                nsh_output(vtbl, g_fmtargrange, argv[0]);
-                badarg = true;
-              }
-            else
-              {
-                *count = tmp;
-              }
-            break;
-
-          case 'i':
-            tmp = atoi(optarg);
-            if (tmp < 1 || tmp >= 4294)
-              {
-                nsh_output(vtbl, g_fmtargrange, argv[0]);
-                badarg = true;
-              }
-            else
-              {
-                *dsec = 10 * tmp;
-              }
-            break;
-
-          case ':':
-            nsh_output(vtbl, g_fmtargrequired, argv[0]);
-            badarg = true;
-            break;
-
-          case '?':
-          default:
-            nsh_output(vtbl, g_fmtarginvalid, argv[0]);
-            badarg = true;
-            break;
-        }
-    }
-
-  /* If a bad argument was encountered, then return without processing the
-   * command
-   */
-
-  if (badarg)
-    {
-      return ERROR;
-    }
-
-  /* There should be exactly on parameter left on the command-line */
-
-  if (optind == argc - 1)
-    {
-      *staddr = argv[optind];
-    }
-  else if (optind >= argc)
-    {
-      fmt = g_fmttoomanyargs;
-      goto errout;
-    }
-  else
-    {
-      fmt = g_fmtargrequired;
-      goto errout;
-    }
-
-  return OK;
-
-errout:
-  nsh_output(vtbl, fmt, argv[0]);
-  return ERROR;
-}
-#endif /* HAVE_PING6 */
 
 /****************************************************************************
  * Name: net_statistics
@@ -346,7 +220,7 @@ int tftpc_parseargs(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv,
   bool badarg = false;
   int option;
 
-  /* Get the ping6 options */
+  /* Get the get/put options */
 
   memset(args, 0, sizeof(struct tftpc_args_s));
   while ((option = getopt(argc, argv, ":bnf:h:")) != ERROR)
@@ -420,7 +294,7 @@ int tftpc_parseargs(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv,
 
   /* The HOST IP address is also required */
 
-  if (!args->ipaddr)
+  if (args->ipaddr == 0)
     {
       fmt = g_fmtargrequired;
       goto errout;
@@ -428,16 +302,16 @@ int tftpc_parseargs(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv,
 
   /* If the destpath was not provided, then we have do a little work. */
 
-  if (!args->destpath)
+  if (args->destpath == NULL)
     {
-      char *tmp1;
-      char *tmp2;
+      FAR char *tmp1;
+      FAR char *tmp2;
 
       /* Copy the srcpath... baseanme might modify it */
 
       fmt = g_fmtcmdoutofmemory;
       tmp1 = strdup(args->srcpath);
-      if (!tmp1)
+      if (tmp1 == NULL)
         {
           goto errout;
         }
@@ -445,7 +319,7 @@ int tftpc_parseargs(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv,
       /* Get the basename of the srcpath */
 
       tmp2 = basename(tmp1);
-      if (!tmp2)
+      if (tmp2 == NULL)
         {
           free(tmp1);
           goto errout;
@@ -453,9 +327,9 @@ int tftpc_parseargs(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv,
 
       /* Use that basename as the destpath */
 
-      args->destpath  = strdup(tmp2);
+      args->destpath = strdup(tmp2);
       free(tmp1);
-      if (!args->destpath)
+      if (args->destpath == NULL)
         {
           goto errout;
         }
@@ -468,68 +342,6 @@ int tftpc_parseargs(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv,
 errout:
   nsh_output(vtbl, fmt, argv[0]);
   return ERROR;
-}
-#endif
-
-/****************************************************************************
- * Name: nsh_gethostip
- *
- * Description:
- *   Call gethostbyname() to get the IP address associated with a hostname.
- *
- * Input Parameters
- *   hostname - The host name to use in the nslookup.
- *   ipv4addr - The location to return the IPv4 address.
- *
- * Returned Value:
- *   Zero (OK) on success; a negated errno value on failure.
- *
- ****************************************************************************/
-
-#ifdef HAVE_PING6
-static int nsh_gethostip(FAR char *hostname, FAR union ip_addr_u *ipaddr)
-{
-#ifdef CONFIG_LIBC_NETDB
-
-  /* Netdb support is enabled */
-
-  FAR struct hostent *he;
-
-  he = gethostbyname(hostname);
-  if (he == NULL)
-    {
-      nerr("ERROR: gethostbyname failed: %d\n", h_errno);
-      return -ENOENT;
-    }
-  else if (he->h_addrtype == AF_INET6)
-    {
-      memcpy(ipaddr->ipv6, he->h_addr, sizeof(net_ipv6addr_t));
-    }
-  else
-    {
-      nerr("ERROR: gethostbyname returned an address of type: %d\n",
-           he->h_addrtype);
-      return -ENOEXEC;
-    }
-
-  return OK;
-
-#else /* CONFIG_LIBC_NETDB */
-
-  /* No host name support */
-  /* Convert strings to numeric IPv6 address */
-
-  int ret = inet_pton(AF_INET6, hostname, ipaddr->ipv6);
-
-  /* The inet_pton() function returns 1 if the conversion succeeds. It will
-   * return 0 if the input is not a valid IPv4 dotted-decimal string or a
-   * valid IPv6 address string, or -1 with errno set to EAFNOSUPPORT if
-   * the address family argument is unsupported.
-   */
-
-  return (ret > 0) ? OK : ERROR;
-
-#endif /* CONFIG_LIBC_NETDB */
 }
 #endif
 
@@ -650,7 +462,7 @@ static inline void nsh_sethwaddr(FAR const char *ifname, FAR mac_addr_t *macaddr
 int cmd_get(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 {
   struct tftpc_args_s args;
-  char *fullpath;
+  FAR char *fullpath;
 
   /* Parse the input parameter list */
 
@@ -738,11 +550,11 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 {
 #ifdef CONFIG_NET_IPv4
   struct in_addr addr;
+  in_addr_t gip;
 #endif
 #ifdef CONFIG_NET_IPv6
   struct in6_addr addr6;
 #endif
-  in_addr_t gip;
   int i;
   FAR char *ifname = NULL;
   FAR char *hostip = NULL;
@@ -806,7 +618,8 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
             {
               tmp = argv[i];
 
-              if (!strcmp(tmp, "dr") || !strcmp(tmp, "gw") || !strcmp(tmp, "gateway"))
+              if (!strcmp(tmp, "dr") || !strcmp(tmp, "gw") ||
+                  !strcmp(tmp, "gateway"))
                 {
                   if (argc - 1 >= i + 1)
                     {
@@ -922,10 +735,15 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
   if (inet6)
 #endif
     {
-#warning Missing Logic
-      UNUSED(addr6);
-      UNUSED(gip);
-      UNUSED(hostip);
+      if (hostip != NULL)
+        {
+          /* REVISIT: Should DHCPC check be used here too? */
+
+          ninfo("Host IP: %s\n", hostip);
+          inet_pton(AF_INET6, hostip, &addr6);
+        }
+
+      netlib_set_ipv6addr(ifname, &addr6);
     }
 #endif /* CONFIG_NET_IPv6 */
 
@@ -937,12 +755,13 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
       if (hostip != NULL)
         {
 #if defined(CONFIG_NSH_DHCPC)
-          if (!strcmp(hostip, "dhcp"))
+          if (strcmp(hostip, "dhcp") == 0)
             {
               /* Set DHCP addr */
 
               ninfo("DHCPC Mode\n");
-              gip = addr.s_addr = 0;
+              addr.s_addr = 0;
+              gip         = 0;
             }
           else
 #endif
@@ -950,7 +769,8 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
               /* Set host IP address */
 
               ninfo("Host IP: %s\n", hostip);
-              gip = addr.s_addr = inet_addr(hostip);
+              addr.s_addr = inet_addr(hostip);
+              gip         = addr.s_addr;
             }
         }
 
@@ -958,13 +778,22 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
     }
 #endif /* CONFIG_NET_IPv4 */
 
+  /* Set gateway */
+
 #ifdef CONFIG_NET_IPv6
 #ifdef CONFIG_NET_IPv4
   if (inet6)
 #endif
     {
-#warning Missing Logic
-      UNUSED(gwip);
+      /* Only set the gateway address if it was explicitly provided. */
+
+      if (gwip != NULL)
+        {
+          ninfo("Gateway: %s\n", gwip);
+          inet_pton(AF_INET6, gwip, &addr6);
+
+          netlib_set_dripv6addr(ifname, &addr6);
+        }
     }
 #endif /* CONFIG_NET_IPv6 */
 
@@ -973,16 +802,14 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
   else
 #endif
     {
-      /* Set gateway */
-
-      if (gwip)
+      if (gwip != NULL)
         {
           ninfo("Gateway: %s\n", gwip);
           gip = addr.s_addr = inet_addr(gwip);
         }
       else
         {
-          if (gip)
+          if (gip != 0)
             {
               ninfo("Gateway: default\n");
               gip  = NTOHL(gip);
@@ -1005,8 +832,18 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
   if (inet6)
 #endif
     {
-#warning Missing Logic
-      UNUSED(mask);
+      if (mask != NULL)
+        {
+          ninfo("Netmask: %s\n",mask);
+          inet_pton(AF_INET6, mask, &addr6);
+        }
+      else
+        {
+          ninfo("Netmask: Default\n");
+          inet_pton(AF_INET6, "ffff:ffff:ffff:ffff::", &addr6);
+        }
+
+      netlib_set_ipv6netmask(ifname, &addr6);
     }
 #endif /* CONFIG_NET_IPv6 */
 
@@ -1015,9 +852,9 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
   else
 #endif
     {
-      if (mask)
+      if (mask != NULL)
         {
-          ninfo("Netmask: %s\n",mask);
+          ninfo("Netmask: %s\n", mask);
           addr.s_addr = inet_addr(mask);
         }
       else
@@ -1047,7 +884,7 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
   else
 #endif
     {
-      if (dns)
+      if (dns != NULL)
         {
           ninfo("DNS: %s\n", dns);
           addr.s_addr = inet_addr(dns);
@@ -1079,7 +916,7 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
        * ds.lease_time/2 seconds.
        */
 
-      if (handle)
+      if (handle != NULL)
         {
           struct dhcpc_state ds;
 
@@ -1317,123 +1154,6 @@ errout_invalid:
 #endif
 
 /****************************************************************************
- * Name: cmd_ping6
- ****************************************************************************/
-
-#ifdef HAVE_PING6
-int cmd_ping6(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
-{
-  FAR char *staddr;
-  struct in6_addr ipaddr;
-  systime_t start;
-  systime_t next;
-  int32_t elapsed;
-  uint32_t dsec = 10;
-  uint32_t maxwait;
-  uint16_t id;
-  int count = 10;
-  int seqno;
-  int replies = 0;
-  int ret;
-  int tmp;
-  int i;
-
-  /* Get the ping6 options */
-
-  ret = ping6_options(vtbl, argc, argv, &count, &dsec, &staddr);
-  if (ret < 0)
-    {
-      return ERROR;
-    }
-
-  /* Get the IP address in binary form */
-
-  ret = nsh_gethostip(staddr, (FAR union ip_addr_u *)&ipaddr);
-  if (ret < 0)
-    {
-      nsh_output(vtbl, g_fmtarginvalid, argv[0]);
-      return ERROR;
-    }
-
-  /* Get the ID to use */
-
-  id = ping6_newid();
-
-  /* The maximum wait for a response will be the larger of the inter-ping
-   * time and the configured maximum round-trip time.
-   */
-
-  maxwait = MAX(dsec, CONFIG_NSH_MAX_ROUNDTRIP);
-
-  /* Loop for the specified count */
-
-  nsh_output(vtbl,
-             "PING6 %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x %d bytes of data\n",
-             ntohs(ipaddr.s6_addr16[0]), ntohs(ipaddr.s6_addr16[1]),
-             ntohs(ipaddr.s6_addr16[2]), ntohs(ipaddr.s6_addr16[3]),
-             ntohs(ipaddr.s6_addr16[4]), ntohs(ipaddr.s6_addr16[5]),
-             ntohs(ipaddr.s6_addr16[6]), ntohs(ipaddr.s6_addr16[7]),
-             DEFAULT_PING6_DATALEN);
-
-  start = clock_systimer();
-  for (i = 1; i <= count; i++)
-    {
-      /* Send the ECHO request and wait for the response */
-
-      next  = clock_systimer();
-      seqno = icmpv6_ping(ipaddr.s6_addr16, id, i, DEFAULT_PING6_DATALEN, maxwait);
-
-      /* Was any response returned? We can tell if a non-negative sequence
-       * number was returned.
-       */
-
-      if (seqno >= 0 && seqno <= i)
-        {
-          /* Get the elapsed time from the time that the request was
-           * sent until the response was received.  If we got a response
-           * to an earlier request, then fudge the elapsed time.
-           */
-
-          elapsed = (int32_t)TICK2MSEC(clock_systimer() - next);
-          if (seqno < i)
-            {
-              elapsed += 100 * dsec * (i - seqno);
-            }
-
-          /* Report the receipt of the reply */
-
-          nsh_output(vtbl, "%d bytes from %s: icmp_seq=%d time=%ld ms\n",
-                     DEFAULT_PING6_DATALEN, staddr, seqno, (long)elapsed);
-          replies++;
-        }
-
-      /* Wait for the remainder of the interval.  If the last seqno<i,
-       * then this is a bad idea... we will probably lose the response
-       * to the current request!
-       */
-
-      elapsed = (int32_t)TICK2DSEC(clock_systimer() - next);
-      if (elapsed < dsec)
-        {
-          usleep(100000 * (dsec - elapsed));
-        }
-    }
-
-  /* Get the total elapsed time */
-
-  elapsed = (int32_t)TICK2MSEC(clock_systimer() - start);
-
-  /* Calculate the percentage of lost packets */
-
-  tmp = (100*(count - replies) + (count >> 1)) / count;
-
-  nsh_output(vtbl, "%d packets transmitted, %d received, %d%% packet loss, time %ld ms\n",
-             count, replies, tmp, (long)elapsed);
-  return OK;
-}
-#endif /* CONFIG_NET_ICMPv6 && CONFIG_NET_ICMPv6_PING */
-
-/****************************************************************************
  * Name: cmd_put
  ****************************************************************************/
 
@@ -1442,7 +1162,7 @@ int cmd_ping6(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 int cmd_put(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 {
   struct tftpc_args_s args;
-  char *fullpath;
+  FAR char *fullpath;
 
   /* Parse the input parameter list */
 
@@ -1483,12 +1203,12 @@ int cmd_put(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 #ifndef CONFIG_NSH_DISABLE_WGET
 int cmd_wget(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 {
-  char *localfile = NULL;
-  char *allocfile = NULL;
-  char *buffer    = NULL;
-  char *fullpath  = NULL;
-  char *url;
-  const char *fmt;
+  FAR char *localfile = NULL;
+  FAR char *allocfile = NULL;
+  FAR char *buffer    = NULL;
+  FAR har *fullpath  = NULL;
+  FAR char *url;
+  FAR const char *fmt;
   bool badarg = false;
   int option;
   int fd = -1;
@@ -1545,7 +1265,7 @@ int cmd_wget(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 
   /* Get the local file name */
 
-  if (!localfile)
+  if (localfile == NULL)
     {
       allocfile = strdup(url);
       localfile = basename(allocfile);
@@ -1568,7 +1288,7 @@ int cmd_wget(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
   /* Allocate an I/O buffer */
 
   buffer = malloc(512);
-  if (!buffer)
+  if (buffer == NULL)
     {
       fmt = g_fmtcmdoutofmemory;
       goto errout;
@@ -1591,17 +1311,17 @@ exit:
       close(fd);
     }
 
-  if (allocfile)
+  if (allocfile != NULL)
     {
       free(allocfile);
     }
 
-  if (fullpath)
+  if (fullpath != NULL)
     {
       free(fullpath);
     }
 
-  if (buffer)
+  if (buffer != NULL)
     {
       free(buffer);
     }
