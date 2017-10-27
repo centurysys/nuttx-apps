@@ -59,248 +59,6 @@
 #include "nsh_console.h"
 
 /****************************************************************************
- * Pre-processor Definitions
- ****************************************************************************/
-
-/****************************************************************************
- * Private Types
- ****************************************************************************/
-
-/****************************************************************************
- * Private Function Prototypes
- ****************************************************************************/
-
-/****************************************************************************
- * Private Data
- ****************************************************************************/
-
-/****************************************************************************
- * Public Data
- ****************************************************************************/
-
-/****************************************************************************
- * Private Functions
- ****************************************************************************/
-
-/****************************************************************************
- * Name: get_fstype
- ****************************************************************************/
-
-#if CONFIG_NFILE_DESCRIPTORS > 0 && !defined(CONFIG_DISABLE_MOUNTPOINT) && \
-    defined(CONFIG_FS_READABLE) && !defined(CONFIG_NSH_DISABLE_MOUNT)
-#if !defined(CONFIG_BUILD_PROTECTED) && !defined(CONFIG_BUILD_KERNEL)
-static const char* get_fstype(FAR struct statfs *statbuf)
-{
-  FAR const char *fstype;
-
-  /* Get the file system type */
-
-  switch (statbuf->f_type)
-    {
-#ifdef CONFIG_FS_FAT
-      case MSDOS_SUPER_MAGIC:
-        fstype = "vfat";
-        break;
-#endif
-
-#ifdef CONFIG_FS_ROMFS
-      case ROMFS_MAGIC:
-        fstype = "romfs";
-        break;
-#endif
-
-#ifdef CONFIG_FS_TMPFS
-      case TMPFS_MAGIC:
-        fstype = "tmpfs";
-        break;
-#endif
-
-#ifdef CONFIG_FS_BINFS
-      case BINFS_MAGIC:
-        fstype = "binfs";
-        break;
-#endif
-
-#ifdef CONFIG_FS_NXFFS
-      case NXFFS_MAGIC:
-        fstype = "nxffs";
-        break;
-#endif
-
-#ifdef CONFIG_NFS
-      case NFS_SUPER_MAGIC:
-        fstype = "nfs";
-        break;
-#endif
-
-#ifdef CONFIG_FS_SMARTFS
-      case SMARTFS_MAGIC:
-        fstype = "smartfs";
-        break;
-#endif
-
-#ifdef CONFIG_FS_PROCFS
-      case PROCFS_MAGIC:
-        fstype = "procfs";
-        break;
-#endif
-
-#ifdef CONFIG_FS_UNIONFS
-      case UNIONFS_MAGIC:
-        fstype = "unionfs";
-        break;
-#endif
-
-#ifdef CONFIG_FS_HOSTFS
-      case HOSTFS_MAGIC:
-        fstype = "hostfs";
-        break;
-#endif
-
-      default:
-        fstype = "Unrecognized";
-        break;
-    }
-
-  return fstype;
-}
-#endif
-#endif
-
-/****************************************************************************
- * Name: df_handler
- ****************************************************************************/
-
-#if CONFIG_NFILE_DESCRIPTORS > 0 && !defined(CONFIG_DISABLE_MOUNTPOINT) && \
-    defined(CONFIG_FS_READABLE) && !defined(CONFIG_NSH_DISABLE_DF)
-static int df_handler(FAR const char *mountpoint,
-                      FAR struct statfs *statbuf, FAR void *arg)
-{
-  FAR struct nsh_vtbl_s *vtbl = (FAR struct nsh_vtbl_s *)arg;
-
-  DEBUGASSERT(mountpoint && statbuf && vtbl);
-
-  nsh_output(vtbl, "%6ld %8ld %8ld  %8ld %s\n",
-             statbuf->f_bsize, statbuf->f_blocks,
-             statbuf->f_blocks - statbuf->f_bavail, statbuf->f_bavail,
-             mountpoint);
-
-  return OK;
-}
-
-/****************************************************************************
- * Name: df_man_readable_handler
- ****************************************************************************/
-
-#ifdef CONFIG_NSH_CMDOPT_DF_H
-static int df_man_readable_handler(FAR const char *mountpoint,
-                      FAR struct statfs *statbuf, FAR void *arg)
-{
-  FAR struct nsh_vtbl_s *vtbl = (FAR struct nsh_vtbl_s *)arg;
-  uint32_t      size;
-  uint32_t      used;
-  uint32_t      free;
-  int           which;
-  char          sizelabel;
-  char          freelabel;
-  char          usedlabel;
-  const char    labels[5] = { 'B', 'K', 'M', 'G', 'T' };
-
-  DEBUGASSERT(mountpoint && statbuf && vtbl);
-
-  size = statbuf->f_bsize * statbuf->f_blocks;
-  free = statbuf->f_bsize * statbuf->f_bavail;
-  used = size - free;
-
-  /* Find the label for size */
-
-  which = 0;
-  while (size >= 9999 || ((size & 0x3ff) == 0 && size != 0))
-    {
-      which++;
-      size >>= 10;
-    }
-
-  sizelabel = labels[which];
-
-  /* Find the label for free */
-
-  which = 0;
-  while (free >= 9999 || ((free & 0x3ff) == 0 && free != 0))
-    {
-      which++;
-      free >>= 10;
-    }
-
-  freelabel = labels[which];
-
-  /* Find the label for used */
-
-  which = 0;
-  while (used >= 9999 || ((used & 0x3ff) == 0 && used != 0))
-    {
-      which++;
-      used >>= 10;
-    }
-
-  usedlabel = labels[which];
-
-#if !defined(CONFIG_BUILD_PROTECTED) && !defined(CONFIG_BUILD_KERNEL)
-  nsh_output(vtbl, "%-10s %6ld%c %8ld%c  %8ld%c %s\n", get_fstype(statbuf),
-             size, sizelabel, used, usedlabel, free, freelabel,
-             mountpoint);
-#else
-  nsh_output(vtbl, "%6ld%c %8ld%c  %8ld%c %s\n", size, sizelabel, used,
-             usedlabel, free, freelabel, mountpoint);
-#endif
-
-  return OK;
-}
-#endif /* CONFIG_NSH_CMDOPT_DF_H */
-
-#endif /* CONFIG_NFILE_DESCRIPTORS > 0 && !defined(CONFIG_DISABLE_MOUNTPOINT) &&
-            defined(CONFIG_FS_READABLE) && !defined(CONFIG_NSH_DISABLE_DF) */
-
-/****************************************************************************
- * Name: mount_handler
- ****************************************************************************/
-
-#if CONFIG_NFILE_DESCRIPTORS > 0 && !defined(CONFIG_DISABLE_MOUNTPOINT) && \
-    defined(CONFIG_FS_READABLE) && !defined(CONFIG_NSH_DISABLE_MOUNT)
-#if !defined(CONFIG_BUILD_PROTECTED) && !defined(CONFIG_BUILD_KERNEL)
-static int mount_handler(FAR const char *mountpoint,
-                         FAR struct statfs *statbuf, FAR void *arg)
-{
-  FAR struct nsh_vtbl_s *vtbl = (FAR struct nsh_vtbl_s *)arg;
-  FAR const char *fstype;
-
-  DEBUGASSERT(mountpoint && statbuf && vtbl);
-
-  /* Get the file system type */
-
-  fstype = get_fstype(statbuf);
-
-  nsh_output(vtbl, "  %s type %s\n", mountpoint, fstype);
-  return OK;
-}
-#endif
-#endif
-
-/****************************************************************************
- * Name: mount_show
- ****************************************************************************/
-
-#if CONFIG_NFILE_DESCRIPTORS > 0 && !defined(CONFIG_DISABLE_MOUNTPOINT) && \
-    defined(CONFIG_FS_READABLE) && !defined(CONFIG_NSH_DISABLE_MOUNT)
-#if !defined(CONFIG_BUILD_PROTECTED) && !defined(CONFIG_BUILD_KERNEL)
-static inline int mount_show(FAR struct nsh_vtbl_s *vtbl, FAR const char *progname)
-{
-  return foreach_mountpoint(mount_handler, (FAR void *)vtbl);
-}
-#endif
-#endif
-
-/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
@@ -310,26 +68,29 @@ static inline int mount_show(FAR struct nsh_vtbl_s *vtbl, FAR const char *progna
 
 #if CONFIG_NFILE_DESCRIPTORS > 0 && !defined(CONFIG_DISABLE_MOUNTPOINT) && \
     defined(CONFIG_FS_READABLE) && !defined(CONFIG_NSH_DISABLE_DF)
+#ifdef NSH_HAVE_CATFILE
 int cmd_df(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 {
-#ifdef CONFIG_NSH_CMDOPT_DF_H
+#if defined(HAVE_DF_HUMANREADBLE) && defined(HAVE_DF_BLOCKOUTPUT)
   if (argc > 1 && strcmp(argv[1], "-h") == 0)
-    {
-#if !defined(CONFIG_BUILD_PROTECTED) && !defined(CONFIG_BUILD_KERNEL)
-      nsh_output(vtbl, "Filesystem    Size      Used  Available Mounted on\n");
-#else
-      nsh_output(vtbl, "Size      Used  Available Mounted on\n");
 #endif
-      return foreach_mountpoint(df_man_readable_handler, (FAR void *)vtbl);
+#ifdef HAVE_DF_HUMANREADBLE
+    {
+      return nsh_catfile(vtbl, argv[0],
+                         CONFIG_NSH_PROC_MOUNTPOINT "/fs/usage");
     }
+#endif
+#if defined(HAVE_DF_HUMANREADBLE) && defined(HAVE_DF_BLOCKOUTPUT)
   else
 #endif
+#ifdef HAVE_DF_BLOCKOUTPUT
     {
-      nsh_output(vtbl, "  Block  Number\n");
-      nsh_output(vtbl, "  Size   Blocks     Used Available Mounted on\n");
-      return foreach_mountpoint(df_handler, (FAR void *)vtbl);
+      return nsh_catfile(vtbl, argv[0],
+                         CONFIG_NSH_PROC_MOUNTPOINT "/fs/blocks");
     }
+#endif
 }
+#endif
 #endif
 
 /****************************************************************************
@@ -350,19 +111,20 @@ int cmd_mount(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
   int option;
   int ret;
 
-  /* The mount command behaves differently if no parameters are provided */
+  /* The mount command behaves differently if no parameters are provided. */
 
-#if !defined(CONFIG_BUILD_PROTECTED) && !defined(CONFIG_BUILD_KERNEL)
+#if defined(NSH_HAVE_CATFILE) && defined(HAVE_MOUNT_LIST)
   if (argc < 2)
     {
-      return mount_show(vtbl, argv[0]);
+      return nsh_catfile(vtbl, argv[0],
+                         CONFIG_NSH_PROC_MOUNTPOINT "/fs/mount");
     }
 #endif
 
-  /* Get the mount options.  NOTE: getopt() is not thread safe nor re-entrant.
-   * To keep its state proper for the next usage, it is necessary to parse to
-   * the end of the line even if an error occurs.  If an error occurs, this
-   * logic just sets 'badarg' and continues.
+  /* Get the mount options.  NOTE: getopt() is not thread safe nor re-
+   * entrant.  To keep its state proper for the next usage, it is necessary
+   * to parse to the end of the line even if an error occurs.  If an error
+   * occurs, this logic just sets 'badarg' and continues.
    */
 
   while ((option = getopt(argc, argv, ":o:t:")) != ERROR)
@@ -608,6 +370,7 @@ int cmd_umount(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
         {
           nsh_output(vtbl, g_fmtcmdfailed, argv[0], "umount", NSH_ERRNO);
         }
+
       nsh_freefullpath(fullpath);
     }
 

@@ -604,23 +604,16 @@
  * There are three classes of fixes required:
  *
  * - Some of these interfaces are inherently internal to the OS (such as
- *   sched_foreach and foreach_mountpoint) and should never be made
- *   available to user applications as OS interfaces.  For these, the long
- *   range solution to restoring the functionality will be to support procfs
- *   entries the provide the necessary interfaces.
+ *   register_ramdisk()) and should never be made available to user
+ *   applications as OS interfaces.
  * - Other interfaces are more standard and for these there probably should
  *   be new system calls to support the OS interface.  Such interfaces
- *   include things like ps, mkfatfs, and mkrd.
+ *   include things like mkrd.
  * - Other interfaces simply need to be moved out of the OS and into the C
- *   library where they will become accessible to application code.  Such
- *   interfaces include mkfatfs.
+ *   library where they will become accessible to application code.
  */
 
 #if defined(CONFIG_BUILD_PROTECTED) || defined(CONFIG_BUILD_KERNEL)
-#  undef  CONFIG_NSH_DISABLE_DF          /* 'df' depends on foreach_mountpoint */
-#  define CONFIG_NSH_DISABLE_DF 1
-#  undef  CONFIG_NSH_DISABLE_MKFATFS     /* 'mkfatfs' depends on mkfatfs interface */
-#  define CONFIG_NSH_DISABLE_MKFATFS 1
 #  undef  CONFIG_NSH_DISABLE_MKRD        /* 'mkrd' depends on ramdisk_register */
 #  define CONFIG_NSH_DISABLE_MKRD 1
 #endif
@@ -648,6 +641,30 @@
 #  undef NSH_HAVE_CPULOAD
 #endif
 
+#if !defined(CONFIG_FS_PROCFS) || (defined(CONFIG_FS_PROCFS_EXCLUDE_BLOCKS) && \
+                                   defined(CONFIG_FS_PROCFS_EXCLUDE_USAGE))
+#  undef  CONFIG_NSH_DISABLE_DF          /* 'df' depends on fs procfs */
+#  define CONFIG_NSH_DISABLE_DF 1
+#endif
+
+#if defined(CONFIG_FS_PROCFS) || !defined(CONFIG_NSH_DISABLE_DF)
+#  define HAVE_DF_HUMANREADBLE 1
+#  define HAVE_DF_BLOCKOUTPUT  1
+#  if defined(CONFIG_FS_PROCFS_EXCLUDE_USAGE)
+#    undefine HAVE_DF_HUMANREADBLE
+#  endif
+#  if defined(CONFIG_FS_PROCFS_EXCLUDE_BLOCKS)
+#    undefine HAVE_DF_BLOCKOUTPUT
+#  endif
+#endif
+
+#if defined(CONFIG_FS_PROCFS) || !defined(CONFIG_NSH_DISABLE_MOUNT)
+#  define HAVE_MOUNT_LIST 1
+#  if defined(CONFIG_FS_PROCFS_EXCLUDE_MOUNT)
+#    undefine HAVE_MOUNT_LIST
+#  endif
+#endif
+
 /* Suppress unused file utilities */
 
 #define NSH_HAVE_CATFILE          1
@@ -663,10 +680,11 @@
 #  undef NSH_HAVE_TRIMDIR
 #endif
 
-/* nsh_catfile used by cat, ifconfig, ifup/down */
+/* nsh_catfile used by cat, ifconfig, ifup/down, df, and mount */
 
 #if defined(CONFIG_NSH_DISABLE_CAT) && defined(CONFIG_NSH_DISABLE_IFCONFIG) && \
-    defined(CONFIG_NSH_DISABLE_IFUPDOWN)
+    defined(CONFIG_NSH_DISABLE_IFUPDOWN) && defined(CONFIG_NSH_DISABLE_DF) && \
+    (defined(CONFIG_NSH_DISABLE_MOUNT) || !defined(HAVE_MOUNT_LIST))
 #  undef NSH_HAVE_CATFILE
 #endif
 
@@ -1090,11 +1108,13 @@ int cmd_lsmod(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
        int cmd_mkfifo(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
 #   endif
 #   ifdef CONFIG_FS_READABLE
-#     ifndef CONFIG_NSH_DISABLE_DF
-         int cmd_df(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
-#     endif
-#     ifndef CONFIG_NSH_DISABLE_MOUNT
-         int cmd_mount(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+#     ifdef NSH_HAVE_CATFILE
+#       ifndef CONFIG_NSH_DISABLE_DF
+           int cmd_df(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+#       endif
+#       ifndef CONFIG_NSH_DISABLE_MOUNT
+           int cmd_mount(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+#       endif
 #     endif
 #     ifndef CONFIG_NSH_DISABLE_UMOUNT
          int cmd_umount(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
