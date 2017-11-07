@@ -83,6 +83,7 @@ struct ufstest_file_s
 struct ufstest_openfile_s
 {
   int16_t pos;
+  int16_t crefs;
   FAR struct ufstest_file_s *file;
 };
 
@@ -110,7 +111,7 @@ static int     ufstest_ioctl(FAR void *volinfo, FAR void *openinfo, int cmd,
                  unsigned long arg);
 static int     ufstest_sync(FAR void *volinfo, FAR void *openinfo);
 static int     ufstest_dup(FAR void *volinfo, FAR void *oldinfo,
-                 FAR void *newinfo);
+                 FAR void **newinfo);
 static int     ufstest_fstat(FAR void *volinfo, FAR void *openinfo,
                  FAR struct stat *buf);
 static int     ufstest_opendir(FAR void *volinfo, FAR const char *relpath,
@@ -232,7 +233,12 @@ static int ufstest_open(FAR void *volinfo, FAR const char *relpath,
           return -ENOMEM;
         }
 
-      if ((oflags && O_APPEND) != 0)
+      if ((oflags & O_TRUNC) != 0)
+        {
+          file->inuse = 0;
+        }
+
+      if ((oflags & (O_WROK | O_APPEND)) == (O_WROK | O_APPEND))
         {
           opriv->pos = file->inuse;
         }
@@ -243,6 +249,14 @@ static int ufstest_open(FAR void *volinfo, FAR const char *relpath,
 
       opriv->file = file;
 
+      /* Initiallly, there is one refernce count on the open data.  This may
+       * be incremented in the event that the file is dup'ed.
+       */
+
+      opriv->crefs = 1;
+
+      /* Return the opaque reference to the open data */
+
       *openinfo = opriv;
       return OK;
     }
@@ -252,7 +266,21 @@ static int ufstest_open(FAR void *volinfo, FAR const char *relpath,
 
 static int ufstest_close(FAR void *volinfo, FAR void *openinfo)
 {
-  free(openinfo);
+  FAR struct ufstest_openfile_s *opriv =
+    (FAR struct ufstest_openfile_s *)openinfo;
+
+  if (opriv != NULL)
+    {
+      if (opriv->crefs <= 1)
+        {
+          free(opriv);
+        }
+      else
+        {
+          opriv->crefs--;
+        }
+    }
+
   return OK;
 }
 
@@ -356,9 +384,18 @@ static int ufstest_sync(FAR void *volinfo, FAR void *openinfo)
 }
 
 static int ufstest_dup(FAR void *volinfo, FAR void *oldinfo,
-                       FAR void *newinfo)
+                       FAR void **newinfo)
 {
-  memcpy(newinfo, oldinfo, sizeof(struct ufstest_openfile_s));
+  FAR struct ufstest_openfile_s *opriv =
+    (FAR struct ufstest_openfile_s *)oldinfo;
+
+  /* Increment the reference count on the open info */
+
+  opriv->crefs++;
+
+  /* And just copy the openinfo reference */
+
+  *newinfo = oldinfo;
   return OK;
 }
 
@@ -405,7 +442,11 @@ static int ufstest_opendir(FAR void *volinfo, FAR const char *relpath,
 
 static int ufstest_closedir(FAR void *volinfo, FAR void *dir)
 {
-  free(dir);
+  if (dir != NULL)
+    {
+      free(dir);
+    }
+
   return OK;
 }
 
@@ -492,11 +533,23 @@ static int ufstest_stat(FAR void *volinfo, FAR const char *relpath,
   FAR void *openinfo;
   int ret;
 
-  ret = ufstest_open(volinfo, relpath, O_RDWR, 0644, &openinfo);
-  if (ret >= 0)
+  /* Are we stat'ing the directory?  Of one of the files in the directory? */
+
+  if (*relpath == '\0')
     {
-      ret = ufstest_fstat(volinfo, openinfo, buf);
-      (void)ufstest_close(volinfo, openinfo);
+      memset(buf, 0, sizeof(struct stat));
+      buf->st_mode    = (S_IFDIR | S_IRWXU | S_IRUSR | S_IRGRP | S_IRWXG |
+                         S_IROTH | S_IRWXO);
+      buf->st_blksize = UFSTEST_FS_BLOCKSIZE;
+    }
+  else
+    {
+      ret = ufstest_open(volinfo, relpath, O_RDWR, 0644, &openinfo);
+      if (ret >= 0)
+        {
+          ret = ufstest_fstat(volinfo, openinfo, buf);
+          (void)ufstest_close(volinfo, openinfo);
+        }
     }
 
   return ret;

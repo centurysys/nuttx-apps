@@ -1,9 +1,9 @@
 ############################################################################
-# apps/examples/ltdc/Make.defs
+# apps/wireless/ieee802154/i8shark/Make.defs
 # Adds selected applications to apps/ build
 #
-#   Copyright (C) 2015 Gregory Nutt. All rights reserved.
-#   Author: Gregory Nutt <gnutt@nuttx.org>
+#   Copyright (C) 2017 Verge Inc. All rights reserved.
+#   Author: Anthony Merlino <anthony@vergeaero.com>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -34,6 +34,6 @@
 #
 ############################################################################
 
-ifeq ($(CONFIG_EXAMPLES_LTDC),y)
-CONFIGURED_APPS += examples/ltdc
+ifeq ($(CONFIG_IEEE802154_I8SHARK),y)
+CONFIGURED_APPS += wireless/ieee802154/i8shark
 endif

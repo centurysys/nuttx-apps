@@ -1,8 +1,9 @@
 ############################################################################
-# apps/examples/ftpc/Makefile
+# apps/examples/smps/Make.defs
+# Adds selected applications to apps/ build
 #
-#   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
-#   Author: Gregory Nutt <gnutt@nuttx.org>
+#   Copyright (C) 2017 Gregory Nutt. All rights reserved.
+#   Author: Mateusz Szafoni <raiden00@railab.me>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -33,21 +34,6 @@
 #
 ############################################################################
 
--include $(TOPDIR)/Make.defs
-
-# FTPC Client Application
-
-CONFIG_EXAMPLES_FTPC_STACKSIZE ?= 4096
-
-APPNAME = ftpc
-PRIORITY = SCHED_PRIORITY_DEFAULT
-STACKSIZE = CONFIG_EXAMPLES_FTPC_STACKSIZE
-
-ASRCS =
-CSRCS = ftpc_cmds.c
-MAINSRC = ftpc_main.c
-
-CONFIG_XYZ_PROGNAME ?= ftpc$(EXEEXT)
-PROGNAME = $(CONFIG_XYZ_PROGNAME)
-
-include $(APPDIR)/Application.mk
+ifeq ($(CONFIG_EXAMPLES_SMPS),y)
+CONFIGURED_APPS += examples/smps
+endif

@@ -1,8 +1,8 @@
 ############################################################################
-# apps/examples/ftpc/Makefile
+# apps/wireless/ieee802154/i8shark/Makefile
 #
-#   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
-#   Author: Gregory Nutt <gnutt@nuttx.org>
+#   Copyright (C) 2017 Verge Inc. All rights reserved.
+#   Author: Anthony Merlino <anthony@vergeaero.com>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -35,19 +35,17 @@
 
 -include $(TOPDIR)/Make.defs
 
-# FTPC Client Application
-
-CONFIG_EXAMPLES_FTPC_STACKSIZE ?= 4096
-
-APPNAME = ftpc
-PRIORITY = SCHED_PRIORITY_DEFAULT
-STACKSIZE = CONFIG_EXAMPLES_FTPC_STACKSIZE
-
 ASRCS =
-CSRCS = ftpc_cmds.c
-MAINSRC = ftpc_main.c
+CSRCS =
+MAINSRC = i8shark_main.c
 
-CONFIG_XYZ_PROGNAME ?= ftpc$(EXEEXT)
+CONFIG_XYZ_PROGNAME ?= i8shark$(EXEEXT)
 PROGNAME = $(CONFIG_XYZ_PROGNAME)
+
+# application info
+
+APPNAME = i8shark
+PRIORITY = SCHED_PRIORITY_DEFAULT
+STACKSIZE = 2048
 
 include $(APPDIR)/Application.mk

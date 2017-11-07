@@ -1,8 +1,8 @@
 ############################################################################
-# apps/examples/ltdc/Makefile
+# apps/examples/smps/Makefile
 #
-#   Copyright (C) 2014 Gregory Nutt. All rights reserved.
-#   Author: Gregory Nutt <gnutt@nuttx.org>
+#   Copyright (C) 2017 Gregory Nutt. All rights reserved.
+#   Author: Mateusz Szafoni <raiden00@railab.me>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -35,20 +35,18 @@
 
 -include $(TOPDIR)/Make.defs
 
-# ltdc framebuffer example
+# Smps Example
 
-APPNAME = ltdc
-PRIORITY = SCHED_PRIORITY_DEFAULT
-STACKSIZE = 2048
+APPNAME = smps
 
 ASRCS =
 CSRCS =
-ifeq ($(CONFIG_STM32_DMA2D),y)
-CSRCS += dma2d.c
-endif
-MAINSRC = ltdc_main.c
+MAINSRC = smps_main.c
 
-CONFIG_XYZ_PROGNAME ?= slcd$(EXEEXT)
-PROGNAME = $(CONFIG_XYZ_PROGNAME)
+CONFIG_EXAMPLES_SMPS_PROGNAME ?= smps$(EXEEXT)
+PROGNAME = $(CONFIG_EXAMPLES_SMPS_PROGNAME)
+
+PRIORITY = SCHED_PRIORITY_DEFAULT
+STACKSIZE = 1024
 
 include $(APPDIR)/Application.mk

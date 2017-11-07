@@ -737,17 +737,6 @@ examples/lis2csh_reader
   A simple reader example for the LIS3DSH acceleration sensor as found on
   STM32F4Discovery rev. C
 
-examples/ltdc
-^^^^^^^^^^^^^
-
-  STM32 LTDC framebuffer example.  Depends on:
-
-  * CONFIG_STM32_LTDC
-
-  Enabled with:
-
-  * CONFIG_EXAMPLES_LTDC
-
 examples/media
 ^^^^^^^^^^^^^^
 
@@ -1763,6 +1752,11 @@ examples/smp
 
   This is a simple test for SMP functionality.  It is basically just the
   pthread barrier test with some custom instrumentation.
+
+examples/smps
+^^^^^^^^^^^^^
+
+  This is a SMPS (Switched-mode power supply) driver example application.
 
 examples/sotest
 ^^^^^^^^^^^^^^^
