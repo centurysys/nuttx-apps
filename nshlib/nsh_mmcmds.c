@@ -1,7 +1,7 @@
 /****************************************************************************
  * apps/nshlib/nsh_mmcmds.c
  *
- *   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2011-2012, 2017 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,10 +39,10 @@
 
 #include <nuttx/config.h>
 
-#include <stdlib.h>
-
 #include "nsh.h"
 #include "nsh_console.h"
+
+#if !defined(CONFIG_NSH_DISABLE_FREE) && defined(NSH_HAVE_CATFILE)
 
 /****************************************************************************
  * Public Functions
@@ -52,27 +52,9 @@
  * Name: cmd_free
  ****************************************************************************/
 
-#ifndef CONFIG_NSH_DISABLE_FREE
 int cmd_free(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 {
-  struct mallinfo mem;
-
-#ifdef CONFIG_CAN_PASS_STRUCTS
-  mem = mallinfo();
-#else
-  (void)mallinfo(&mem);
-#endif
-
-#ifdef CONFIG_NOPRINTF_FIELDWIDTH
-  nsh_output(vtbl, "\ttotal\tused\tfree\tlargest\n");
-  nsh_output(vtbl, "Mem:\t%d\t%d\t%d\t%d\n",
-             mem.arena, mem.uordblks, mem.fordblks, mem.mxordblk);
-#else
-  nsh_output(vtbl, "             total       used       free    largest\n");
-  nsh_output(vtbl, "Mem:   %11d%11d%11d%11d\n",
-             mem.arena, mem.uordblks, mem.fordblks, mem.mxordblk);
-#endif
-
-  return OK;
+  return nsh_catfile(vtbl, argv[0], CONFIG_NSH_PROC_MOUNTPOINT "/meminfo");
 }
-#endif /* !CONFIG_NSH_DISABLE_FREE */
+
+#endif /* !CONFIG_NSH_DISABLE_FREE && NSH_HAVE_CATFILE */

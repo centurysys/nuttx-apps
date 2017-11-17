@@ -664,6 +664,11 @@
 #  define HAVE_MOUNT_LIST 1
 #endif
 
+#if !defined(CONFIG_FS_PROCFS) || defined(CONFIG_FS_PROCFS_EXCLUDE_MEMINFO)
+#  undef  CONFIG_NSH_DISABLE_FREE
+#  define CONFIG_NSH_DISABLE_FREE 1
+#endif
+
 /* Suppress unused file utilities */
 
 #define NSH_HAVE_CATFILE          1
@@ -679,11 +684,13 @@
 #  undef NSH_HAVE_TRIMDIR
 #endif
 
-/* nsh_catfile used by cat, ifconfig, ifup/down, df, and mount */
+/* nsh_catfile used by cat, ifconfig, ifup/down, df, free, and mount (with
+ * no arguments).
+ */
 
-#if defined(CONFIG_NSH_DISABLE_CAT) && defined(CONFIG_NSH_DISABLE_IFCONFIG) && \
-    defined(CONFIG_NSH_DISABLE_IFUPDOWN) && defined(CONFIG_NSH_DISABLE_DF) && \
-    (defined(CONFIG_NSH_DISABLE_MOUNT) || !defined(HAVE_MOUNT_LIST))
+#if !defined(CONFIG_NSH_DISABLE_CAT) && !defined(CONFIG_NSH_DISABLE_IFCONFIG) && \
+    !defined(CONFIG_NSH_DISABLE_IFUPDOWN) && !defined(CONFIG_NSH_DISABLE_DF) && \
+    !defined(CONFIG_NSH_DISABLE_FREE) && !defined(HAVE_MOUNT_LIST)
 #  undef NSH_HAVE_CATFILE
 #endif
 
