@@ -1,0 +1,213 @@
+############################################################################
+# apps/examples/pdcurses/Makefile
+#
+#   Copyright (C) 2017 Gregory Nutt. All rights reserved.
+#   Author: Gregory Nutt <gnutt@nuttx.org>
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in
+#    the documentation and/or other materials provided with the
+#    distribution.
+# 3. Neither the name NuttX nor the names of its contributors may be
+#    used to endorse or promote products derived from this software
+#    without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+# OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+# AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+#
+############################################################################
+
+-include $(TOPDIR)/Make.defs
+include $(APPDIR)/Make.defs
+
+# pdcurses demo programs
+
+CONFIG_EXAMPLES_PDCURSES_PRIORITY ?= SCHED_PRIORITY_DEFAULT
+CONFIG_EXAMPLES_PDCURSES_STACKSIZE ?= 2048
+
+PRIORITY = $(CONFIG_EXAMPLES_PDCURSES_PRIORITY)
+STACKSIZE = $(CONFIG_EXAMPLES_PDCURSES_STACKSIZE)
+
+FIREWORKNAME = firework
+NEWDEMONAME = newdemo
+PANELNAME = panel
+RAINNAME = rain
+TESTCURSNAME = testcurs
+TUINAME = tui
+WORMNAME = worm
+XMASNAME = xmas
+
+ASRCS =
+CSRCS = tui.c
+
+FIREWORKMAINSRC = firework_main.c
+NEWDEMOMAINSRC = newdemo_main.c
+PANELMAINSRC = panel_main.c
+RAINMAINSRC = rain_main.c
+TESTCURSMAINSRC = testcurs_main.c
+TUIMAINSRC = tui_main.c
+WORMMAINSRC = worm_main.c
+XMASMAINSRC = xmas_main.c
+MAINSRCS = $(FIREWORKMAINSRC) $(NEWDEMOMAINSRC) $(PANELMAINSRC) $(RAINMAINSRC) $(TESTCURSMAINSRC) $(TUIMAINSRC) $(WORMMAINSRC) $(XMASMAINSRC)
+
+AOBJS = $(ASRCS:.S=$(OBJEXT))
+COBJS = $(CSRCS:.c=$(OBJEXT))
+
+FIREWORKMAINOBJ = $(FIREWORKMAINSRC:.c=$(OBJEXT))
+NEWDEMOMAINOBJ = $(NEWDEMOMAINSRC:.c=$(OBJEXT))
+PANELMAINOBJ = $(PANELMAINSRC:.c=$(OBJEXT))
+RAINMAINOBJ = $(RAINMAINSRC:.c=$(OBJEXT))
+TESTCURSMAINOBJ = $(TESTCURSMAINSRC:.c=$(OBJEXT))
+TUIMAINOBJ = $(TUIMAINSRC:.c=$(OBJEXT))
+WORMMAINOBJ = $(WORMMAINSRC:.c=$(OBJEXT))
+XMASMAINOBJ = $(XMASMAINSRC:.c=$(OBJEXT))
+MAINOBJS = $(FIREWORKMAINOBJ) $(NEWDEMOMAINOBJ) $(PANELMAINOBJ) $(RAINMAINOBJ) $(TESTCURSMAINOBJ) $(TUIMAINOBJ) $(WORMMAINOBJ) $(XMASMAINOBJ)
+
+SRCS = $(ASRCS) $(CSRCS) $(CXXSRCS) $(MAINSRCS)
+OBJS = $(AOBJS) $(COBJS) $(CXXOBJS)
+
+ifneq ($(CONFIG_BUILD_KERNEL),y)
+  OBJS += $(MAINOBJS)
+endif
+
+ifeq ($(WINTOOL),y)
+  BIN = "${shell cygpath -w $(APPDIR)$(DELIM)libapps$(LIBEXT)}"
+  INSTALL_DIR = "${shell cygpath -w $(BIN_DIR)}"
+else
+  BIN = $(APPDIR)$(DELIM)libapps$(LIBEXT)
+  INSTALL_DIR = $(BIN_DIR)
+endif
+
+ROOTDEPPATH = --dep-path .
+
+VPATH =
+
+all: .built
+.PHONY: clean preconfig depend distclean
+.PRECIOUS: $(APPDIR)/libapps$(LIBEXT)
+
+$(AOBJS): %$(OBJEXT): %.S
+	$(call ASSEMBLE, $<, $@)
+
+$(COBJS): %$(OBJEXT): %.c
+	$(call COMPILE, $<, $@)
+
+$(CXXOBJS): %$(OBJEXT): %$(CXXEXT)
+	$(call COMPILEXX, $<, $@)
+
+$(MAINOBJS): %$(OBJEXT): %.c
+	$(call COMPILE, $<, $@)
+
+.built: $(OBJS)
+	$(call ARCHIVE, $(BIN), $(OBJS))
+	$(Q) touch $@
+
+ifeq ($(CONFIG_BUILD_KERNEL),y)
+$(BIN_DIR)$(DELIM)$(FIREWORKNAME): $(OBJS) $(FIREWORKMAINOBJ)
+	@echo "LD: $(FIREWORKNAME)"
+	$(Q) $(LD) $(LDELFFLAGS) $(LDLIBPATH) -o $(INSTALL_DIR)$(DELIM)$(FIREWORKNAME) $(ARCHCRT0OBJ) $(FIREWORKMAINOBJ) $(LDLIBS)
+	$(Q) $(NM) -u $(INSTALL_DIR)$(DELIM)$(FIREWORKNAME)
+
+$(BIN_DIR)$(DELIM)$(NEWDEMONAME): $(OBJS) $(NEWDEMOMAINOBJ)
+	@echo "LD: $(NEWDEMONAME)"
+	$(Q) $(LD) $(LDELFFLAGS) $(LDLIBPATH) -o $(INSTALL_DIR)$(DELIM)$(NEWDEMONAME) $(ARCHCRT0OBJ) $(NEWDEMOMAINOBJ) $(LDLIBS)
+	$(Q) $(NM) -u $(INSTALL_DIR)$(DELIM)$(NEWDEMONAME)
+
+$(BIN_DIR)$(DELIM)$(PANELNAME): $(OBJS) $(PANELMAINOBJ)
+	@echo "LD: $(PANELNAME)"
+	$(Q) $(LD) $(LDELFFLAGS) $(LDLIBPATH) -o $(INSTALL_DIR)$(DELIM)$(PANELNAME) $(ARCHCRT0OBJ) $(PANELMAINOBJ) $(LDLIBS)
+	$(Q) $(NM) -u $(INSTALL_DIR)$(DELIM)$(PANELNAME)
+
+$(BIN_DIR)$(DELIM)$(RAINNAME): $(OBJS) $(RAINMAINOBJ)
+	@echo "LD: $(RAINNAME)"
+	$(Q) $(LD) $(LDELFFLAGS) $(LDLIBPATH) -o $(INSTALL_DIR)$(DELIM)$(RAINNAME) $(ARCHCRT0OBJ) $(RAINMAINOBJ) $(LDLIBS)
+	$(Q) $(NM) -u $(INSTALL_DIR)$(DELIM)$(RAINNAME)
+
+$(BIN_DIR)$(DELIM)$(TESTCURSNAME): $(OBJS) $(TESTCURSMAINOBJ)
+	@echo "LD: $(TESTCURSNAME)"
+	$(Q) $(LD) $(LDELFFLAGS) $(LDLIBPATH) -o $(INSTALL_DIR)$(DELIM)$(TESTCURSNAME) $(ARCHCRT0OBJ) $(TESTCURSMAINOBJ) $(LDLIBS)
+	$(Q) $(NM) -u $(INSTALL_DIR)$(DELIM)$(TESTCURSNAME)
+
+$(BIN_DIR)$(DELIM)$(TUINAME): $(OBJS) $(TUIMAINOBJ)
+	@echo "LD: $(TUINAME)"
+	$(Q) $(LD) $(LDELFFLAGS) $(LDLIBPATH) -o $(INSTALL_DIR)$(DELIM)$(TUINAME) $(ARCHCRT0OBJ) $(TUIMAINOBJ) $(LDLIBS)
+	$(Q) $(NM) -u $(INSTALL_DIR)$(DELIM)$(TUINAME)
+
+$(BIN_DIR)$(DELIM)$(WORMNAME): $(OBJS) $(WORMMAINOBJ)
+	@echo "LD: $(WORMNAME)"
+	$(Q) $(LD) $(LDELFFLAGS) $(LDLIBPATH) -o $(INSTALL_DIR)$(DELIM)$(WORMNAME) $(ARCHCRT0OBJ) $(WORMMAINOBJ) $(LDLIBS)
+	$(Q) $(NM) -u $(INSTALL_DIR)$(DELIM)$(WORMNAME)
+
+$(BIN_DIR)$(DELIM)$(XMASNAME): $(OBJS) $(XMASMAINOBJ)
+	@echo "LD: $(XMASNAME)"
+	$(Q) $(LD) $(LDELFFLAGS) $(LDLIBPATH) -o $(INSTALL_DIR)$(DELIM)$(XMASNAME) $(ARCHCRT0OBJ) $(XMASMAINOBJ) $(LDLIBS)
+	$(Q) $(NM) -u $(INSTALL_DIR)$(DELIM)$(XMASNAME)
+
+install: $(BIN_DIR)$(DELIM)$(FIREWORKNAME) $(BIN_DIR)$(DELIM)$(NEWDEMONAME) $(BIN_DIR)$(DELIM)$(PANELNAME) $(BIN_DIR)$(DELIM)$(RAINNAME) $(BIN_DIR)$(DELIM)$(TESTCURSNAME) $(BIN_DIR)$(DELIM)$(TUINAME) $(BIN_DIR)$(DELIM)$(WORMNAME) $(BIN_DIR)$(DELIM)$(XMASNAME)
+else
+install:
+endif
+
+preconfig:
+
+ifeq ($(CONFIG_NSH_BUILTIN_APPS),y)
+$(BUILTIN_REGISTRY)$(DELIM)$(FIREWORKNAME)_main.bdat: $(DEPCONFIG) Makefile
+	$(call REGISTER,$(FIREWORKNAME),$(PRIORITY),$(STACKSIZE),$(FIREWORKNAME)_main)
+
+$(BUILTIN_REGISTRY)$(DELIM)$(NEWDEMONAME)_main.bdat: $(DEPCONFIG) Makefile
+	$(call REGISTER,$(NEWDEMONAME),$(PRIORITY),$(STACKSIZE),$(NEWDEMONAME)_main)
+
+$(BUILTIN_REGISTRY)$(DELIM)$(PANELNAME)_main.bdat: $(DEPCONFIG) Makefile
+	$(call REGISTER,$(PANELNAME),$(PRIORITY),$(STACKSIZE),$(PANELNAME)_main)
+
+$(BUILTIN_REGISTRY)$(DELIM)$(RAINNAME)_main.bdat: $(DEPCONFIG) Makefile
+	$(call REGISTER,$(RAINNAME),$(PRIORITY),$(STACKSIZE),$(RAINNAME)_main)
+
+$(BUILTIN_REGISTRY)$(DELIM)$(TESTCURSNAME)_main.bdat: $(DEPCONFIG) Makefile
+	$(call REGISTER,$(TESTCURSNAME),$(PRIORITY),$(STACKSIZE),$(TESTCURSNAME)_main)
+
+$(BUILTIN_REGISTRY)$(DELIM)$(TUINAME)_main.bdat: $(DEPCONFIG) Makefile
+	$(call REGISTER,$(TUINAME),$(PRIORITY),$(STACKSIZE),$(TUINAME)_main)
+
+$(BUILTIN_REGISTRY)$(DELIM)$(WORMNAME)_main.bdat: $(DEPCONFIG) Makefile
+	$(call REGISTER,$(WORMNAME),$(PRIORITY),$(STACKSIZE),$(WORMNAME)_main)
+
+$(BUILTIN_REGISTRY)$(DELIM)$(XMASNAME)_main.bdat: $(DEPCONFIG) Makefile
+	$(call REGISTER,$(XMASNAME),$(PRIORITY),$(STACKSIZE),$(XMASNAME)_main)
+
+context: $(BUILTIN_REGISTRY)$(DELIM)$(FIREWORKNAME)_main.bdat $(BUILTIN_REGISTRY)$(DELIM)$(NEWDEMONAME)_main.bdat $(BUILTIN_REGISTRY)$(DELIM)$(PANELNAME)_main.bdat $(BUILTIN_REGISTRY)$(DELIM)$(RAINNAME)_main.bdat $(BUILTIN_REGISTRY)$(DELIM)$(TESTCURSNAME)_main.bdat $(BUILTIN_REGISTRY)$(DELIM)$(TUINAME)_main.bdat $(BUILTIN_REGISTRY)$(DELIM)$(WORMNAME)_main.bdat $(BUILTIN_REGISTRY)$(DELIM)$(XMASNAME)_main.bdat
+else
+context:
+endif
+
+.depend: Makefile $(SRCS)
+	$(Q) $(MKDEP) $(ROOTDEPPATH) "$(CC)" -- $(CFLAGS) -- $(SRCS) >Make.dep
+	$(Q) touch $@
+
+depend: .depend
+
+clean:
+	$(call DELFILE, .built)
+	$(call CLEAN)
+
+distclean: clean
+	$(call DELFILE, Make.dep)
+	$(call DELFILE, .depend)
+
+-include Make.dep
