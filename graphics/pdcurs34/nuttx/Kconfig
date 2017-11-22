@@ -103,12 +103,17 @@ config PDCURSES_FONT_10X20
 
 endchoice # TUI Font Selection
 
+config PDCURSES_MONO
+	bool
+	default n
+
 choice
 	prompt "Color Format Selection"
 	default PDCURSES_COLORFMT_RGB565
 
 config PDCURSES_COLORFMT_Y1
 	bool "BPP=1 Monochrome"
+	select PDCURSES_MONO
 	depends on EXPERIMENTAL
 
 config PDCURSES_COLORFMT_RGB332
@@ -121,3 +126,59 @@ config PDCURSES_COLORFMT_RGB888
 	bool "BPP=32 RGB888"
 
 endchoice # Color Format Selection
+
+menu "Initial Screen Color"
+
+config PDCURSES_BGCOLOR_GREYLEVEL
+	int "Grey Level"
+	default 0
+	depends on PDCURSES_MONO
+
+config PDCURSES_BGCOLOR_RED
+	int "Red Component"
+	default 0
+	depends on !PDCURSES_MONO
+
+config PDCURSES_BGCOLOR_GREEN
+	int "Green Component"
+	default 0
+	depends on !PDCURSES_MONO
+
+config PDCURSES_BGCOLOR_BLUE
+	int "Blue Component"
+	default 0
+	depends on !PDCURSES_MONO
+
+endmenu # Initial Screen Color
+
+config PDCURSES_HAVE_INPUT
+	bool
+	default n
+
+menu "Input Devices"
+
+config PDCURSES_DJOYSTICK
+	bool "Discrete Joystick"
+	default n
+	select PDCURSES_HAVE_INPUT
+	depends on DJOYSTICK && !DISABLE_POLL
+
+config PDCURSES_DJOYDEV
+	string "Discrete Joystick Device"
+	default "/dev/djoy0"
+	depends on PDCURSES_DJOYSTICK
+
+config PDCURSES_KEYBOARD
+	bool "Discrete Joystick"
+	default n
+	select PDCURSES_HAVE_INPUT
+	depends on USBHOST_HIDKBD && !DISABLE_POLL && EXPERIMENTAL
+
+config PDCURSES_MOUSE
+	bool "Discrete Joystick"
+	default n
+	select PDCURSES_HAVE_INPUT
+	depends on MOUSE && !DISABLE_POLL && EXPERIMENTAL
+
+endmenu # Input Devices
+

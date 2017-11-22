@@ -86,7 +86,7 @@ void PDC_scr_free(void)
   DEBUGASSERT(fbscreen != NULL);
   fbstate = &fbscreen->fbstate;
 
-  close(fbstate->fd);
+  close(fbstate->fbfd);
   free(fbscreen);
   SP = NULL;
 }
@@ -135,7 +135,11 @@ int PDC_scr_open(int argc, char **argv)
   SP      = &fbscreen->screen;
   fbstate = &fbscreen->fbstate;
 
-  /* Setup initial colors */
+  /* Number of RGB colors (dimension of rgbcolor[]) */
+
+  COLORS = 16;
+
+  /* Setup initial RGB colors */
 
   for (i = 0; i < 8; i++)
     {
@@ -150,8 +154,8 @@ int PDC_scr_open(int argc, char **argv)
 
   /* Open the framebuffer driver */
 
-  fbstate->fd = open(CONFIG_PDCURSES_FBDEV, O_RDWR);
-  if (fbstate->fd < 0)
+  fbstate->fbfd = open(CONFIG_PDCURSES_FBDEV, O_RDWR);
+  if (fbstate->fbfd < 0)
     {
       PDC_LOG(("ERROR: Failed to open %s: %d\n",
                CONFIG_PDCURSES_FBDEV, errno));
@@ -160,12 +164,12 @@ int PDC_scr_open(int argc, char **argv)
 
   /* Get the characteristics of the framebuffer */
 
-  ret = ioctl(fbstate->fd, FBIOGET_VIDEOINFO,
+  ret = ioctl(fbstate->fbfd, FBIOGET_VIDEOINFO,
               (unsigned long)((uintptr_t)&vinfo));
   if (ret < 0)
     {
       PDC_LOG(("ERROR: ioctl(FBIOGET_VIDEOINFO) failed: %d\n", errno));
-      goto errout_with_fd;
+      goto errout_with_fbfd;
     }
 
   PDC_LOG(("VideoInfo:\n"));
@@ -182,7 +186,7 @@ int PDC_scr_open(int argc, char **argv)
   if (vinfo.fmt != PDCURSES_COLORFMT)
     {
       PDC_LOG(("ERROR: color format=%u not supported\n", vinfo.fmt));
-      goto errout_with_fd;
+      goto errout_with_fbfd;
     }
 
 #ifdef CONFIG_PDCURSES_COLORFMT_Y1
@@ -193,12 +197,12 @@ int PDC_scr_open(int argc, char **argv)
 
   /* Get characteristics of the color plane */
 
-  ret = ioctl(fbstate->fd, FBIOGET_PLANEINFO,
+  ret = ioctl(fbstate->fbfd, FBIOGET_PLANEINFO,
               (unsigned long)((uintptr_t)&pinfo));
   if (ret < 0)
     {
       PDC_LOG(("ERROR: ioctl(FBIOGET_PLANEINFO) failed: %d\n", errno));
-      goto errout_with_fd;
+      goto errout_with_fbfd;
     }
 
   PDC_LOG(("PlaneInfo (plane 0):\n"));
@@ -215,7 +219,7 @@ int PDC_scr_open(int argc, char **argv)
   if (pinfo.bpp != PDCURSES_BPP)
     {
       PDC_LOG(("ERROR: bpp=%u not supported\n", pinfo.bpp));
-      goto errout_with_fd;
+      goto errout_with_fbfd;
     }
 
   /* mmap() the framebuffer.
@@ -228,11 +232,11 @@ int PDC_scr_open(int argc, char **argv)
    */
 
   fbstate->fbmem = mmap(NULL, pinfo.fblen, PROT_READ|PROT_WRITE,
-                        MAP_SHARED|MAP_FILE, fbstate->fd, 0);
+                        MAP_SHARED|MAP_FILE, fbstate->fbfd, 0);
   if (fbstate->fbmem == MAP_FAILED)
     {
       PDC_LOG(("ERROR: ioctl(FBIOGET_PLANEINFO) failed: %d\n", errno));
-      goto errout_with_fd;
+      goto errout_with_fbfd;
     }
 
   PDC_LOG(("Mapped FB: %p\n", fbstate->fbmem));
@@ -243,7 +247,7 @@ int PDC_scr_open(int argc, char **argv)
   if (fbstate->hfont == NULL)
     {
       PDC_LOG(("ERROR: Failed to get font handle: %d\n", errno));
-      goto errout_with_fd;
+      goto errout_with_fbfd;
     }
 
 #ifdef HAVE_BOLD_FONT
@@ -286,6 +290,20 @@ int PDC_scr_open(int argc, char **argv)
   fbstate->hoffset = (fbstate->xres - fbstate->fwidth * SP->cols) / 2;
   fbstate->voffset = (fbstate->yres - fbstate->fheight * SP->lines) / 2;
 
+  /* Set the framebuffer to a known state */
+
+  PDC_clear_screen(fbstate);
+
+#ifdef CONFIG_PDCURSES_HAVE_INPUT
+  /* Open and configure any input devices */
+
+  ret = PDC_input_open(fbstate);
+  if (ret == ERR)
+    {
+      goto errout_with_boldfont;
+    }
+#endif
+
   return OK;
 
 errout_with_boldfont:
@@ -293,9 +311,9 @@ errout_with_boldfont:
 errout_with_font:
 #endif
 
-errout_with_fd:
-  close(fbstate->fd);
-  fbstate->fd = -1;
+errout_with_fbfd:
+  close(fbstate->fbfd);
+  fbstate->fbfd = -1;
 
 errout_with_sp:
   free(SP);

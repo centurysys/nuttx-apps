@@ -257,7 +257,7 @@ static void PDC_update(FAR struct pdc_fbstate_s *fbstate, int row, int col,
 
       /* Then perfom the update via IOCTL */
 
-      ret = ioctl(fbstate->fd, FBIO_UPDATE,
+      ret = ioctl(fbstate->fbfd, FBIO_UPDATE,
                   (unsigned long)((uintptr_t)rect));
       if (ret < 0)
         {
@@ -339,7 +339,7 @@ static void PDC_putc(FAR struct pdc_fbstate_s *fbstate, int row, int col,
   fbm = nxf_getbitmap(bold ? fbstate->hfont : fbstate->hbold,
                       ch & A_CHARTEXT);
 #else
-  fbm = nxf_getbitmap(fbstate->hfont, ch);
+  fbm = nxf_getbitmap(fbstate->hfont, ch & A_CHARTEXT);
 #endif
 
   if (fbm != NULL)
@@ -396,8 +396,7 @@ void PDC_gotoyx(int row, int col)
   if (SP->visibility != 0)
     {
       /* Draw a new cursor by overprinting the existing character in
-       * reverse, either the full cell (when visibility == 2) or the
-       * lowest quarter of it (when visibility == 1)
+       * reverse.  NOTE: visibility {1, 2} are treated the same.
        */
 
       ch = curscr->_y[row][col] ^ A_REVERSE;
@@ -450,3 +449,57 @@ void PDC_transform_line(int lineno, int x, int len, const chtype *srcp)
 
   PDC_update(fbstate, lineno, x, nextx - x);
 }
+
+/****************************************************************************
+ * Name: PDC_clear_screen
+ *
+ * Description:
+ *   Set the framebuffer content to a single color
+ *
+ ****************************************************************************/
+
+void PDC_clear_screen(FAR struct pdc_fbstate_s *fbstate)
+{
+  FAR uint8_t *line;
+  FAR pdc_color_t *dest;
+  int row;
+  int col;
+
+#ifdef CONFIG_LCD_UPDATE
+  struct nxgl_rect_s rect;
+  int ret;
+#endif
+
+  /* Write the intial color into the entire framebuffer */
+
+  for (row = 0, line = (FAR uint8_t *)fbstate->fbmem;
+       row < fbstate->yres;
+       row++, line += fbstate->stride)
+    {
+       for (col = 0, dest = (FAR pdc_color_t *)line;
+            col < fbstate->xres;
+            col++)
+         {
+           *dest++ = PDCURSES_INIT_COLOR;
+         }
+    }
+
+#ifdef CONFIG_LCD_UPDATE
+  /* Update the entire display */
+  /* Setup the bounding rectangle */
+
+  rect.pt1.x = 0;
+  rect.pt1.y = 0;
+  rect.pt2.x = fbstate->xres - 1;
+  rect.pt2.y = fbstate->yres - 1;
+
+  /* Then perfom the update via IOCTL */
+
+  ret = ioctl(fbstate->fbfd, FBIO_UPDATE, (unsigned long)((uintptr_t)rect));
+  if (ret < 0)
+    {
+      PDC_LOG(("ERROR:  ioctl(FBIO_UPDATE) failed: %d\n", errno));
+    }
+#endif
+}
+
