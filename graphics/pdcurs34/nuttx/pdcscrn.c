@@ -87,6 +87,9 @@ void PDC_scr_free(void)
   fbstate = &fbscreen->fbstate;
 
   close(fbstate->fbfd);
+#ifdef CONFIG_PDCURSES_HAVE_INPUT
+  PDC_input_close(fbstate);
+#endif
   free(fbscreen);
   SP = NULL;
 }
@@ -135,7 +138,9 @@ int PDC_scr_open(int argc, char **argv)
   SP      = &fbscreen->screen;
   fbstate = &fbscreen->fbstate;
 
-  /* Number of RGB colors (dimension of rgbcolor[]) */
+  /* Number of RGB colors/greyscale levels.  This is the same as the
+   * dimension of rgbcolor[] or greylevel[]).
+   */
 
   COLORS = 16;
 
@@ -143,6 +148,16 @@ int PDC_scr_open(int argc, char **argv)
 
   for (i = 0; i < 8; i++)
     {
+#ifdef PDCURSES_MONOCHROME
+      uint8_t greylevel;
+
+      greylevel                      = (i & COLOR_RED)   ? 0x40 : 0;
+      greylevel                     += (i & COLOR_GREEN) ? 0x40 : 0;
+      greylevel                     += (i & COLOR_BLUE)  ? 0x40 : 0;
+
+      fbstate->greylevel[i]          = greylevel;
+      fbstate->greylevel[i+8]        = greylevel | 0x3f;
+#else
       fbstate->rgbcolor[i].red       = (i & COLOR_RED)   ? 0xc0 : 0;
       fbstate->rgbcolor[i].green     = (i & COLOR_GREEN) ? 0xc0 : 0;
       fbstate->rgbcolor[i].blue      = (i & COLOR_BLUE)  ? 0xc0 : 0;
@@ -150,6 +165,7 @@ int PDC_scr_open(int argc, char **argv)
       fbstate->rgbcolor[i + 8].red   = (i & COLOR_RED)   ? 0xff : 0x40;
       fbstate->rgbcolor[i + 8].green = (i & COLOR_GREEN) ? 0xff : 0x40;
       fbstate->rgbcolor[i + 8].blue  = (i & COLOR_BLUE)  ? 0xff : 0x40;
+#endif
     }
 
   /* Open the framebuffer driver */
@@ -189,7 +205,7 @@ int PDC_scr_open(int argc, char **argv)
       goto errout_with_fbfd;
     }
 
-#ifdef CONFIG_PDCURSES_COLORFMT_Y1
+#ifdef PDCURSES_MONOCHROME
   /* Remember if we are using a monochrome framebuffer */
 
   SP->mono = true;
@@ -273,7 +289,7 @@ int PDC_scr_open(int argc, char **argv)
       goto errout_with_boldfont;
     }
 
-  PDC_LOG(("Fonset (ID=%d):\n", PDCURSES_FONTID));
+  PDC_LOG(("Fontset (ID=%d):\n", PDCURSES_FONTID));
   PDC_LOG((" mxheight: %u\n", fontset->mxheight));
   PDC_LOG(("  mxwidth: %u\n", fontset->mxwidth));
   PDC_LOG(("   mxbits: %u\n", fontset->mxbits));
@@ -281,6 +297,21 @@ int PDC_scr_open(int argc, char **argv)
 
   fbstate->fheight = fontset->mxheight;
   fbstate->fwidth  = fontset->mxwidth;
+
+#if PDCURSES_BPP < 8
+  /* Allocate the font buffer for < 8-bit display */
+
+  fbstate->fstride =
+    (fbstate->fwidth + PDCURSES_PPB_MASK) >> PDCURSES_PPB_SHIFT;
+  fbstate->fbuffer  = (FAR uint8_t *)
+    malloc(fbstate->fstride * fbstate->fheight);
+
+  if (fbstate->fbuffer == NULL)
+    {
+      PDC_LOG(("ERROR: Failed to allocate fstride: %d\n", errno));
+      goto errout_with_boldfont;
+    }
+#endif
 
   /* Calculate the drawable region */
 
@@ -300,11 +331,18 @@ int PDC_scr_open(int argc, char **argv)
   ret = PDC_input_open(fbstate);
   if (ret == ERR)
     {
-      goto errout_with_boldfont;
+      goto errout_with_fbuffer;
     }
 #endif
 
   return OK;
+
+#ifdef CONFIG_PDCURSES_HAVE_INPUT
+errout_with_fbuffer:
+#if PDCURSES_BPP < 8
+  free(fbstate->fbuffer);
+#endif
+#endif
 
 errout_with_boldfont:
 #ifdef HAVE_BOLD_FONT
@@ -481,15 +519,25 @@ int PDC_color_content(short color, short *red, short *green, short *blue)
 {
   FAR struct pdc_fbscreen_s *fbscreen = (FAR struct pdc_fbscreen_s *)SP;
   FAR struct pdc_fbstate_s *fbstate;
+#ifdef PDCURSES_MONOCHROME
+  short greylevel;
+#endif
 
   PDC_LOG(("PDC_init_color().  color=%d\n", color));
 
   DEBUGASSERT(fbscreen != NULL);
   fbstate = &fbscreen->fbstate;
 
-  *red   = DIVROUND(fbstate->rgbcolor[color].red * 1000, 255);
-  *green = DIVROUND(fbstate->rgbcolor[color].green * 1000, 255);
-  *blue  = DIVROUND(fbstate->rgbcolor[color].blue * 1000, 255);
+#ifdef PDCURSES_MONOCHROME
+  greylevel = DIVROUND(fbstate->greylevel[color] * 1000, 255);
+  *red      = greylevel;
+  *green    = greylevel;
+  *blue     = greylevel;
+#else
+  *red      = DIVROUND(fbstate->rgbcolor[color].red * 1000, 255);
+  *green    = DIVROUND(fbstate->rgbcolor[color].green * 1000, 255);
+  *blue     = DIVROUND(fbstate->rgbcolor[color].blue * 1000, 255);
+#endif
 
   return OK;
 }
@@ -507,6 +555,9 @@ int PDC_init_color(short color, short red, short green, short blue)
 {
   FAR struct pdc_fbscreen_s *fbscreen = (FAR struct pdc_fbscreen_s *)SP;
   FAR struct pdc_fbstate_s *fbstate;
+#ifdef PDCURSES_MONOCHROME
+  uint16_t greylevel;
+#endif
 
   PDC_LOG(("PDC_init_color().  color=%d, red=%d, green=%d, blue=%d\n",
            color, red, green, blue));
@@ -514,9 +565,16 @@ int PDC_init_color(short color, short red, short green, short blue)
   DEBUGASSERT(fbscreen != NULL);
   fbstate = &fbscreen->fbstate;
 
+#ifdef PDCURSES_MONOCHROME
+  greylevel                      = (DIVROUND(red * 255, 1000) +
+                                    DIVROUND(green * 255, 1000) +
+                                    DIVROUND(blue * 255, 1000)) / 3;
+  fbstate->greylevel[color]      = (uint8_t)greylevel;
+#else
   fbstate->rgbcolor[color].red   = DIVROUND(red * 255, 1000);
   fbstate->rgbcolor[color].green = DIVROUND(green * 255, 1000);
   fbstate->rgbcolor[color].blue  = DIVROUND(blue * 255, 1000);
+#endif
 
   return OK;
 }

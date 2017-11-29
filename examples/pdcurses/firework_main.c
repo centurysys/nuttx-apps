@@ -43,7 +43,6 @@
 
 #include <sys/types.h>
 #include <stdio.h>
-#include <signal.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <time.h>
@@ -150,7 +149,14 @@ int main(int argc, FAR char *argv[])
 int firework_main(int argc, char *argv[])
 #endif
 {
-  int i, start, end, row, diff, flag, direction, seed;
+  int start;
+  int end;
+  int row;
+  int diff;
+  int flag;
+  int direction;
+  int seed;
+  int i;
 
   traceon();
   initscr();

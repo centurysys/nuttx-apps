@@ -107,11 +107,35 @@
 #  error No fixed width font selected
 #endif
 
+#undef PDCURSES_MONOCHROME
+
 #if defined(CONFIG_PDCURSES_COLORFMT_Y1)
-#  warning CONFIG_PDCURSES_COLORFMT_Y1 not yet supported
 #  define PDCURSES_COLORFMT      FB_FMT_Y1
 #  define PDCURSES_BPP           1
-#  define PDCURSES_INIT_COLOR    PDCURSES_BGCOLOR_GREYLEVEL
+#  define PDCURSES_BPP_SHIFT     0
+#  define PDCURSES_PPB           8
+#  define PDCURSES_PPB_MASK      (PDCURSES_PPB - 1)
+#  define PDCURSES_PPB_SHIFT     3
+#  define PDCURSES_INIT_COLOR    CONFIG_PDCURSES_BGCOLOR_GREYLEVEL
+#  define PDCURSES_MONOCHROME    1
+#elif defined(CONFIG_PDCURSES_COLORFMT_Y2)
+#  define PDCURSES_COLORFMT      FB_FMT_Y2
+#  define PDCURSES_BPP           2
+#  define PDCURSES_BPP_SHIFT     1
+#  define PDCURSES_PPB           4
+#  define PDCURSES_PPB_MASK      (PDCURSES_PPB - 1)
+#  define PDCURSES_PPB_SHIFT     2
+#  define PDCURSES_INIT_COLOR    CONFIG_PDCURSES_BGCOLOR_GREYLEVEL
+#  define PDCURSES_MONOCHROME    1
+#elif defined(CONFIG_PDCURSES_COLORFMT_Y4)
+#  define PDCURSES_COLORFMT      FB_FMT_Y4
+#  define PDCURSES_BPP           4
+#  define PDCURSES_BPP_SHIFT     2
+#  define PDCURSES_PPB           2
+#  define PDCURSES_PPB_MASK      (PDCURSES_PPB - 1)
+#  define PDCURSES_PPB_SHIFT     1
+#  define PDCURSES_INIT_COLOR    CONFIG_PDCURSES_BGCOLOR_GREYLEVEL
+#  define PDCURSES_MONOCHROME    1
 #elif defined(CONFIG_PDCURSES_COLORFMT_RGB332)
 #  define PDCURSES_COLORFMT      FB_FMT_RGB8_332
 #  define PDCURSES_BPP           8
@@ -198,11 +222,11 @@ struct pdc_rgbcolor_s
 
 /* Holds one framebuffer pixel */
 
-#if defined(CONFIG_PDCURSES_COLORFMT_RGB332)
+#if PDCURSES_BPP <= 8
 typedef uint8_t  pdc_color_t;
-#elif defined(CONFIG_PDCURSES_COLORFMT_RGB565)
+#elif PDCURSES_BPP <= 16
 typedef uint16_t pdc_color_t;
-#elif defined(CONFIG_PDCURSES_COLORFMT_RGB888)
+#elif PDCURSES_BPP <= 32
 typedef uint32_t pdc_color_t;
 #endif
 
@@ -227,12 +251,16 @@ struct pdc_fbstate_s
 
   /* Font */
 
-  NXHANDLE hfont;          /* Handled uses to access selected font */
+  NXHANDLE hfont;          /* Handle used to access selected font */
 #ifdef HAVE_BOLD_FONT
-  NXHANDLE hbold;          /* Handled uses to access bold font */
+  NXHANDLE hbold;          /* Handle used to access bold font */
 #endif
   uint8_t fheight;         /* Height of the font (rows) */
   uint8_t fwidth;          /* Width of the font (pixels) */
+#if PDCURSES_BPP < 8
+  uint8_t fstride;         /* Width of the font buffer (bytes) */
+  FAR uint8_t *fbuffer;    /* Allocated font buffer */
+#endif
 
   /* Drawable area (See also SP->lines and SP->cols) */
 
@@ -244,7 +272,11 @@ struct pdc_fbstate_s
   /* Colors */
 
   struct pdc_colorpair_s colorpair[PDC_COLOR_PAIRS];
+#ifdef PDCURSES_MONOCHROME
+  uint8_t greylevel[16];
+#else
   struct pdc_rgbcolor_s rgbcolor[16];
+#endif
 };
 
 /* This structure contains the framebuffer device structure and is a cast
@@ -292,6 +324,19 @@ void PDC_clear_screen(FAR struct pdc_fbstate_s *fbstate);
 
 #ifdef CONFIG_PDCURSES_HAVE_INPUT
 int PDC_input_open(FAR struct pdc_fbstate_s *fbstate);
+#endif
+
+/****************************************************************************
+ * Name: PDC_input_close
+ *
+ * Description:
+ *   Close any input devices and release any resources committed by
+ *   PDC_input_open()
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_PDCURSES_HAVE_INPUT
+void PDC_input_close(FAR struct pdc_fbstate_s *fbstate);
 #endif
 
 #undef EXTERN

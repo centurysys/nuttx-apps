@@ -1,10 +1,8 @@
 /****************************************************************************
- * apps/include/graphics/panel.h
- * Public Domain Curses -- Panels for PDCurses
- * $Id: panel.h,v 1.19 2008/07/13 16:08:16 wmcbrine Exp $
+ * apps/examples/pdcurses/charset_main.c
  *
  *   Copyright (C) 2017 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <gnutt@nuttx.org>
+ *   Adapted by: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,9 +33,6 @@
  *
  ****************************************************************************/
 
-#ifndef __APPS_INCLUDE_GRAPHICS_PANEL_H
-#define __APPS_INCLUDE_GRAPHICS_PANEL_H 1
-
 /****************************************************************************
  * Included Files
  ****************************************************************************/
@@ -45,59 +40,98 @@
 #include "graphics/curses.h"
 
 /****************************************************************************
- * Public Types
+ * Pre-processor Definitions
  ****************************************************************************/
 
-#if defined(__cplusplus)
-extern "C"
-{
-#  define EXTERN extern "C"
-#else
-#  define EXTERN extern
-#endif
-
-typedef struct panelobs
-{
-  struct panelobs *above;
-  struct panel *pan;
-} PANELOBS;
-
-typedef struct panel
-{
-  WINDOW *win;
-  int wstarty;
-  int wendy;
-  int wstartx;
-  int wendx;
-  struct panel *below;
-  struct panel *above;
-  const void *user;
-  struct panelobs *obscure;
-} PANEL;
+#define FIRST_CH 0x20
+#define LAST_CH  0x7e
+#define NUM_CH   (LAST_CH - FIRST_CH + 1)
 
 /****************************************************************************
- * Public Function Prototypes
+ * Private Data
  ****************************************************************************/
 
-int     bottom_panel(PANEL *pan);
-int     del_panel(PANEL *pan);
-int     hide_panel(PANEL *pan);
-int     move_panel(PANEL *pan, int starty, int startx);
-PANEL  *new_panel(WINDOW *win);
-PANEL  *panel_above(const PANEL *pan);
-PANEL  *panel_below(const PANEL *pan);
-int     panel_hidden(const PANEL *pan);
-const void *panel_userptr(const PANEL *pan);
-WINDOW *panel_window(const PANEL *pan);
-int     replace_panel(PANEL *pan, WINDOW *win);
-int     set_panel_userptr(PANEL *pan, const void *uptr);
-int     show_panel(PANEL *pan);
-int     top_panel(PANEL *pan);
-void    update_panels(void);
+static short color_table[] =
+{
+  COLOR_RED, COLOR_BLUE, COLOR_GREEN, COLOR_CYAN,
+  COLOR_RED, COLOR_MAGENTA, COLOR_YELLOW, COLOR_WHITE
+};
 
-#undef EXTERN
-#if defined(__cplusplus)
-}
+/****************************************************************************
+ * Public Functions
+ ****************************************************************************/
+
+#ifdef CONFIG_BUILD_KERNEL
+int main(int argc, FAR char *argv[])
+#else
+int charset_main(int argc, char *argv[])
 #endif
+{
+  chtype ch;
+  int lastch;
+  int width;
+  int height;
+  int xoffset;
+  int yoffset;
+  int row;
+  int col;
+  int i;
 
-#endif /* __APPS_INCLUDE_GRAPHICS_PANEL_H */
+  /* Initialize */
+
+  traceon();
+  initscr();
+  noecho();
+
+  /* Setup colors */
+
+  if (has_colors())
+    {
+      start_color();
+    }
+
+  for (i = 0; i < 8; i++)
+    {
+      init_pair(i, color_table[i], COLOR_BLACK);
+    }
+
+  /* Set up geometry */
+
+  width = COLS - 2;
+  if (width > NUM_CH)
+    {
+      width = NUM_CH;
+    }
+
+  xoffset = (COLS - width) / 2;
+
+  height = (NUM_CH + width - 1) / width;
+  lastch = LAST_CH;
+
+  if (height > LINES)
+    {
+      height = LINES;
+      lastch = FIRST_CH + width * height - 1;
+    }
+
+  yoffset = (LINES - height) / 2;
+
+  /* Now display the character set */
+
+  ch = FIRST_CH;
+  for (row = yoffset; row < yoffset + height; row++)
+    {
+      for (col = xoffset; col < xoffset + width; col++)
+        {
+          mvaddch(row, col, ch);
+          if (++ch > lastch)
+            {
+              break;
+            }
+        }
+    }
+
+  refresh();
+  endwin();
+  return 0;
+}

@@ -37,6 +37,9 @@
  * Included Files
  ****************************************************************************/
 
+#include <sys/ioctl.h>
+#include <errno.h>
+
 #include "pdcnuttx.h"
 
 /****************************************************************************
@@ -126,12 +129,16 @@ static inline fb_coord_t PDC_pixel_y(FAR struct pdc_fbstate_s *fbstate,
  * Description:
  *   Convert row or column pixel position to framebuffer x/y byte offsets.
  *
+ *   NOTE: For BPP={8,16,32} this function returns the exact positions.  For
+ *   the case of BPP={1,2,4}, PDC_fbmem_x() aligns down to the address of
+ *   the byte Aligns down to the byte that contains the 'col' pixel.
+ *
  ****************************************************************************/
 
 static inline uintptr_t PDC_fbmem_x(FAR struct pdc_fbstate_s *fbstate,
                                    int col)
 {
-  return (PDC_pixel_x(fbstate, col) * PDCURSES_BPP + 7) >> 3;
+  return (PDC_pixel_x(fbstate, col) * PDCURSES_BPP) >> 3;
 }
 
 static inline uintptr_t PDC_fbmem_y(FAR struct pdc_fbstate_s *fbstate,
@@ -151,18 +158,53 @@ static inline uintptr_t PDC_fbmem_y(FAR struct pdc_fbstate_s *fbstate,
 static inline pdc_color_t PDC_color(FAR struct pdc_fbstate_s *fbstate,
                                     short color)
 {
-#if defined(CONFIG_PDCURSES_COLORFMT_RGB332)
+#if defined (CONFIG_PDCURSES_COLORFMT_Y1)
+  /* Returns 8 pixels packed into a byte */
+
+  return (fbstate->greylevel[color] & 0xc0) == 0 ? 0x00 : 0xff;
+
+#elif defined (CONFIG_PDCURSES_COLORFMT_Y2)
+  uint8_t color8;
+
+  /* Returns 4 pixels packed into a byte */
+
+  color8 = fbstate->greylevel[color] >> 6;
+  color8 = color8 << 2 | color8;
+  color8 = color8 << 4 | color8;
+
+  return color8;
+
+#elif defined (CONFIG_PDCURSES_COLORFMT_Y4)
+  uint8_t color8;
+
+  /* Returns 2 pixels packed into a byte */
+
+  color8 = fbstate->greylevel[color] >> 4;
+  color8 = color8 << 4 | color8;
+
+  return color8;
+
+#elif defined(CONFIG_PDCURSES_COLORFMT_RGB332)
+  /* Returns 8-bit RGB332 */
+
   return  RGBTO8(fbstate->rgbcolor[color].red,
                  fbstate->rgbcolor[color].green,
                  fbstate->rgbcolor[color].blue);
+
 #elif defined(CONFIG_PDCURSES_COLORFMT_RGB565)
+  /* Returns 16-bit RGB565 */
+
   return RGBTO16(fbstate->rgbcolor[color].red,
                  fbstate->rgbcolor[color].green,
                  fbstate->rgbcolor[color].blue);
+
 #elif defined(CONFIG_PDCURSES_COLORFMT_RGB888)
+  /* Returns 32-bit RGB888 */
+
   return RGBTO24(fbstate->rgbcolor[color].red,
                  fbstate->rgbcolor[color].green,
                  fbstate->rgbcolor[color].blue);
+
 #else
 #  error No color format selected
   return 0;
@@ -177,8 +219,87 @@ static inline pdc_color_t PDC_color(FAR struct pdc_fbstate_s *fbstate,
  *
  ****************************************************************************/
 
+#if PDCURSES_BPP < 8
 static inline void PDC_set_bg(FAR struct pdc_fbstate_s *fbstate,
-                              FAR uint8_t *fbstart, short bg)
+                              FAR uint8_t *fbuffer, int col, short bg)
+{
+  uint8_t color8;
+  uint8_t lmask;
+  uint8_t rmask;
+  int startcol;
+  int endcol;
+  int row;
+
+  /* Get a byte that packs multiple pixels into one byte */
+
+  color8   = PDC_color(fbstate, bg);
+
+  /* Handle the case where the first or last bytes may require read, modify,
+   * write operations.
+   *
+   * Get the start and end column in pixels (relative to the start position)
+   */
+
+  startcol = col & PDCURSES_PPB_MASK;
+  endcol   = startcol + fbstate->fwidth - 1;
+
+  /* Get the masks that we will need to perform the read-modify-write
+   * operations.
+   */
+
+#ifdef CONFIG_NXFONTS_PACKEDMSFIRST
+  lmask    = 0xff << ((PDCURSES_PPB - startcol) << PDCURSES_BPP_SHIFT);
+  rmask    = 0xff >> ((endcol & PDCURSES_PPB_MASK) << PDCURSES_BPP_SHIFT);
+#else
+  lmask    = 0xff >> ((PDCURSES_PPB - startcol) << PDCURSES_BPP_SHIFT);
+  rmask    = 0xff << ((endcol & PDCURSES_PPB_MASK) << PDCURSES_BPP_SHIFT);
+#endif
+
+  /* Convert endcol to a byte offset (taking the ceiling so that includes
+   * the final byte than may have fewer than 8 pixels in it).
+   */
+
+  endcol   = (endcol + PDCURSES_PPB_MASK) >> PDCURSES_PPB_SHIFT;
+
+  /* Now copy the color into the entire glyph region */
+
+  for (row = 0; row < fbstate->fheight; row++, fbuffer += fbstate->fstride)
+    {
+      FAR pdc_color_t *fbdest;
+
+      fbdest = (FAR pdc_color_t *)fbuffer;
+
+      /* Special case: The row is less no more than one byte wide */
+
+      if (endcol == 0)
+        {
+          uint8_t mask = lmask | rmask;
+
+          *fbdest = (*fbdest & mask) | (color8 & ~mask);
+        }
+      else
+        {
+          /* Special case the first byte of the row */
+
+          *fbdest = (*fbdest & lmask) | (color8 & ~lmask);
+          fbdest++;
+
+          /* Handle all middle bytes */
+
+          for (col = 1; col < endcol; col++)
+            {
+              *fbdest++ = color8;
+            }
+
+          /* Handle the final byte of the row */
+
+          *fbdest = (*fbdest & rmask) | (color8 & ~rmask);
+       }
+    }
+}
+#else
+static inline void PDC_set_bg(FAR struct pdc_fbstate_s *fbstate,
+                              FAR uint8_t *fbstart, int col, short bg)
 {
   pdc_color_t bgcolor = PDC_color(fbstate, bg);
   int row;
@@ -188,7 +309,6 @@ static inline void PDC_set_bg(FAR struct pdc_fbstate_s *fbstate,
   for (row = 0; row < fbstate->fheight; row++, fbstart += fbstate->stride)
     {
       FAR pdc_color_t *fbdest;
-      int col;
 
       for (col = 0, fbdest = (FAR pdc_color_t *)fbstart;
            col < fbstate->fwidth;
@@ -198,31 +318,42 @@ static inline void PDC_set_bg(FAR struct pdc_fbstate_s *fbstate,
         }
     }
 }
+#endif
 
 /****************************************************************************
- * Name: PDC_render_gyph
+ * Name: PDC_render_glyph
  *
  * Description:
  *   Render the font into the glyph memory using the foreground RGB color.
  *
  ****************************************************************************/
 
-static inline void PDC_render_gyph(FAR struct pdc_fbstate_s *fbstate,
-                                   FAR const struct nx_fontbitmap_s *fbm,
-                                   FAR uint8_t *fbstart, short fg)
+static inline void PDC_render_glyph(FAR struct pdc_fbstate_s *fbstate,
+                                    FAR const struct nx_fontbitmap_s *fbm,
+                                    FAR uint8_t *fbstart, short fg)
 {
   pdc_color_t fgcolor = PDC_color(fbstate, fg);
+  unsigned int stride;
   int ret;
+
+  /* Are we rendering into the framebuffer or the font buffer.  The only
+   * difference here is the stride value.
+   */
+
+#if PDCURSES_BPP < 8
+  stride = fbstate->fstride;  /* Width of the font buffer in bytes */
+#else
+  stride = fbstate->stride;   /* Width of the framebuffer in bytes */
+#endif
 
   /* Then render the glyph into the allocated memory
    *
    * REVISIT:  The case where visibility==1 is not yet handled.  In that
-   * case, only the lowe quarter of the glyph should be reversed.
+   * case, only the lower quarter of the glyph should be reversed.
    */
 
-  ret = RENDERER((FAR pdc_color_t *)fbstart,
-                  fbstate->fheight, fbstate->fwidth, fbstate->stride,
-                  fbm, fgcolor);
+  ret = RENDERER((FAR pdc_color_t *)fbstart, fbstate->fheight,
+                 fbstate->fwidth, stride, fbm, fgcolor);
   if (ret < 0)
     {
       /* Actually, the RENDERER never returns a failure */
@@ -230,6 +361,177 @@ static inline void PDC_render_gyph(FAR struct pdc_fbstate_s *fbstate,
       PDC_LOG(("ERROR:  RENDERER failed: %d\n", ret));
     }
 }
+
+/****************************************************************************
+ * Name: PDC_copy_glyph
+ *
+ * Description:
+ *   Copy the font from the the font buffer into the correct location in the
+ *   the frame buffer.
+ *
+ *   For the case of pixel depth less then 1-byte, we will need to rend the
+ *   font into a font buffer first, then copy it into the frame buffer at
+ *   the correct position when the font is completely rendered.
+ *
+ ****************************************************************************/
+
+#if PDCURSES_BPP < 8
+static inline void  PDC_copy_glyph(FAR struct pdc_fbstate_s *fbstate,
+                                   FAR uint8_t *dest, unsigned int xpos)
+{
+  FAR const uint8_t *srcrow;
+  FAR const uint8_t *sptr;
+  FAR uint8_t *destrow;
+  FAR uint8_t *dptr;
+  unsigned int startcol;
+  unsigned int endcol;
+  unsigned int row;
+  unsigned int npixels;
+  uint8_t lshift;
+  uint8_t rshift;
+  uint8_t lmask;
+  uint8_t rmask;
+  int n;
+
+  /* Handle the case where the first or last bytes may require read, modify,
+   * write operations.
+   *
+   * Get the start and end column in pixels (relative to the start position).
+   */
+
+  startcol = xpos & PDCURSES_PPB_MASK;
+  endcol   = startcol + fbstate->fwidth;
+
+  /* The data in the font buffer is probably shifted with respect to the
+   * byte position in the framebuffer.
+   */
+
+  lshift   = (PDCURSES_PPB - startcol) << PDCURSES_BPP_SHIFT;
+  rshift   = (endcol & PDCURSES_PPB_MASK) << PDCURSES_BPP_SHIFT;
+
+#ifdef CONFIG_NXFONTS_PACKEDMSFIRST
+  /* Get the mask for pixels that are ordered so that they pack from the
+   * MS byte down.
+   */
+
+  lmask    = 0xff << lshift;
+  rmask    = 0xff >> rshift;
+#else
+# warning Unverified
+  /* Get the mask for pixels that are ordered so that they pack from the
+   * LS byte up.
+   */
+
+  lmask    = 0xff >> lshift;
+  rmask    = 0xff << rshift;
+#endif
+
+  /* Fixups.  Range of lshift should be 0-7, not 1-8;  Make all masks 0x00
+   * if no masking is needed. Convert endcol to a byte offset into the frame
+   * buffer.
+   */
+
+  lshift  &= 7;
+  rmask    = (rmask == 0xff) ? 0x00 : rmask;
+
+  /* Convert endcol to a byte offset into the frame buffer. */
+
+  endcol   = (endcol - 1) >> PDCURSES_PPB_SHIFT;
+
+  /* Then copy the image */
+
+  for (row = 0, srcrow  = fbstate->fbuffer, destrow = dest;
+       row < fbstate->fheight;
+       row++, srcrow += fbstate->fstride, destrow += fbstate->stride)
+    {
+      /* Handle masking of the fractional initial byte */
+
+      sptr    = srcrow;           /* Set to the beginning of the src row */
+      dptr    = destrow;          /* Set to the beginning of the dest row */
+      npixels = fbstate->fwidth;  /* Number of pixels to copy */
+
+      /* Special case:  Only one byte will be transferred */
+
+      if (endcol == 0)
+        {
+          uint8_t dmask = lmask | rmask;
+
+          /* Perform the read/modify/write */
+
+#ifdef CONFIG_NXFONTS_PACKEDMSFIRST
+          *dptr = (*dptr & dmask) | ((*sptr >> (8 - lshift)) & ~rmask);
+#else
+#  warning Unverified
+          *dptr = (*dptr & dmask) | ((*sptr << (8 - lshift)) & ~rmask);
+#endif
+          continue;
+        }
+
+      /* Handle masking of the left, leading byte */
+
+      if (lmask != 0x00)
+        {
+          /* Perform the read/modify/write */
+
+#ifdef CONFIG_NXFONTS_PACKEDMSFIRST
+          *dptr = (*dptr & lmask) | (*sptr >> (8 - lshift));
+#else
+#  warning Unverified
+          *dptr = (*dptr & lmask) | (*sptr << (8 - lshift));
+#endif
+
+          dptr++;            /* Skip to the next destination byte */
+          npixels -= lshift; /* Decrement number of pixels to copy */
+        }
+
+      /* Handle masking of the fractional final byte */
+
+      if (rmask != 0x00)
+        {
+          /* Perform the read/modify/write */
+
+#ifdef CONFIG_NXFONTS_PACKEDMSFIRST
+          dptr[endcol] = (dptr[endcol] & rmask) |
+                         (sptr[endcol] << (8 -rshift));
+#else
+#  warning Unverified
+          dptr[endcol] = (dptr[endcol] & rmask) |
+                         (sptr[endcol] >> (8 - rshift));
+#endif
+          npixels -= rshift; /* Decrement number of pixels to copy */
+        }
+
+      /* Handle all of the unmasked bytes in-between */
+
+      if (lshift > 0)
+        {
+#ifdef CONFIG_NXFONTS_PACKEDMSFIRST
+          uint16_t shifted;
+
+          shifted = (uint16_t)sptr[0] << (8 + lshift) |
+                    (uint16_t)sptr[1] << lshift;
+          sptr++;
+
+          for (n = lshift; n < npixels; n += 8)
+            {
+              *dptr++ = (shifted >> 8);
+              shifted = (shifted << 8) | (uint16_t)sptr[1] << lshift;
+              sptr++;
+            }
+#else
+#  error Missing logic
+#endif
+        }
+      else
+        {
+          for (n = 0; n < npixels; n += 8)
+            {
+               *dptr++ = *sptr++;
+            }
+        }
+    }
+}
+#endif
 
 /****************************************************************************
  * Name: PDC_update
@@ -250,15 +552,15 @@ static void PDC_update(FAR struct pdc_fbstate_s *fbstate, int row, int col,
     {
       /* Setup the bounding rectangle */
 
-      rect.pt1.x = PDC_pixel_x(FAR fbstate, col);
-      rect.pt1.y = PDC_pixel_x(FAR fbstate, row);
+      rect.pt1.x = PDC_pixel_x(fbstate, col);
+      rect.pt1.y = PDC_pixel_y(fbstate, row);
       rect.pt2.x = rect.pt1.x + nchars * fbstate->fwidth - 1;
-      rect.pt2.y = y + fbstate->fheight - 1;
+      rect.pt2.y = rect.pt1.y + fbstate->fheight - 1;
 
       /* Then perfom the update via IOCTL */
 
       ret = ioctl(fbstate->fbfd, FBIO_UPDATE,
-                  (unsigned long)((uintptr_t)rect));
+                  (unsigned long)((uintptr_t)&rect));
       if (ret < 0)
         {
           PDC_LOG(("ERROR:  ioctl(FBIO_UPDATE) failed: %d\n", errno));
@@ -323,15 +625,26 @@ static void PDC_putc(FAR struct pdc_fbstate_s *fbstate, int row, int col,
     }
 #endif
 
-  /* Calculation the destination address in the framebuffer */
+#if PDCURSES_BPP < 8
+  /* For the case of pixel depth less then 1-byte, we will need to rend the
+   * font into a font buffer first, then copy it into the frame buffer at
+   * the correct position when the font is completely rendered.
+   */
+
+  dest = fbstate->fbuffer;
+#else
+  /* Otherwise, we can rend directly into the frame buffer.  Calculate the
+   * destination address in the framebuffer.
+   */
 
   dest = (FAR uint8_t *)fbstate->fbmem +
                         PDC_fbmem_y(fbstate, row) +
                         PDC_fbmem_x(fbstate, col);
+#endif
 
   /* Initialize the glyph to the (possibly reversed) background color */
 
-  PDC_set_bg(fbstate, dest, bg);
+  PDC_set_bg(fbstate, dest, col, bg);
 
   /* Does the code map to a font? */
 
@@ -346,7 +659,7 @@ static void PDC_putc(FAR struct pdc_fbstate_s *fbstate, int row, int col,
     {
       /* Yes.. render the glyph */
 
-      PDC_render_gyph(fbstate, fbm, dest, fg);
+      PDC_render_glyph(fbstate, fbm, dest, fg);
     }
 
   /* Apply more attributes */
@@ -355,6 +668,22 @@ static void PDC_putc(FAR struct pdc_fbstate_s *fbstate, int row, int col,
     {
 #warning Missing logic
     }
+
+#if PDCURSES_BPP < 8
+  /* Font is now completely rendered into the font buffer and can be copied
+   * to the framebuffer.
+   *
+   * Calculate the destination address in the framebuffer.
+   */
+
+  dest = (FAR uint8_t *)fbstate->fbmem +
+                        PDC_fbmem_y(fbstate, row) +
+                        PDC_fbmem_x(fbstate, col);
+
+  /* Then copy the glyph */
+
+  PDC_copy_glyph(fbstate, dest, col);
+#endif
 }
 
 /****************************************************************************
@@ -460,8 +789,10 @@ void PDC_transform_line(int lineno, int x, int len, const chtype *srcp)
 
 void PDC_clear_screen(FAR struct pdc_fbstate_s *fbstate)
 {
-  FAR uint8_t *line;
   FAR pdc_color_t *dest;
+  FAR pdc_color_t bgcolor;
+  FAR uint8_t *line;
+  int width;
   int row;
   int col;
 
@@ -470,17 +801,44 @@ void PDC_clear_screen(FAR struct pdc_fbstate_s *fbstate)
   int ret;
 #endif
 
-  /* Write the intial color into the entire framebuffer */
+  /* Get the background color and display width */
+
+  bgcolor = PDCURSES_INIT_COLOR;      /* Background color for one pixel */
+  width   = fbstate->xres;            /* Width in units of pixels */
+
+#if PDCURSES_BPP < 8
+  /* Pack multiple pixels into one byte.  Works for BPP={1,2,4} */
+
+#if PDCURSES_BPP == 1                 /* BPP = 1 */
+  bgcolor &= 1;                       /* Isolate 0 */
+  bgcolor  = bgcolor << 1 | bgcolor;  /* Replicate 0 to 1 */
+  bgcolor  = bgcolor << 2 | bgcolor;  /* Replicate 0-1 to 2-3 */
+  bgcolor  = bgcolor << 4 | bgcolor;  /* Replicate 0-3 to 4-7 */
+#elif PDCURSES_BPP == 2               /* BPP = 2 */
+  bgcolor &= 3;                       /* Isolate 0-1 */
+  bgcolor  = bgcolor << 2 | bgcolor;  /* Replicate 0-1 to 2-3 */
+  bgcolor  = bgcolor << 4 | bgcolor;  /* Replicate 0-3 to 4-7 */
+#else                                 /* BPP = 4 */
+  bgcolor &= 15;                      /* Isolate 0-3 */
+  bgcolor  = bgcolor << 4 | bgcolor;  /* Replicate 0-3 to 4-7 */
+#endif
+
+  /* Convert the width of the display to units of bytes. */
+
+  width    = (width + PDCURSES_PPB - 1) / PDCURSES_PPB;
+#endif
+
+  /* Write the initial color into the entire framebuffer */
 
   for (row = 0, line = (FAR uint8_t *)fbstate->fbmem;
        row < fbstate->yres;
        row++, line += fbstate->stride)
     {
        for (col = 0, dest = (FAR pdc_color_t *)line;
-            col < fbstate->xres;
+            col < width;
             col++)
          {
-           *dest++ = PDCURSES_INIT_COLOR;
+           *dest++ = bgcolor;
          }
     }
 
@@ -495,11 +853,10 @@ void PDC_clear_screen(FAR struct pdc_fbstate_s *fbstate)
 
   /* Then perfom the update via IOCTL */
 
-  ret = ioctl(fbstate->fbfd, FBIO_UPDATE, (unsigned long)((uintptr_t)rect));
+  ret = ioctl(fbstate->fbfd, FBIO_UPDATE, (unsigned long)((uintptr_t)&rect));
   if (ret < 0)
     {
       PDC_LOG(("ERROR:  ioctl(FBIO_UPDATE) failed: %d\n", errno));
     }
 #endif
 }
-
