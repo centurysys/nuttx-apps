@@ -64,6 +64,7 @@ struct ft80x_exampleinfo_s
  * Private Data
  ****************************************************************************/
 
+#ifdef CONFIG_EXAMPLES_FT80X_PRIMITIVES
 /* GPU Primitive display examples.  Most primitives are used, but not many of
  * their various options.
  *
@@ -102,7 +103,8 @@ static const struct ft80x_exampleinfo_s g_primitives[] =
   { "Alpha Blend",  ft80x_prim_alphablend }
 };
 
-#define NPRIMITIVES (sizeof(g_primitives) / sizeof(ft80x_example_t))
+#define NPRIMITIVES (sizeof(g_primitives) / sizeof(struct ft80x_exampleinfo_s))
+#endif /* CONFIG_EXAMPLES_FT80X_PRIMITIVES */
 
 /* Co-processor display examples.  Only a small, but interesting, subset
  * here co-processor command are exercised and these with only a few of the
@@ -133,6 +135,7 @@ static const struct ft80x_exampleinfo_s g_primitives[] =
 
 static const struct ft80x_exampleinfo_s g_coproc[] =
 {
+  { "Calibrate",      ft80x_coproc_calibrate },    /* Need to calibrate before Interactive. */
   { "Button",         ft80x_coproc_button },
   { "Clock",          ft80x_coproc_clock },
   { "Gauge",          ft80x_coproc_gauge },
@@ -144,7 +147,6 @@ static const struct ft80x_exampleinfo_s g_coproc[] =
   { "Dial",           ft80x_coproc_dial },
   { "Toggle",         ft80x_coproc_toggle },
   { "Number",         ft80x_coproc_number },
-  { "Calibrate",      ft80x_coproc_calibrate },
   { "Spinner",        ft80x_coproc_spinner },
 #ifndef CONFIG_EXAMPLES_FT80X_EXCLUDE_BITMAPS
   { "Screen Saver",   ft80x_coproc_screensaver },
@@ -152,7 +154,7 @@ static const struct ft80x_exampleinfo_s g_coproc[] =
   { "Logo",           ft80x_coproc_logo }
 };
 
-#define NCOPROC (sizeof(g_primitives) / sizeof(ft80x_example_t))
+#define NCOPROC (sizeof(g_coproc) / sizeof(struct ft80x_exampleinfo_s))
 
 /****************************************************************************
  * Private Functions
@@ -185,7 +187,7 @@ static int ft80x_showname(int fd, FAR struct ft80x_dlbuffer_s *buffer,
 
   /* Create the display list */
 
-  ret = ft80x_dl_start(fd, buffer, false);
+  ret = ft80x_dl_start(fd, buffer, true);
   if (ret < 0)
     {
       ft80x_err("ERROR: ft80x_dl_start failed: %d\n", ret);
@@ -233,7 +235,7 @@ static int ft80x_showname(int fd, FAR struct ft80x_dlbuffer_s *buffer,
 
   /* Fade on then wait bit so that the user can read the example name */
 
-  (void)ft80x_backlight_fade(fd, 100, 1000);
+  (void)ft80x_backlight_fade(fd, 100, 2000);
   (void)sleep(1);
   return OK;
 }
@@ -273,8 +275,8 @@ static int ft80x_example(int fd, FAR struct ft80x_dlbuffer_s *buffer,
 
   /* Wait a bit, then fade out */
 
-  sleep(3);
-  (void)ft80x_backlight_fade(fd, 0, 1000);
+  sleep(2);
+  (void)ft80x_backlight_fade(fd, 0, 2000);
   return OK;
 }
 
@@ -320,6 +322,7 @@ int ft80x_main(int argc, char *argv[])
       return EXIT_FAILURE;
     }
 
+#ifdef CONFIG_EXAMPLES_FT80X_PRIMITIVES
   /* Perform tests on a few of the FT80x primitive functions */
 
   ft80x_info("FT80x Primitive Functions\n");
@@ -328,6 +331,7 @@ int ft80x_main(int argc, char *argv[])
     {
       (void)ft80x_example(fd, buffer, &g_primitives[i]);
     }
+#endif
 
   /* Perform tests on a few of the FT80x Co-processor functions */
 
