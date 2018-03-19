@@ -1,5 +1,5 @@
 /****************************************************************************
- * apps/exmaples/lzf/lxf_main.c
+ * apps/exmaples/lzf/lzf_main.c
  *
  *   Copyright (c) 2006 Stefan Traby <stefan@hello-penguin.com>
  * 
@@ -41,6 +41,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <semaphore.h>
 #include <getopt.h>
 #include <errno.h>
 #include <limits.h>
@@ -50,17 +51,16 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define BLOCKSIZE (1024 * 1 - 1)
+#define BLOCKSIZE     ((1 << CONFIG_SYSTEM_LZF_BLOG) - 1)
 #define MAX_BLOCKSIZE BLOCKSIZE
-
-#define TYPE0_HDR_SIZE 5
-#define TYPE1_HDR_SIZE 7
-#define MAX_HDR_SIZE 7
-#define MIN_HDR_SIZE 5
 
 /****************************************************************************
  * Private Data
  ****************************************************************************/
+
+#ifndef CONFIG_BUILD_KERNEL
+static sem_t g_exclsem = SEM_INITIALIZER(1);
+#endif
 
 static off_t g_nread;
 static off_t g_nwritten;
@@ -69,21 +69,25 @@ static FAR const char *g_imagename;
 static enum { COMPRESS, UNCOMPRESS } g_mode;
 static bool g_verbose;
 static bool g_force;
-static long blocksize;
+static unsigned long g_blocksize;
 static lzf_state_t g_htab;
-
-static FAR const char *opt =
-  "-c   compress\n"
-  "-d   decompress\n"
-  "-f   force overwrite of output file\n"
-  "-h   give this help\n"
-  "-v   verbose mode\n"
-  "-b # set blocksize\n"
-  "\n";
+static uint8_t g_buf1[MAX_BLOCKSIZE + LZF_MAX_HDR_SIZE + 16];
+static uint8_t g_buf2[MAX_BLOCKSIZE + LZF_MAX_HDR_SIZE + 16];
 
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
+
+#ifndef CONFIG_BUILD_KERNEL
+static void lzf_exit(int exitcode) noreturn_function;
+static void lzf_exit(int exitcode)
+{
+  (void)sem_post(&g_exclsem);
+  exit(exitcode);
+}
+#else
+#  define lzf_exit(c) exit(c)
+#endif
 
 static void usage(int ret)
 {
@@ -92,11 +96,16 @@ static void usage(int ret)
           "uses liblzf written by Marc Lehmann <schmorp@schmorp.de> You can find more info at\n"
           "http://liblzf.plan9.de/\n"
           "\n"
-          "usage: lzf [-dufhvb] [file ...]\n"
-          "\n%s",
-          opt);
+          "usage: lzf [-dufhvb] [file ...]\n\n"
+          "-c   Compress\n"
+          "-d   Decompress\n"
+          "-f   Force overwrite of output file\n"
+          "-h   Give this help\n"
+          "-v   Verbose mode\n"
+          "-b # Set blocksize (max %lu)\n"
+          "\n", (unsigned long)MAX_BLOCKSIZE);
 
-  exit(ret);
+  lzf_exit(ret);
 }
 
 static inline ssize_t rread(int fd, FAR void *buf, size_t len)
@@ -156,43 +165,15 @@ static inline ssize_t wwrite(int fd, void *buf, size_t len)
 
 static int compress_fd(int from, int to)
 {
+  FAR struct lzf_header_s *header;
   ssize_t us;
-  ssize_t cs;
   ssize_t len;
-  uint8_t buf1[MAX_BLOCKSIZE + MAX_HDR_SIZE + 16];
-  uint8_t buf2[MAX_BLOCKSIZE + MAX_HDR_SIZE + 16];
-  uint8_t *header;
 
   g_nread = g_nwritten = 0;
-  while ((us = rread(from, &buf1[MAX_HDR_SIZE], blocksize)) > 0)
+  while ((us = rread(from, &g_buf1[LZF_MAX_HDR_SIZE], g_blocksize)) > 0)
     {
-      cs = lzf_compress(&buf1[MAX_HDR_SIZE], us, &buf2[MAX_HDR_SIZE],
-                        us > 4 ? us - 4 : us, g_htab);
-      if (cs)
-        {
-          header    = &buf2[MAX_HDR_SIZE - TYPE1_HDR_SIZE];
-          header[0] = 'Z';
-          header[1] = 'V';
-          header[2] = 1;
-          header[3] = cs >> 8;
-          header[4] = cs & 0xff;
-          header[5] = us >> 8;
-          header[6] = us & 0xff;
-          len       = cs + TYPE1_HDR_SIZE;
-        }
-      else
-        {
-          /* Write uncompressed */
-
-          header    = &buf1[MAX_HDR_SIZE - TYPE0_HDR_SIZE];
-          header[0] = 'Z';
-          header[1] = 'V';
-          header[2] = 0;
-          header[3] = us >> 8;
-          header[4] = us & 0xff;
-          len      = us + TYPE0_HDR_SIZE;
-        }
-
+      len = lzf_compress(&g_buf1[LZF_MAX_HDR_SIZE], us, &g_buf2[LZF_MAX_HDR_SIZE],
+                         us > 4 ? us - 4 : us, g_htab, &header);
       if (wwrite(to, header, len) == -1)
         {
           return -1;
@@ -204,9 +185,7 @@ static int compress_fd(int from, int to)
 
 static int uncompress_fd(int from, int to)
 {
-  uint8_t header[MAX_HDR_SIZE];
-  uint8_t buf1[MAX_BLOCKSIZE + MAX_HDR_SIZE + 16];
-  uint8_t buf2[MAX_BLOCKSIZE + MAX_HDR_SIZE + 16];
+  uint8_t header[LZF_MAX_HDR_SIZE];
   FAR uint8_t *p;
   int l;
   int rd;
@@ -219,7 +198,7 @@ static int uncompress_fd(int from, int to)
   g_nread = g_nwritten = 0;
   while (1)
     {
-      ret = rread(from, header + over, MAX_HDR_SIZE - over);
+      ret = rread(from, header + over, LZF_MAX_HDR_SIZE - over);
       if (ret < 0)
         {
           fprintf(stderr, "%s: read error: %d\n", g_imagename, errno);
@@ -233,7 +212,7 @@ static int uncompress_fd(int from, int to)
           return 0;
         }
 
-      if (ret < MIN_HDR_SIZE || header[0] != 'Z' || header[1] != 'V')
+      if (ret < LZF_MIN_HDR_SIZE || header[0] != 'Z' || header[1] != 'V')
         {
           fprintf(stderr, "%s: invalid data stream - magic not found or short header\n",
                   g_imagename);
@@ -245,18 +224,18 @@ static int uncompress_fd(int from, int to)
           case 0:
             cs = -1;
             us = (header[3] << 8) | header[4];
-            p = &header[TYPE0_HDR_SIZE];
+            p = &header[LZF_TYPE0_HDR_SIZE];
             break;
 
           case 1:
-            if (ret < TYPE1_HDR_SIZE)
+            if (ret < LZF_TYPE1_HDR_SIZE)
               {
                 goto short_read;
               }
 
             cs = (header[3] << 8) | header[4];
             us = (header[5] << 8) | header[6];
-            p = &header[TYPE1_HDR_SIZE];
+            p = &header[LZF_TYPE1_HDR_SIZE];
             break;
 
           default:
@@ -269,7 +248,7 @@ static int uncompress_fd(int from, int to)
 
       if (l > 0)
         {
-          memcpy(buf1, p, l);
+          memcpy(g_buf1, p, l);
         }
 
       if (l > bytes)
@@ -278,7 +257,7 @@ static int uncompress_fd(int from, int to)
           memmove(header, &p[bytes], over);
         }
 
-      p  = &buf1[l];
+      p  = &g_buf1[l];
       rd = bytes - l;
       if (rd > 0)
         {
@@ -290,21 +269,21 @@ static int uncompress_fd(int from, int to)
 
       if (cs == -1)
         {
-          if (wwrite (to, buf1, us))
+          if (wwrite (to, g_buf1, us))
             {
               return -1;
             }
         }
       else
         {
-          if (lzf_decompress(buf1, cs, buf2, us) != us)
+          if (lzf_decompress(g_buf1, cs, g_buf2, us) != us)
             {
               fprintf(stderr, "%s: decompress: invalid stream - data corrupted\n",
                       g_imagename);
               return -1;
             }
 
-          if (wwrite(to, buf2, us))
+          if (wwrite(to, g_buf2, us))
             {
               return -1;
             }
@@ -464,12 +443,35 @@ int lzf_main(int argc, FAR char *argv[])
   int optc;
   int ret = 0;
 
+#ifndef CONFIG_BUILD_KERNEL
+  /* Get exclusive access to the global variables.  Global variables are
+   * used because the hash table and buffers are too large to allocate on
+   * the embedded stack.  But the use of global variables has the downside
+   * or forcing serialization of this logic in order to work in a multi-
+   * tasking environment.
+   *
+   * REVISIT:  An alternative would be to pack all of the globals into a
+   * structure and allocate a per-thread instance of that structure here.
+   *
+   * NOTE:  This applies only in the FLAT and PROTECTED build modes.  In the
+   * KERNEL build mode, this will be a separate process with its own private
+   * global variables.
+   */
+
+  ret = sem_wait(&g_exclsem);
+  if (ret < 0)
+    {
+      fprintf(stderr, "sem_wait failed: %d\n", errno);
+      exit(1);
+    }
+#endif
+
   /* Set defaults. */
 
-  g_mode    = COMPRESS;
-  g_verbose = false;
-  g_force   = 0;
-  blocksize = BLOCKSIZE;
+  g_mode      = COMPRESS;
+  g_verbose   = false;
+  g_force     = 0;
+  g_blocksize = BLOCKSIZE;
 
 #ifndef CONFIG_DISABLE_ENVIRON
   /* Block size may be specified as an environment variable */
@@ -477,10 +479,10 @@ int lzf_main(int argc, FAR char *argv[])
   p = getenv("LZF_BLOCKSIZE");
   if (p)
     {
-      blocksize = strtoul(p, 0, 0);
-      if (!blocksize || blocksize > MAX_BLOCKSIZE)
+      g_blocksize = strtoul(p, 0, 0);
+      if (g_blocksize == 0 || g_blocksize > MAX_BLOCKSIZE)
         {
-          blocksize = BLOCKSIZE;
+          g_blocksize = BLOCKSIZE;
         }
     }
 #endif
@@ -517,10 +519,10 @@ int lzf_main(int argc, FAR char *argv[])
             break;
 
           case 'b':
-            blocksize = strtoul(optarg, 0, 0);
-            if (!blocksize || blocksize > MAX_BLOCKSIZE)
+            g_blocksize = strtoul(optarg, 0, 0);
+            if (g_blocksize == 0 || g_blocksize > MAX_BLOCKSIZE)
               {
-                blocksize = BLOCKSIZE;
+                g_blocksize = BLOCKSIZE;
               }
 
             break;
@@ -542,14 +544,14 @@ int lzf_main(int argc, FAR char *argv[])
             {
               fprintf(stderr, "%s: compressed data not read from a terminal. "
                       "Use -f to force decompression.\n", g_imagename);
-              exit(1);
+              lzf_exit(1);
             }
 
           if (g_mode == COMPRESS && isatty(1))
             {
               fprintf(stderr, "%s: compressed data not written to a terminal. "
                       "Use -f to force compression.\n", g_imagename);
-              exit(1);
+              lzf_exit(1);
             }
         }
 #endif
@@ -563,7 +565,7 @@ int lzf_main(int argc, FAR char *argv[])
           ret = uncompress_fd(0, 1);
         }
 
-      exit(ret ? 1 : 0);
+      lzf_exit(ret ? 1 : 0);
     }
 
   while (optind < argc)
@@ -571,5 +573,5 @@ int lzf_main(int argc, FAR char *argv[])
       ret |= run_file(argv[optind++]);
     }
 
-  exit(ret ? 1 : 0);
+  lzf_exit(ret ? 1 : 0);
 }
