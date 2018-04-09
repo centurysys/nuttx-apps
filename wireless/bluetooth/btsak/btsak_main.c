@@ -85,6 +85,14 @@ static const struct btsak_command_s g_btsak_commands[] =
     (CODE void *)btsak_cmd_help,
     NULL
   },
+  {"info",
+    (CODE void *)btsak_cmd_info,
+    "[-h]"
+  },
+  {"features",
+    (CODE void *)btsak_cmd_features,
+    "[-h] [le]"
+  },
   {"scan",
     (CODE void *)btsak_cmd_scan,
     "[-h] <start [-d]|get|stop>"
@@ -644,7 +652,7 @@ void btsak_showusage(FAR const char *progname, int exitcode)
       FAR const struct btsak_command_s *cmd = &g_btsak_commands[i];
       if (cmd->help != NULL)
         {
-          fprintf(stderr, "\t%s\t%s\n", cmd->name, cmd->help);
+          fprintf(stderr, "\t%-10s\t%s\n", cmd->name, cmd->help);
         }
       else
         {
@@ -680,7 +688,7 @@ void btsak_gatt_showusage(FAR const char *progname, FAR const char *cmd,
       FAR const struct btsak_command_s *gattcmd = &g_btsak_gatt_commands[i];
       if (gattcmd->help != NULL)
         {
-          fprintf(stderr, "\t%s\t%s\n", gattcmd->name, gattcmd->help);
+          fprintf(stderr, "\t%-10gdbs\t%s\n", gattcmd->name, gattcmd->help);
         }
       else
         {
