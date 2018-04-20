@@ -141,14 +141,14 @@ long btsak_str2long(FAR const char *str);
 uint8_t btsak_str2luint8(FAR const char *str);
 
 /****************************************************************************
- * Name: btsak_str2luint16
+ * Name: btsak_str2uint16
  *
  * Description:
  *   Convert a string to an integer value
  *
  ****************************************************************************/
 
-uint16_t btsak_str2luint16(FAR const char *str);
+uint16_t btsak_str2uint16(FAR const char *str);
 
 /****************************************************************************
  * Name: btsak_str2bool
@@ -252,11 +252,15 @@ void btsak_cmd_security(FAR struct btsak_s *btsak, int argc,
        FAR char *argv[]);
 void btsak_cmd_gatt_exchange_mtu(FAR struct btsak_s *btsak, int argc,
        FAR char *argv[]);
+void btsak_cmd_gatt_exchange_mtu_result(FAR struct btsak_s *btsak, int argc,
+       FAR char *argv[]);
 void btsak_cmd_discover(FAR struct btsak_s *btsak, int argc,
        FAR char *argv[]);
 void btsak_cmd_gatt_discover_characteristic(FAR struct btsak_s *btsak,
        int argc, FAR char *argv[]);
 void btsak_cmd_gat_discover_descriptor(FAR struct btsak_s *btsak,
+       int argc, FAR char *argv[]);
+void btsak_cmd_gat_discover_get(FAR struct btsak_s *btsak,
        int argc, FAR char *argv[]);
 void btsak_cmd_gatt_read(FAR struct btsak_s *btsak, int argc,
        FAR char *argv[]);

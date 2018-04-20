@@ -105,7 +105,7 @@ static const struct btsak_command_s g_btsak_commands[] =
   {
     "security",
     (CODE void *)btsak_cmd_security,
-    "[-h] <addr> <addr-type> <level>"
+    "[-h] <addr> public|private <level>"
   },
   {
     "gatt",
@@ -120,37 +120,47 @@ static const struct btsak_command_s g_btsak_gatt_commands[] =
 {
   {"exchange-mtu",
     (CODE void *)btsak_cmd_gatt_exchange_mtu,
-    "[-h] <addr> <addr-type>"
+    "[-h] <addr> public|private"
+  },
+  {
+    "mget",
+    (CODE void *)btsak_cmd_gatt_exchange_mtu_result,
+    "[-h]"
   },
   {
     "discover",
     (CODE void *)btsak_cmd_discover,
-    "[-h] <addr> <addr-type> <uuid-type>"
+    "[-h] <addr> public|private <uuid16> [<start> [<end>]]"
   },
   {
     "characteristic",
     (CODE void *)btsak_cmd_gatt_discover_characteristic,
-    "[-h] <addr> <addr-type>"
+    "[-h] <addr> public|private [<start> [<end>]]"
   },
   {
     "descriptor",
     (CODE void *)btsak_cmd_gat_discover_descriptor,
-    "[-h] <addr> <addr-type>"
+    "[-h] <addr> public|private [<start> [<end>]]"
+  },
+  {
+    "dget",
+    (CODE void *)btsak_cmd_gat_discover_get,
+    "[-h]"
   },
   {
     "read",
     (CODE void *)btsak_cmd_gatt_read,
-    "[-h] <addr> <addr-type> <handle> [<offset>]"
+    "[-h] <addr> public|private <handle> [<offset>]"
   },
   {
     "read-multiple",
     (CODE void *)btsak_cmd_gatt_read_multiple,
-    "[-h] <addr> <addr-type> <handle> <nitems>"
+    "[-h] <addr> public|private <handle> <nitems>"
   },
   {
     "write",
     (CODE void *)btsak_cmd_gatt_write,
-    "[-h] <addr> <addr-type> <handle> <datum>"
+    "[-h] <addr> public|private <handle> <datum>"
   }
 };
 
@@ -340,7 +350,7 @@ long btsak_str2long(FAR const char *str)
   long value;
 
   value = strtol(str, &endptr, 0);
-  if (*endptr != '\0')
+  if (endptr == NULL || *endptr != '\0')
     {
       fprintf(stderr, "ERROR: Garbage after numeric argument\n");
       exit(EXIT_FAILURE);
@@ -377,14 +387,14 @@ uint8_t btsak_str2luint8(FAR const char *str)
 }
 
 /****************************************************************************
- * Name: btsak_str2luint16
+ * Name: btsak_str2uint16
  *
  * Description:
  *   Convert a string to an integer value
  *
  ****************************************************************************/
 
-uint16_t btsak_str2luint16(FAR const char *str)
+uint16_t btsak_str2uint16(FAR const char *str)
 {
   long value = btsak_str2long(str);
   if (value < 0 || value > UINT16_MAX)
@@ -643,7 +653,7 @@ void btsak_showusage(FAR const char *progname, int exitcode)
   int i;
 
   fprintf(stderr, "\nUsage:\n\n");
-  fprintf(stderr, "\t%s progname <ifname> <cmd> [option [option [option...]]]\n",
+  fprintf(stderr, "\t%s <ifname> <cmd> [option [option [option...]]]\n",
           progname);
   fprintf(stderr, "\nWhere <cmd> [option [option [option...]]] is one of:\n\n");
 
@@ -688,7 +698,7 @@ void btsak_gatt_showusage(FAR const char *progname, FAR const char *cmd,
       FAR const struct btsak_command_s *gattcmd = &g_btsak_gatt_commands[i];
       if (gattcmd->help != NULL)
         {
-          fprintf(stderr, "\t%-10gdbs\t%s\n", gattcmd->name, gattcmd->help);
+          fprintf(stderr, "\t%-10s\t%s\n", gattcmd->name, gattcmd->help);
         }
       else
         {
