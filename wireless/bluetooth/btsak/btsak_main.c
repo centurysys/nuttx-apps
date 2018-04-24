@@ -139,12 +139,12 @@ static const struct btsak_command_s g_btsak_gatt_commands[] =
   },
   {
     "descriptor",
-    (CODE void *)btsak_cmd_gat_discover_descriptor,
+    (CODE void *)btsak_cmd_gatt_discover_descriptor,
     "[-h] <addr> public|private [<start> [<end>]]"
   },
   {
     "dget",
-    (CODE void *)btsak_cmd_gat_discover_get,
+    (CODE void *)btsak_cmd_gatt_discover_get,
     "[-h]"
   },
   {
@@ -155,12 +155,22 @@ static const struct btsak_command_s g_btsak_gatt_commands[] =
   {
     "read-multiple",
     (CODE void *)btsak_cmd_gatt_read_multiple,
-    "[-h] <addr> public|private <handle> <nitems>"
+    "[-h] <addr> public|private <handle> [<handle> [<handle>]..]"
+  },
+  {
+    "rget",
+    (CODE void *)btsak_cmd_gatt_read_get,
+    "[-h]"
   },
   {
     "write",
     (CODE void *)btsak_cmd_gatt_write,
-    "[-h] <addr> public|private <handle> <datum>"
+    "[-h] <addr> public|private <handle> <byte> [<byte> [<byte>]..]"
+  },
+  {
+    "wget",
+    (CODE void *)btsak_cmd_gatt_write_get,
+    "[-h]"
   }
 };
 
@@ -340,7 +350,7 @@ int btsak_char2nibble(char ch)
  * Name: btsak_str2long
  *
  * Description:
- *   Convert a hex string to an integer value
+ *   Convert a numeric string to a long value
  *
  ****************************************************************************/
 
@@ -356,25 +366,38 @@ long btsak_str2long(FAR const char *str)
       exit(EXIT_FAILURE);
     }
 
-  if (value > INT_MAX || value < INT_MIN)
-    {
-      fprintf(stderr, "ERROR: Integer value out of range\n");
-      return LONG_MAX;
-      exit(EXIT_FAILURE);
-    }
-
   return value;
 }
 
 /****************************************************************************
- * Name: btsak_str2luint8
+ * Name: btsak_str2int
  *
  * Description:
- *   Convert a string to an integer value
+ *   Convert a numeric string to an integer value
  *
  ****************************************************************************/
 
-uint8_t btsak_str2luint8(FAR const char *str)
+long btsak_str2int(FAR const char *str)
+{
+  long value = btsak_str2long(str);
+  if (value > INT_MAX || value < INT_MIN)
+    {
+      fprintf(stderr, "ERROR: Integer value out of range\n");
+      exit(EXIT_FAILURE);
+    }
+
+  return (int)value;
+}
+
+/****************************************************************************
+ * Name: btsak_str2uint8
+ *
+ * Description:
+ *   Convert a numeric string to an uint8_t value
+ *
+ ****************************************************************************/
+
+uint8_t btsak_str2uint8(FAR const char *str)
 {
   long value = btsak_str2long(str);
   if (value < 0 || value > UINT8_MAX)
@@ -390,7 +413,7 @@ uint8_t btsak_str2luint8(FAR const char *str)
  * Name: btsak_str2uint16
  *
  * Description:
- *   Convert a string to an integer value
+ *   Convert a numeric string to an uint16_t value
  *
  ****************************************************************************/
 

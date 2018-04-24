@@ -124,27 +124,27 @@ int btsak_char2nibble(char ch);
  * Name: btsak_str2long
  *
  * Description:
- *   Convert a hex string to an integer value
+ *   Convert a numeric string to an long value
  *
  ****************************************************************************/
 
 long btsak_str2long(FAR const char *str);
 
 /****************************************************************************
- * Name: btsak_str2luint8
+ * Name: btsak_str2uint8
  *
  * Description:
- *   Convert a string to an integer value
+ *   Convert a numeric string to an uint8_t value
  *
  ****************************************************************************/
 
-uint8_t btsak_str2luint8(FAR const char *str);
+uint8_t btsak_str2uint8(FAR const char *str);
 
 /****************************************************************************
  * Name: btsak_str2uint16
  *
  * Description:
- *   Convert a string to an integer value
+ *   Convert a numeric string to an uint16_t value
  *
  ****************************************************************************/
 
@@ -258,15 +258,19 @@ void btsak_cmd_discover(FAR struct btsak_s *btsak, int argc,
        FAR char *argv[]);
 void btsak_cmd_gatt_discover_characteristic(FAR struct btsak_s *btsak,
        int argc, FAR char *argv[]);
-void btsak_cmd_gat_discover_descriptor(FAR struct btsak_s *btsak,
+void btsak_cmd_gatt_discover_descriptor(FAR struct btsak_s *btsak,
        int argc, FAR char *argv[]);
-void btsak_cmd_gat_discover_get(FAR struct btsak_s *btsak,
+void btsak_cmd_gatt_discover_get(FAR struct btsak_s *btsak,
        int argc, FAR char *argv[]);
 void btsak_cmd_gatt_read(FAR struct btsak_s *btsak, int argc,
        FAR char *argv[]);
 void btsak_cmd_gatt_read_multiple(FAR struct btsak_s *btsak, int argc,
        FAR char *argv[]);
+void btsak_cmd_gatt_read_get(FAR struct btsak_s *btsak, int argc,
+       FAR char *argv[]);
 void btsak_cmd_gatt_write(FAR struct btsak_s *btsak, int argc,
+       FAR char *argv[]);
+void btsak_cmd_gatt_write_get(FAR struct btsak_s *btsak, int argc,
        FAR char *argv[]);
 
 #endif /* __APPS_EXAMPLES_WIRELESS_BLUETOOTH_BTSAK_BTSAK_H */

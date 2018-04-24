@@ -54,6 +54,10 @@
 #include "btsak.h"
 
 /****************************************************************************
+ * Private data
+ ****************************************************************************/
+
+/****************************************************************************
  * Private functions
  ****************************************************************************/
 
@@ -90,7 +94,7 @@ static void btsak_cmd_discover_common(FAR struct btsak_s *btsak,
       btsak_gatt_showusage(btsak->progname, argv[0], EXIT_FAILURE);
     }
 
-  strncpy(btreq.btr_name, btsak->ifname, HCI_DEVNAME_SIZE);
+  strncpy(btreq.btr_name, btsak->ifname, IFNAMSIZ);
   btreq.btr_dtype = (uint8_t)type;
 
   ret = btsak_str2addr(argv[1], btreq.btr_dpeer.val);
@@ -148,9 +152,13 @@ static void btsak_cmd_discover_common(FAR struct btsak_s *btsak,
           fprintf(stderr, "ERROR:  ioctl(SIOCBTDISCOVER) failed: %d\n",
                   errno);
         }
-    }
+      else
+        {
+          printf("Discovery in progress..\n");
+        }
 
-  close(sockfd);
+      close(sockfd);
+    }
 }
 
 /****************************************************************************
@@ -200,7 +208,7 @@ void btsak_cmd_gatt_exchange_mtu(FAR struct btsak_s *btsak, int argc,
 
   /* Perform the IOCTL to start the MTU exchange */
 
-  strncpy(btreq.btr_name, btsak->ifname, HCI_DEVNAME_SIZE);
+  strncpy(btreq.btr_name, btsak->ifname, IFNAMSIZ);
 
   sockfd = btsak_socket(btsak);
   if (sockfd >= 0)
@@ -215,9 +223,9 @@ void btsak_cmd_gatt_exchange_mtu(FAR struct btsak_s *btsak, int argc,
         {
           printf("MTU exchange pending...\n");
         }
-    }
 
-  close(sockfd);
+      close(sockfd);
+    }
 }
 
 /****************************************************************************
@@ -237,7 +245,7 @@ void btsak_cmd_gatt_exchange_mtu_result(FAR struct btsak_s *btsak, int argc,
 
   /* Perform the IOCTL to recover the result of the MTU exchange */
 
-  strncpy(btreq.btr_name, btsak->ifname, HCI_DEVNAME_SIZE);
+  strncpy(btreq.btr_name, btsak->ifname, IFNAMSIZ);
 
   sockfd = btsak_socket(btsak);
   if (sockfd >= 0)
@@ -262,6 +270,8 @@ void btsak_cmd_gatt_exchange_mtu_result(FAR struct btsak_s *btsak, int argc,
               printf("\tResult: %u\n", btreq.btr_exresult);
             }
         }
+
+      close(sockfd);
     }
 }
 
@@ -293,29 +303,29 @@ void btsak_cmd_gatt_discover_characteristic(FAR struct btsak_s *btsak,
 }
 
 /****************************************************************************
- * Name: btsak_cmd_gat_discover_descriptor
+ * Name: btsak_cmd_gatt_discover_descriptor
  *
  * Description:
  *   gatt [-h] descriptor [-h] <addr> public|private command
  *
  ****************************************************************************/
 
-void btsak_cmd_gat_discover_descriptor(FAR struct btsak_s *btsak,
-                                       int argc, FAR char *argv[])
+void btsak_cmd_gatt_discover_descriptor(FAR struct btsak_s *btsak,
+                                        int argc, FAR char *argv[])
 {
   btsak_cmd_discover_common(btsak, argc, argv, GATT_DISCOVER_DESC);
 }
 
 /****************************************************************************
- * Name: btsak_cmd_gat_discover_get
+ * Name: btsak_cmd_gatt_discover_get
  *
  * Description:
  *   gatt [-h] dget [-h]
  *
  ****************************************************************************/
 
-void btsak_cmd_gat_discover_get(FAR struct btsak_s *btsak,
-                                int argc, FAR char *argv[])
+void btsak_cmd_gatt_discover_get(FAR struct btsak_s *btsak,
+                                 int argc, FAR char *argv[])
 {
   FAR struct bt_discresonse_s *rsp;
   struct bt_discresonse_s result[8];
@@ -337,9 +347,9 @@ void btsak_cmd_gat_discover_get(FAR struct btsak_s *btsak,
       btsak_gatt_showusage(btsak->progname, argv[0], EXIT_FAILURE);
     }
 
-  /* Perform the IOCTL to start the discovery */
+  /* Perform the IOCTL to get the result of the discovery */
 
-  strncpy(btreq.btr_name, btsak->ifname, HCI_DEVNAME_SIZE);
+  strncpy(btreq.btr_name, btsak->ifname, IFNAMSIZ);
   btreq.btr_gnrsp = 8;
   btreq.btr_grsp  = result;
 
@@ -379,33 +389,339 @@ void btsak_cmd_gat_discover_get(FAR struct btsak_s *btsak,
 void btsak_cmd_gatt_read(FAR struct btsak_s *btsak, int argc,
                          FAR char *argv[])
 {
-# warning Missing logic
+  struct btreq_s btreq;
+  int sockfd;
+  int ret;
+
+  if (argc == 2 && strcmp(argv[1], "-h") == 0)
+    {
+      btsak_gatt_showusage(btsak->progname, argv[0], EXIT_SUCCESS);
+    }
+
+  if (argc < 4 || argc > 5)
+    {
+      fprintf(stderr,
+              "ERROR:  Invalid number of arguments.  Found %d expected 3 or 4\n",
+              argc - 1);
+      btsak_gatt_showusage(btsak->progname, argv[0], EXIT_FAILURE);
+    }
+
+  ret = btsak_str2addr(argv[1], btreq.btr_rdpeer.val);
+  if (ret < 0)
+    {
+      fprintf(stderr, "ERROR:  Bad value for <addr>: %s\n", argv[1]);
+      btsak_gatt_showusage(btsak->progname, argv[0], EXIT_FAILURE);
+    }
+
+  ret = btsak_str2addrtype(argv[2], &btreq.btr_rdpeer.type);
+    {
+      fprintf(stderr, "ERROR:  Bad value for address type: %s\n", argv[2]);
+      btsak_gatt_showusage(btsak->progname, argv[0], EXIT_FAILURE);
+    }
+
+  btreq.btr_rdhandles[0] = btsak_str2uint16(argv[3]);
+  btreq.btr_rdnhandles   = 1;
+
+  btreq.btr_rdoffset     = 0;
+  if (argc > 4)
+    {
+      btreq.btr_rdoffset = btsak_str2uint16(argv[4]);
+    }
+
+  /* Perform the IOCTL to start the read */
+
+  strncpy(btreq.btr_name, btsak->ifname, IFNAMSIZ);
+
+  sockfd = btsak_socket(btsak);
+  if (sockfd >= 0)
+    {
+      ret = ioctl(sockfd, SIOCBTGATTRD, (unsigned long)((uintptr_t)&btreq));
+      if (ret < 0)
+        {
+          fprintf(stderr, "ERROR:  ioctl(SIOCBTGATTRD) failed: %d\n",
+                  errno);
+        }
+      else
+        {
+          printf("Read pending...\n");
+        }
+
+      close(sockfd);
+    }
 }
 
 /****************************************************************************
  * Name: btsak_cmd_gatt_read_multiple
  *
  * Description:
- *   gatt [-h] read-multiple [-h] <addr> public|private <handle> <nitems> command
+ *   gatt [-h] read-multiple [-h] <addr> public|private <handle> [<handle> [<handle>]..]
  *
  ****************************************************************************/
 
 void btsak_cmd_gatt_read_multiple(FAR struct btsak_s *btsak, int argc,
                                   FAR char *argv[])
 {
-# warning Missing logic
+  struct btreq_s btreq;
+  int sockfd;
+  int ret;
+  int i;
+
+  if (argc == 2 && strcmp(argv[1], "-h") == 0)
+    {
+      btsak_gatt_showusage(btsak->progname, argv[0], EXIT_SUCCESS);
+    }
+
+  if (argc < 4)
+    {
+      fprintf(stderr,
+              "ERROR:  Invalid number of arguments.  Found %d expected at least 3\n",
+              argc - 1);
+      btsak_gatt_showusage(btsak->progname, argv[0], EXIT_FAILURE);
+    }
+
+  ret = btsak_str2addr(argv[1], btreq.btr_rdpeer.val);
+  if (ret < 0)
+    {
+      fprintf(stderr, "ERROR:  Bad value for <addr>: %s\n", argv[1]);
+      btsak_gatt_showusage(btsak->progname, argv[0], EXIT_FAILURE);
+    }
+
+  ret = btsak_str2addrtype(argv[2], &btreq.btr_rdpeer.type);
+    {
+      fprintf(stderr, "ERROR:  Bad value for address type: %s\n", argv[2]);
+      btsak_gatt_showusage(btsak->progname, argv[0], EXIT_FAILURE);
+    }
+
+  btreq.btr_rdoffset     = 0;
+  btreq.btr_rdnhandles   = argc - 3;
+
+  for (i = 0; i < btreq.btr_rdnhandles; i++)
+    {
+      btreq.btr_rdhandles[i] = btsak_str2uint16(argv[i + 3]);
+    }
+
+  /* Perform the IOCTL to start the read */
+
+  strncpy(btreq.btr_name, btsak->ifname, IFNAMSIZ);
+
+  sockfd = btsak_socket(btsak);
+  if (sockfd >= 0)
+    {
+      ret = ioctl(sockfd, SIOCBTGATTRD, (unsigned long)((uintptr_t)&btreq));
+      if (ret < 0)
+        {
+          fprintf(stderr, "ERROR:  ioctl(SIOCBTGATTRD) failed: %d\n",
+                  errno);
+        }
+      else
+        {
+          printf("Read pending...\n");
+        }
+
+      close(sockfd);
+    }
+}
+
+/****************************************************************************
+ * Name: btsak_cmd_gatt_read_get
+ *
+ * Description:
+ *   gatt [-h] rget [-h]
+ *
+ ****************************************************************************/
+
+void btsak_cmd_gatt_read_get(FAR struct btsak_s *btsak, int argc,
+                             FAR char *argv[])
+{
+  struct btreq_s btreq;
+  uint8_t data[HCI_GATTRD_DATA];
+  int sockfd;
+  int ret;
+  int i;
+  int j;
+
+  /* Check for help command */
+
+  if (argc == 2 && strcmp(argv[1], "-h") == 0)
+    {
+      btsak_gatt_showusage(btsak->progname, argv[0], EXIT_SUCCESS);
+    }
+
+  if (argc != 1)
+    {
+      fprintf(stderr, "ERROR:  No arguments expected\n");
+      btsak_gatt_showusage(btsak->progname, argv[0], EXIT_FAILURE);
+    }
+
+  /* Perform the IOCTL to start the discovery */
+
+  memset(&btreq, 0, sizeof(struct btreq_s));
+  strncpy(btreq.btr_name, btsak->ifname, IFNAMSIZ);
+  btreq.btr_rdsize = HCI_GATTRD_DATA;
+  btreq.btr_rddata = data;
+
+  sockfd = btsak_socket(btsak);
+  if (sockfd >= 0)
+    {
+      ret = ioctl(sockfd, SIOCBTGATTRDGET, (unsigned long)((uintptr_t)&btreq));
+      if (ret < 0)
+        {
+          fprintf(stderr, "ERROR:  ioctl(SIOCBTGATTRDGET) failed: %d\n", errno);
+        }
+
+      /* Has the read completed? */
+
+      else if (btreq.btr_rdpending)
+        {
+          printf("Read pending.  Data not yet available.\n");
+        }
+      else
+        {
+          /* Show the results that we obtained */
+
+          printf("Read:\n");
+          for (i = 0; i < btreq.btr_rdsize; i += 16)
+            {
+              for (j = 0; j < 16 && (i + j) < btreq.btr_rdsize; j++)
+                {
+                  if (j == 8)
+                    {
+                      putchar(' ');
+                    }
+
+                  printf(" %02x", data[i]);
+                }
+
+              putchar('\n');
+            }
+        }
+
+      close(sockfd);
+    }
 }
 
 /****************************************************************************
  * Name: btsak_cmd_gatt_write
  *
  * Description:
- *   gatt [-h] write [-h] [-h] <addr> public|private <handle> <datum> command
+ *   gatt [-h] write [-h] [-h] <addr> public|private <handle> <byte> [<byte> [<byte>]..]
  *
  ****************************************************************************/
 
 void btsak_cmd_gatt_write(FAR struct btsak_s *btsak, int argc,
                           FAR char *argv[])
 {
-# warning Missing logic
+  struct btreq_s btreq;
+  int sockfd;
+  int ret;
+  int i;
+
+  if (argc == 2 && strcmp(argv[1], "-h") == 0)
+    {
+      btsak_gatt_showusage(btsak->progname, argv[0], EXIT_SUCCESS);
+    }
+
+  if (argc < 5)
+    {
+      fprintf(stderr,
+              "ERROR:  Invalid number of arguments.  Found %d expected at least 4\n",
+              argc - 1);
+      btsak_gatt_showusage(btsak->progname, argv[0], EXIT_FAILURE);
+    }
+
+  ret = btsak_str2addr(argv[1], btreq.btr_wrpeer.val);
+  if (ret < 0)
+    {
+      fprintf(stderr, "ERROR:  Bad value for <addr>: %s\n", argv[1]);
+      btsak_gatt_showusage(btsak->progname, argv[0], EXIT_FAILURE);
+    }
+
+  ret = btsak_str2addrtype(argv[2], &btreq.btr_wrpeer.type);
+    {
+      fprintf(stderr, "ERROR:  Bad value for address type: %s\n", argv[2]);
+      btsak_gatt_showusage(btsak->progname, argv[0], EXIT_FAILURE);
+    }
+
+  btreq.btr_wrhandle = btsak_str2uint16(argv[3]);
+  btreq.btr_wrnbytes = argc - 3;
+
+  if (btreq.btr_wrnbytes > HCI_GATTWR_DATA)
+    {
+      fprintf(stderr, "ERROR:  Too much data.  Limit is %u bytes%s\n",
+              HCI_GATTWR_DATA);
+      btsak_gatt_showusage(btsak->progname, argv[0], EXIT_FAILURE);
+    }
+
+  for (i = 0; i < btreq.btr_wrnbytes; i++)
+    {
+      btreq.btr_wrdata[i] = btsak_str2uint8(argv[i + 3]);
+    }
+
+  /* Perform the IOCTL to start the read */
+
+  strncpy(btreq.btr_name, btsak->ifname, IFNAMSIZ);
+
+  sockfd = btsak_socket(btsak);
+  if (sockfd >= 0)
+    {
+      ret = ioctl(sockfd, SIOCBTGATTWR, (unsigned long)((uintptr_t)&btreq));
+      if (ret < 0)
+        {
+          fprintf(stderr, "ERROR:  ioctl(SIOCBTGATTWR) failed: %d\n",
+                  errno);
+        }
+      else
+        {
+          printf("Write pending...\n");
+        }
+
+      close(sockfd);
+    }
+}
+
+/****************************************************************************
+ * Name: btsak_cmd_gatt_write_get
+ *
+ * Description:
+ *   gatt [-h] dget [-h]
+ *
+ ****************************************************************************/
+
+void btsak_cmd_gatt_write_get(FAR struct btsak_s *btsak, int argc,
+                              FAR char *argv[])
+{
+  struct btreq_s btreq;
+  int sockfd;
+  int ret;
+
+  /* Perform the IOCTL to recover the result of the write operation */
+
+  strncpy(btreq.btr_name, btsak->ifname, IFNAMSIZ);
+
+  sockfd = btsak_socket(btsak);
+  if (sockfd >= 0)
+    {
+      ret = ioctl(sockfd, SIOCBTGATTWRGET, (unsigned long)((uintptr_t)&btreq));
+      if (ret < 0)
+        {
+          fprintf(stderr, "ERROR:  ioctl(SIOCBTGATTWRGET) failed: %d\n",
+                  errno);
+        }
+      else
+        {
+          printf("Write Result:\n");
+          if (btreq.btr_wrpending)
+            {
+              printf("\tState:  Pending\n");
+              printf("\tResult: Not yet available\n");
+            }
+          else
+            {
+              printf("\tState:  Complete\n");
+              printf("\tResult: %u\n", btreq.btr_wrresult);
+            }
+        }
+
+      close(sockfd);
+    }
 }
