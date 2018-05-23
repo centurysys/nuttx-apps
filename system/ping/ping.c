@@ -471,7 +471,7 @@ int ping_main(int argc, char **argv)
 
   exitcode = EXIT_FAILURE;
 
-  while ((option = getopt(argc, argv, ":c:i:h")) != ERROR)
+  while ((option = getopt(argc, argv, "c:i:h")) != ERROR)
     {
       switch (option)
         {
