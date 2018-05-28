@@ -213,7 +213,8 @@ extern "C"
 void ppp_init(struct ppp_context_s *ctx);
 void ppp_connect(struct ppp_context_s *ctx);
 
-extern void ppp_reconnect(struct ppp_context_s *ctx);
+void ppp_disconnect(struct ppp_context_s *ctx);
+void ppp_reconnect(struct ppp_context_s *ctx);
 
 void ppp_send(struct ppp_context_s *ctx);
 void ppp_poll(struct ppp_context_s *ctx);

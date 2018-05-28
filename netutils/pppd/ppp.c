@@ -43,6 +43,8 @@
 
 #include <nuttx/config.h>
 
+#include "netutils/pppd.h"
+
 #include "ppp_conf.h"
 #include "ppp_arch.h"
 #include "ppp.h"
@@ -285,7 +287,15 @@ void ppp_poll(struct ppp_context_s *ctx)
   ++ctx->ip_no_data_time;
   if (ctx->ip_no_data_time > PPP_IP_TIMEOUT)
     {
-      ppp_reconnect(ctx);
+      if (ctx->settings->persist == 1)
+        {
+          ppp_reconnect(ctx);
+        }
+      else
+        {
+          ppp_disconnect(ctx);
+        }
+
       return;
     }
 

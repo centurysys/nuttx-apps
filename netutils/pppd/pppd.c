@@ -197,6 +197,37 @@ static u8_t ppp_check_errors(struct ppp_context_s *ctx)
  ****************************************************************************/
 
 /****************************************************************************
+ * Name: ppp_disconnect
+ ****************************************************************************/
+
+void ppp_disconnect(struct ppp_context_s *ctx)
+{
+  int ret;
+  struct pppd_settings_s *pppd_settings = ctx->settings;
+
+  netlib_ifdown((char*)ctx->ifname);
+
+  lcp_disconnect(ctx, ++ctx->ppp_id);
+  sleep(1);
+  lcp_disconnect(ctx, ++ctx->ppp_id);
+  sleep(1);
+  write(ctx->ctl.fd, "+++", 3);
+  sleep(2);
+  write(ctx->ctl.fd, "ATE1\r\n", 6);
+
+  if (pppd_settings->disconnect_script)
+    {
+      ret = chat(&ctx->ctl, pppd_settings->disconnect_script);
+      if (ret < 0)
+        {
+          syslog(LOG_ERR, "ppp: disconnect script failed\n");
+        }
+    }
+
+  ctx->ip_len = 0;
+}
+
+/****************************************************************************
  * Name: ppp_reconnect
  ****************************************************************************/
 
