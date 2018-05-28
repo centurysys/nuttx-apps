@@ -277,7 +277,7 @@ void ipcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
     len = (*bptr++ << 8);
     len |= *bptr++;
 
-#if 0
+#if 1
     /* Parse ACK and set data */
 
     while (bptr < buffer + len)
@@ -288,28 +288,54 @@ void ipcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
           /* Dump length */
 
           bptr++;
-          ((u8_t*)ipaddr)[0] = *bptr++;
-          ((u8_t*)ipaddr)[1] = *bptr++;
-          ((u8_t*)ipaddr)[2] = *bptr++;
-          ((u8_t*)ipaddr)[3] = *bptr++;
+          ((u8_t*)&ctx->local_ip)[0] = *bptr++;
+          ((u8_t*)&ctx->local_ip)[1] = *bptr++;
+          ((u8_t*)&ctx->local_ip)[2] = *bptr++;
+          ((u8_t*)&ctx->local_ip)[3] = *bptr++;
+
+          wlen = sprintf(ptr, " <addr %d.%d.%d.%d>",
+                         ((u8_t*)&ctx->local_ip)[0],
+                         ((u8_t*)&ctx->local_ip)[1],
+                         ((u8_t*)&ctx->local_ip)[2],
+                         ((u8_t*)&ctx->local_ip)[3]);
+          ptr += wlen;
+
           break;
 
+#ifdef IPCP_GET_PRI_DNS
         case IPCP_PRIMARY_DNS:
           bptr++;
-          ((u8_t*)pri_dns_addr)[0] = *bptr++;
-          ((u8_t*)pri_dns_addr)[1] = *bptr++;
-          ((u8_t*)pri_dns_addr)[2] = *bptr++;
-          ((u8_t*)pri_dns_addr)[3] = *bptr++;
-          break;
+          ((u8_t*)&ctx->pri_dns_addr)[0] = *bptr++;
+          ((u8_t*)&ctx->pri_dns_addr)[1] = *bptr++;
+          ((u8_t*)&ctx->pri_dns_addr)[2] = *bptr++;
+          ((u8_t*)&ctx->pri_dns_addr)[3] = *bptr++;
 
+          wlen = sprintf(ptr, " <ms-dns1 %d.%d.%d.%d>",
+                         ((u8_t*)&ctx->pri_dns_addr)[0],
+                         ((u8_t*)&ctx->pri_dns_addr)[1],
+                         ((u8_t*)&ctx->pri_dns_addr)[2],
+                         ((u8_t*)&ctx->pri_dns_addr)[3]);
+          ptr += wlen;
+
+          break;
+#endif
+#ifdef IPCP_GET_SEC_DNS
         case IPCP_SECONDARY_DNS:
           bptr++;
-          ((u8_t*)sec_dns_addr)[0] = *bptr++;
-          ((u8_t*)sec_dns_addr)[1] = *bptr++;
-          ((u8_t*)sec_dns_addr)[2] = *bptr++;
-          ((u8_t*)sec_dns_addr)[3] = *bptr++;
-          break;
+          ((u8_t*)&ctx->sec_dns_addr)[0] = *bptr++;
+          ((u8_t*)&ctx->sec_dns_addr)[1] = *bptr++;
+          ((u8_t*)&ctx->sec_dns_addr)[2] = *bptr++;
+          ((u8_t*)&ctx->sec_dns_addr)[3] = *bptr++;
 
+          wlen = sprintf(ptr, " <ms-dns2 %d.%d.%d.%d>",
+                         ((u8_t*)&ctx->sec_dns_addr)[0],
+                         ((u8_t*)&ctx->sec_dns_addr)[1],
+                         ((u8_t*)&ctx->sec_dns_addr)[2],
+                         ((u8_t*)&ctx->sec_dns_addr)[3]);
+          ptr += wlen;
+
+          break;
+#endif
         default:
            DEBUG1(("IPCP CONFIG_ACK problem1\n"));
         }
@@ -320,6 +346,10 @@ void ipcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
     /*ppp_ipcp_state &= ~IPCP_RX_UP;*/
 
     DEBUG1(("were up! \n"));
+
+    netlib_ifup((char*)ctx->ifname);
+    netlib_set_ipv4addr((char*)ctx->ifname, &ctx->local_ip);
+
     //printip(pppif.ipaddr);
 #ifdef IPCP_GET_PRI_DNS
     printip(&ctx->pri_dns_addr);
@@ -360,7 +390,7 @@ void ipcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
                                sizeof(struct sockaddr_in));
       if (ret >= 0)
         {
-          syslog(LOG_INFO, "pppd: DNS added.\n");
+          syslog(LOG_INFO, "pppd: DNS server added.\n");
         }
     }
     break;
@@ -402,8 +432,8 @@ void ipcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
                          ((u8_t*)&ctx->local_ip)[3]);
           ptr += wlen;
 
-          netlib_ifup((char*)ctx->ifname);
-          netlib_set_ipv4addr((char*)ctx->ifname, &ctx->local_ip);
+          //netlib_ifup((char*)ctx->ifname);
+          //netlib_set_ipv4addr((char*)ctx->ifname, &ctx->local_ip);
           //DEBUG1(("My PPP-ipno: (%d.%d.%d.%d)\n", ((u8_t*)pppif.ipaddr)[0], ((u8_t*)pppif.ipaddr)[1], ((u8_t*)pppif.ipaddr)[2], ((u8_t*)pppif.ipaddr)[3]));
           break;
 
