@@ -410,6 +410,13 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
   case TERM_REQ: /* Terminate Request */
     DEBUG1(("LCP-TERM-REQ -"));
     bptr = buffer;
+
+    sprintf(buf, "rcvd [LCP TermReq id=0x%x]", *((u8_t *) bptr));
+    syslog(LOG_INFO, "pppd: %s\n", buf);
+
+    sprintf(buf, "sent [LCP TermAck id=0x%x]", *((u8_t *) bptr));
+    syslog(LOG_INFO, "pppd: %s\n", buf);
+
     *bptr++ = TERM_ACK; /* Write TERM_ACK */
 
     /* Write the reject frame */
