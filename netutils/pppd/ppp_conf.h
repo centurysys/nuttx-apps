@@ -51,7 +51,7 @@
 #define LCP_ECHO_INTERVAL       20
 
 #define PPP_IP_TIMEOUT          (6*3600)
-#define PPP_MAX_CONNECT         15
+#define PPP_MAX_CONNECT         3
 
 #define PAP_USERNAME_SIZE       16
 #define PAP_PASSWORD_SIZE       16
@@ -66,8 +66,10 @@
 //#define AHDLC_COUNTERS          1 //defined for AHDLC stats support, Guillaume Descamps, September 19th, 2011
 
 #define IPCP_GET_PEER_IP        1
+#define IPCP_GET_PRI_DNS        1
+#define IPCP_GET_SEC_DNS        1
 
 #define PPP_STATISTICS          1
-#define PPP_DEBUG               1
+#define PPP_DEBUG               0
 
 #endif /* __APPS_NETUTILS_PPPD_PPP_CONF_H */
