@@ -53,14 +53,14 @@
 
 /* LCP Option Types */
 
-#define LPC_VENDERX        0x0
-#define LPC_MRU            0x1
-#define LPC_ACCM           0x2
-#define LPC_AUTH           0x3
-#define LPC_QUALITY        0x4
-#define LPC_MAGICNUMBER    0x5
-#define LPC_PFC            0x7
-#define LPC_ACFC           0x8
+#define LCP_VENDERX        0x0
+#define LCP_MRU            0x1
+#define LCP_ACCM           0x2
+#define LCP_AUTH           0x3
+#define LCP_QUALITY        0x4
+#define LCP_MAGICNUMBER    0x5
+#define LCP_PFC            0x7
+#define LCP_ACFC           0x8
 
 /* LCP Negotiated options flag equates */
 

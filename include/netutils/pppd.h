@@ -78,6 +78,9 @@ struct pppd_settings_s
 
   FAR char* connect_script;
   FAR char* disconnect_script;
+
+  /* options */
+  int persist;
 };
 
   /****************************************************************************

@@ -75,12 +75,12 @@
 
 static const u8_t lcplist[] =
 {
-  LPC_MAGICNUMBER,
-  LPC_PFC,
-  LPC_ACFC,
-  LPC_AUTH,
-  LPC_ACCM,
-  LPC_MRU,
+  LCP_MAGICNUMBER,
+  LCP_PFC,
+  LCP_ACFC,
+  LCP_AUTH,
+  LCP_ACCM,
+  LCP_MRU,
   0
 };
 
@@ -114,6 +114,10 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
   u8_t id;
   u16_t len, j;
   struct pppd_settings_s *pppd_settings = ctx->settings;
+  char buf[256], *ptr;
+  int wlen;
+
+  ptr = buf;
 
   switch (*bptr++)
   {
@@ -124,6 +128,9 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
     len = (*bptr++ << 8);
     len |= *bptr++;
     /*len -= 2;*/
+
+    wlen = sprintf(ptr, "rcvd [LCP ConfReq id=0x%x", id);
+    ptr += wlen;
 
     /* In case of new peer connection */
 
@@ -147,11 +154,11 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
 
         /* First scan for unknown values */
 
-        while(bptr < (buffer + len))
+        while (bptr < (buffer + len))
           {
             switch (*bptr++)
             {
-            case LPC_MRU: /* mru */
+            case LCP_MRU: /* mru */
               j = *bptr++;
               j -= 2;
 
@@ -160,6 +167,9 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
                   ctx->ppp_tx_mru = ((int)*bptr++) << 8;
                   ctx->ppp_tx_mru |= *bptr++;
                   DEBUG1(("<mru %d> ", ctx->ppp_tx_mru));
+
+                  wlen = sprintf(ptr, " <mru %d>", ctx->ppp_tx_mru);
+                  ptr += wlen;
                 }
               else
                 {
@@ -167,12 +177,15 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
                 }
               break;
 
-            case LPC_ACCM:
+            case LCP_ACCM:
               bptr++;  /* skip length */
               j = *bptr++;
               j += *bptr++;
               j += *bptr++;
               j += *bptr++;
+
+              wlen = sprintf(ptr, " <asyncmap 0x%x>", j);
+              ptr += wlen;
 
               if (j==0)
                 {
@@ -191,7 +204,7 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
 
                   DEBUG1(("We only support default or all zeros for ACCM "));
                   error = 1;
-                  *tptr++ = LPC_ACCM;
+                  *tptr++ = LCP_ACCM;
                   *tptr++ = 0x6;
                   *tptr++ = 0;
                   *tptr++ = 0;
@@ -201,7 +214,7 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
               break;
 
 #ifdef CONFIG_NETUTILS_PPPD_PAP
-            case LPC_AUTH:
+            case LCP_AUTH:
               bptr++;
               if ((*bptr++ == 0xc0) && (*bptr++ == 0x23))
                 {
@@ -211,6 +224,9 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
                     {
                       DEBUG1(("<auth pap> "));
                       ctx->lcp_state |= LCP_RX_AUTH;
+
+                      wlen = sprintf(ptr, " <auth pap>");
+                      ptr += wlen;
                     }
                   else
                     {
@@ -220,7 +236,7 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
                       tptr++;             // Keep ID
                       *tptr++ = 0;
                       *tptr++ = 8;
-                      *tptr++ = LPC_AUTH;
+                      *tptr++ = LCP_AUTH;
                       *tptr++ = 0x4;
                       *tptr++ = 0xc0;
                       *tptr++ = 0x23;
@@ -234,39 +250,57 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
 
                   DEBUG1(("<auth ?? >"));
                   error = 1;
-                  *tptr++ = LPC_AUTH;
+                  *tptr++ = LCP_AUTH;
                   *tptr++ = 0x4;
                   *tptr++ = 0xc0;
                   *tptr++ = 0x23;
+
+                  wlen = sprintf(ptr, " <auth \?\?\?>");
+                  ptr += wlen;
                 }
               break;
 #endif /* CONFIG_NETUTILS_PPPD_PAP */
 
-            case LPC_MAGICNUMBER:
+            case LCP_MAGICNUMBER:
               DEBUG1(("<magic > "));
 
               /* Compare incoming number to our number (not implemented) */
 
               bptr++; /* For now just dump */
+
+              wlen = sprintf(ptr, " <magic 0x%x>", *((u32_t *) bptr));
+              ptr += wlen;
+
               bptr++;
               bptr++;
               bptr++;
               bptr++;
               break;
 
-            case LPC_PFC:
+            case LCP_PFC:
               bptr++;
               DEBUG1(("<pcomp> "));
+
+              wlen = sprintf(ptr, " <pcomp>");
+              ptr += wlen;
+
               /*tflag|=PPP_PFC;*/
               break;
 
-            case LPC_ACFC:
+            case LCP_ACFC:
               bptr++;
               DEBUG1(("<accomp> "));
+
+              wlen = sprintf(ptr, " <accomp>");
+              ptr += wlen;
+
               /*tflag|=PPP_ACFC;*/
               break;
             }
           }
+
+        strcat(ptr, "]");
+        syslog(LOG_INFO, "pppd: %s\n", buf);
 
         /* Error? if we we need to send a config Reject ++++ this is good
          * for a subroutine.
@@ -280,6 +314,10 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
 
             bptr = buffer;
             *bptr++ = CONF_NAK;        /* Write Conf_rej */
+
+            sprintf(buf, "sent [LCP ConfNak id=0x%x]", *((u8_t *) bptr));
+            syslog(LOG_INFO, "pppd: %s\n", buf);
+
             bptr++;/*tptr++;*/        /* skip over ID */
 
             /* Write new length */
@@ -303,6 +341,10 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
             DEBUG1(("\nSend ACK!\n"));
             bptr = buffer;
             *bptr++ = CONF_ACK;  /* Write Conf_ACK */
+
+            sprintf(buf, "sent [LCP ConfAck id=0x%x]", *((u8_t *) bptr));
+            syslog(LOG_INFO, "pppd: %s\n", buf);
+
             bptr++;              /* Skip ID (send same one) */
 
             /* Set stuff */
@@ -334,6 +376,9 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
 
         DEBUG1((">>>>>>>> good ACK id up! %d\n", ctx->ppp_id));
 
+        sprintf(buf, "rcvd [LCP ConfAck id=0x%x]", ctx->ppp_id);
+        syslog(LOG_INFO, "pppd: %s\n", buf);
+
         /* Copy negotiated values over */
 
         ctx->lcp_state |= LCP_TX_UP;
@@ -346,11 +391,19 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
 
   case CONF_NAK: /* Config Nack */
     DEBUG1(("LCP-CONF NAK\n"));
+
+    sprintf(buf, "rcvd [LCP ConfNak id=0x%x]", *((u8_t *) bptr));
+    syslog(LOG_INFO, "pppd: %s\n", buf);
+
     ctx->ppp_id++;
     break;
 
   case CONF_REJ: /* Config Reject */
     DEBUG1(("LCP-CONF REJ\n"));
+
+    sprintf(buf, "rcvd [LCP ConfRej id=0x%x]", *((u8_t *) bptr));
+    syslog(LOG_INFO, "pppd: %s\n", buf);
+
     ctx->ppp_id++;
     break;
 
@@ -489,6 +542,10 @@ void lcp_task(struct ppp_context_s *ctx, u8_t *buffer)
   u8_t *bptr;
   u16_t t;
   LCPPKT *pkt;
+  char buf[256], *ptr;
+  int wlen;
+
+  ptr = buf;
 
   /* lcp tx not up and hasn't timed out then lets see if we need to send a
    * request
@@ -513,22 +570,25 @@ void lcp_task(struct ppp_context_s *ctx, u8_t *buffer)
           pkt->code = CONF_REQ;
           pkt->id = ctx->ppp_id;
 
+          wlen = sprintf(ptr, "sent [LCP ConfReq <asyncmap 0x0>");
+          ptr += wlen;
+
           bptr = pkt->data;
 
           /* Write options */
 
-          *bptr++ = LPC_ACCM;
+          *bptr++ = LCP_ACCM;
           *bptr++ = 0x6;
-          *bptr++ = 0xff;
-          *bptr++ = 0xff;
-          *bptr++ = 0xff;
-          *bptr++ = 0xff;
+          *bptr++ = 0x00;
+          *bptr++ = 0x00;
+          *bptr++ = 0x00;
+          *bptr++ = 0x00;
 
 #if 0
           /* Write magic number */
 
-          DEBUG1(("LPC_MAGICNUMBER -"));
-          *bptr++ = LPC_MAGICNUMBER;
+          DEBUG1(("LCP_MAGICNUMBER -"));
+          *bptr++ = LCP_MAGICNUMBER;
           *bptr++ = 0x6;
 
           /*
@@ -551,7 +611,7 @@ void lcp_task(struct ppp_context_s *ctx, u8_t *buffer)
             {
               /* If turned on, we only negotiate PAP */
 
-              *bptr++ = LPC_AUTH;
+              *bptr++ = LCP_AUTH;
               *bptr++ = 0x4;
               *bptr++ = 0xc0;
               *bptr++ = 0x23;
@@ -563,7 +623,7 @@ void lcp_task(struct ppp_context_s *ctx, u8_t *buffer)
             {
               /* If turned on, we only negotiate PAP */
 
-              *bptr++ = LPC_PFC;
+              *bptr++ = LCP_PFC;
               *bptr++ = 0x2;
             }
 
@@ -573,7 +633,7 @@ void lcp_task(struct ppp_context_s *ctx, u8_t *buffer)
             {
               /* If turned on, we only negotiate PAP */
 
-              *bptr++ = LPC_ACFC;
+              *bptr++ = LCP_ACFC;
               *bptr++ = 0x2;
             }
 #endif
@@ -584,6 +644,9 @@ void lcp_task(struct ppp_context_s *ctx, u8_t *buffer)
           pkt->len = htons(t); /* length here -  code and ID + */
 
           DEBUG1((" len %d\n",t));
+
+          strcat(ptr, "]");
+          syslog(LOG_INFO, "pppd: %s\n", buf);
 
           /* Send packet */
           /* Send packet ahdlc_txz(procol,header,data,headerlen,datalen); */

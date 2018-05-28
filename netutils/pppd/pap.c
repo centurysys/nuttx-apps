@@ -99,6 +99,9 @@ void pap_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
 
     /* Display message if debug */
 
+    syslog(LOG_INFO, "pppd: rcvd [PAP AuthAck id=0x%x \"\"]\n", ctx->ppp_id);
+    syslog(LOG_INFO, "pppd: PAP authentication succeeded\n");
+
     len = *bptr++;
     *(bptr + len) = 0;
     DEBUG1((" %s \n",bptr));
@@ -129,6 +132,10 @@ void pap_task(struct ppp_context_s *ctx, u8_t *buffer)
   u8_t *bptr;
   u16_t t;
   PAPPKT *pkt;
+  char buf[256], *ptr;
+  int wlen;
+
+  ptr = buf;
 
   /* If LCP is up and PAP negotiated, try to bring up PAP */
 
@@ -155,6 +162,9 @@ void pap_task(struct ppp_context_s *ctx, u8_t *buffer)
           pkt->id = ctx->ppp_id;
           bptr = pkt->data;
 
+          wlen = sprintf(ptr, "sent [PAP AuthReq id=0x%x", ctx->ppp_id);
+          ptr += wlen;
+
           /* Write options */
 
           t = strlen((char*)ctx->settings->pap_username);
@@ -162,11 +172,17 @@ void pap_task(struct ppp_context_s *ctx, u8_t *buffer)
           /* Write peer length */
 
           *bptr++ = (u8_t)t;
-          bptr = memcpy(bptr, ctx->settings->pap_username, t);
+          memcpy(bptr, ctx->settings->pap_username, t);
+          bptr += t;
+
+          wlen = sprintf(ptr, " user=\"%s\" password=<hidden>]",
+                         ctx->settings->pap_username);
+          ptr += wlen;
 
           t = strlen((char*)ctx->settings->pap_password);
           *bptr++ = (u8_t)t;
-          bptr = memcpy(bptr, ctx->settings->pap_password, t);
+          memcpy(bptr, ctx->settings->pap_password, t);
+          bptr += t;
 
           /* Write length */
 
@@ -181,6 +197,8 @@ void pap_task(struct ppp_context_s *ctx, u8_t *buffer)
           /* Send packet */
 
           ahdlc_tx(ctx, PAP, buffer, 0, t, 0);
+
+          syslog(LOG_INFO, "pppd: %s\n", buf);
 
           ctx->pap_retry++;
 

@@ -110,7 +110,7 @@ static int tun_alloc(char *dev)
       return fd;
     }
 
-  printf("tun fd:%i\n", fd);
+  //printf("tun fd:%i\n", fd);
 
   if ((errcode = make_nonblock(fd)) < 0)
     {
@@ -156,7 +156,7 @@ static int open_tty(char *dev)
       return errcode;
     }
 
-  printf("tty fd:%i\n", fd);
+  //printf("tty fd:%i\n", fd);
 
   return fd;
 }
@@ -205,6 +205,9 @@ void ppp_reconnect(struct ppp_context_s *ctx)
   int ret;
   int retry = PPP_MAX_CONNECT;
   struct pppd_settings_s *pppd_settings = ctx->settings;
+
+  //printf("* ppp_reconnect\n");
+
   netlib_ifdown((char*)ctx->ifname);
 
   lcp_disconnect(ctx, ++ctx->ppp_id);
@@ -220,7 +223,7 @@ void ppp_reconnect(struct ppp_context_s *ctx)
       ret = chat(&ctx->ctl, pppd_settings->disconnect_script);
       if (ret < 0)
         {
-          printf("ppp: disconnect script failed\n");
+          syslog(LOG_ERR, "ppp: disconnect script failed\n");
         }
     }
 
@@ -231,7 +234,7 @@ void ppp_reconnect(struct ppp_context_s *ctx)
           ret = chat(&ctx->ctl, pppd_settings->connect_script);
           if (ret < 0)
             {
-              printf("ppp: connect script failed\n");
+              syslog(LOG_ERR, "ppp: connect script failed\n");
               --retry;
               if (retry == 0)
                 {
@@ -322,7 +325,7 @@ int pppd(struct pppd_settings_s *pppd_settings)
 
   ctx = (struct ppp_context_s*)malloc(sizeof(struct ppp_context_s));
   memset(ctx, 0, sizeof(struct ppp_context_s));
-  strcpy((char*)ctx->ifname, "ppp%d");
+  strcpy((char*)ctx->ifname, "ppp0");
 
   ctx->settings = pppd_settings;
   ctx->if_fd = tun_alloc((char*)ctx->ifname);
@@ -340,9 +343,9 @@ int pppd(struct pppd_settings_s *pppd_settings)
       return 2;
     }
 
-  ctx->ctl.echo    = true;
-  ctx->ctl.verbose = true;
-  ctx->ctl.timeout = 30;
+  ctx->ctl.echo    = false;
+  ctx->ctl.verbose = false;
+  ctx->ctl.timeout = 10;
 
   fds[0].fd = ctx->if_fd;
   fds[0].events = POLLIN;
@@ -362,7 +365,7 @@ int pppd(struct pppd_settings_s *pppd_settings)
       if (ret > 0 && fds[0].revents & POLLIN)
         {
           ret = read(ctx->if_fd, ctx->ip_buf, PPP_RX_BUFFER_SIZE);
-          printf("read from tun :%i\n", ret);
+          //printf("read from tun :%i\n", ret);
           if (ret > 0)
             {
               ctx->ip_len = ret;
@@ -375,7 +378,16 @@ int pppd(struct pppd_settings_s *pppd_settings)
 
       if (ppp_check_errors(ctx))
         {
-          ppp_reconnect(ctx);
+          syslog(LOG_ERR, "pppd: Connection Terminated.\n");
+
+          if (ctx->settings->persist)
+            {
+              ppp_reconnect(ctx);
+            }
+          else
+            {
+              break;
+            }
         }
       else
         {

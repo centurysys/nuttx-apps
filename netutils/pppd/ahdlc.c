@@ -55,6 +55,7 @@
 #else
 #  define DEBUG1(x)
 #  undef  PACKET_TX_DEBUG
+#  define PACKET_TX_DEBUG 0
 #endif
 
 /* ahdlc flags bit defins, for ahdlc_flags variable */
