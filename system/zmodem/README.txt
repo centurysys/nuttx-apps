@@ -34,7 +34,7 @@ Buffering Notes
   Software Flow Control
   ---------------------
   The ZModem protocol has XON/XOFF flow control built into it.  The protocol
-  requires that XON or XOFF be placed at certain parts of messages.  If
+  permits XON or XOFF characters placed at certain parts of messages.  If
   software flow control is enabled on the receiving end it will consume the
   XONs and XOFFs.  Otherwise they will be ignored in the data by the ZModem
   logic.
@@ -45,7 +45,7 @@ Buffering Notes
   The XON/XOFF controls built into ZModem could be used if you enabled
   software flow control in the host.  But that would only work in one
   direction:  If would prevent the host from overrunning the the target Rx
-  buffing.  So you should be able to do host-to-target software flow
+  buffering.  So you should be able to do host-to-target software flow
   control.  But there would still be no target-to-host flow control.  That
   might not be an issue because the host is usually so much faster than
   that target.
@@ -53,7 +53,7 @@ Buffering Notes
   RX Buffer Size
   --------------
   The ZModem protocol supports a message that informs the file sender of
-  the maximum size of dat that you can buffer (ZRINIT).  However, my
+  the maximum size of data that you can buffer (ZRINIT).  However, my
   experience is that the Linux sz ignores this setting and always sends file
   data at the maximum size (1024) no matter what size of buffer you report.
   That is unfortunate because that, combined with the possibilities of data
@@ -252,10 +252,16 @@ Status
       serial speeds and with much smaller buffers (although that has not
       been verified as of this writing).
 
-    2018-5-28:
+    2018-5-27:
       Updates to checksum calculations.  Verified correct operation with
       hardware flow control using the olimex-stm32-p407/zmodem
       configuration.  Only the host-to-target transfer was verified.
 
-      There appears to be problems still host target-to-host transfers
-      and with use of the NuttX versions of rx/sz on the host.
+      This was using the Linux sz utility.  There appears to still be a
+      problem using the NuttX sz utility running on Linux.
+
+    2018-5-27:
+      Verified correct operation with hardware flow control using the
+      olimex-stm32-p407/zmodem configuration with target-to-host
+      transfers was verified.  Again, there are issues remaining if
+      I tried the NuttX rz utility running on Linux.
