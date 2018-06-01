@@ -346,7 +346,8 @@ static int chat_internalise(FAR struct chat* priv,
             {
               /* Copy the token and add the line terminator as appropriate */
 
-              sprintf(line->rhs, tok->no_termin ? "%s" : "%s\r\n", tok->string);
+              //sprintf(line->rhs, tok->no_termin ? "%s" : "%s\r\n", tok->string);
+              sprintf(line->rhs, "%s", tok->string);
             }
           else
             {
@@ -487,6 +488,59 @@ static int chat_readb(FAR struct chat* priv, FAR char* c, int timeout_ms)
   return 0;
 }
 
+static int chat_readline(struct chat *priv, char *buf, int buflen)
+{
+  int ret, pos;
+  char c;
+  struct timespec abstime;
+  struct timespec endtime;
+  int timeout_ms;
+
+  clock_gettime(CLOCK_REALTIME, (FAR struct timespec*) &abstime);
+  endtime.tv_sec  = abstime.tv_sec + priv->ctl.timeout;
+  endtime.tv_nsec = abstime.tv_nsec;
+
+  pos = 0;
+
+  while (pos < buflen)
+    {
+      timeout_ms =
+        (endtime.tv_sec - abstime.tv_sec) * 1000 +
+        (endtime.tv_nsec - abstime.tv_nsec) / 1000000;
+
+      ret = chat_readb(priv, &c, timeout_ms);
+
+      if (ret == 0)
+        {
+          if (c == 0x0d)
+            {
+              /* End of Line */
+              buf[pos++] = '^';
+              buf[pos++] = 'M';
+            }
+          else if (c == 0x0a)
+            {
+              /* Linefeed */
+              break;
+            }
+          else
+            {
+              buf[pos++] = c;
+            }
+
+          clock_gettime(CLOCK_REALTIME, (FAR struct timespec*) &abstime);
+        }
+      else
+        {
+          break;
+        }
+    }
+
+  buf[pos] = '\0';
+
+  return ret;
+}
+
 static void chat_flush(FAR struct chat* priv)
 {
   char c;
@@ -498,62 +552,48 @@ static void chat_flush(FAR struct chat* priv)
 
 static int chat_expect(FAR struct chat* priv, FAR const char* s)
 {
-  char c;
-  struct timespec abstime;
-  struct timespec endtime;
-  int timeout_ms;
+#define BUFLEN 128
   int s_len = strlen(s);
-  int i_match = 0; /* index of the next character to be matched in s */
-  int ret = 0;
-  char buf[128];
+  int ret = 0, i;
+  char buf[BUFLEN];
 
-  /* Get initial time and set the end time */
-
-  clock_gettime(CLOCK_REALTIME, (FAR struct timespec*) &abstime);
-  endtime.tv_sec  = abstime.tv_sec + priv->ctl.timeout;
-  endtime.tv_nsec = abstime.tv_nsec;
-
-  while (!ret && i_match < s_len &&
-         (abstime.tv_sec < endtime.tv_sec ||
-          (abstime.tv_sec == endtime.tv_sec &&
-           abstime.tv_nsec < endtime.tv_nsec)))
+  while (1)
     {
-      timeout_ms =
-        (endtime.tv_sec - abstime.tv_sec) * 1000 +
-        (endtime.tv_nsec - abstime.tv_nsec) / 1000000;
-
-      DEBUGASSERT(timeout_ms >= 0);
-
-      ret = chat_readb(priv, &c, timeout_ms);
-      if (!ret)
+      if (s_len > 0)
         {
-          if (c == s[i_match])
-            {
-              /* Continue matching the next character */
-
-              buf[i_match] = c;
-              i_match++;
-            }
-          else
-            {
-              /* Match failed; start anew */
-
-              i_match = 0;
-            }
-
-          /* Update current time */
-
-          clock_gettime(CLOCK_REALTIME, (FAR struct timespec*) &abstime);
+          ret = chat_readline(priv, buf, BUFLEN);
         }
-    }
+      else
+        {
+          buf[0] = '\0';
+          ret = 0;
+        }
 
-  //_info("result %d\n", ret);
-  if (ret == 0)
-    {
-      buf[i_match] = '\0';
+      if (ret == 0)
+        {
+          info("%s\n", buf);
 
-      info("%s\n", buf);
-      info("-- got it\n");
+          if (strncmp(buf, s, s_len) == 0)
+            {
+              info("-- got it\n");
+              break;
+            }
+
+          /* check ABORT string */
+          for (i = 0; i < priv->aborts; i++)
+            {
+              if ((strlen(buf) > 0) &&
+                  (strncmp(buf, priv->abort_str[i], strlen(buf)) == 0))
+                {
+                  info("-- ABORT\n");
+                  break;
+                }
+            }
+        }
+      else
+        {
+          break;
+        }
     }
 
   return ret;
@@ -571,7 +611,9 @@ static int chat_send(FAR struct chat* priv, FAR const char* s)
   if (ret > 0)
     {
       /* Just SUCCESS */
-      info("send %s", s);
+      write(priv->ctl.fd, "\r\n", 2);
+
+      info("send %s\n", s);
       ret = 0;
     }
 
@@ -598,7 +640,8 @@ static int chat_line_run(FAR struct chat* priv,
       switch (line->lhs.command)
         {
         case CHAT_COMMAND_ABORT:
-          /* TODO */
+          priv->abort_str[priv->aborts++] = line->rhs;
+          info("abort on (%s)\n", line->rhs);
           break;
 
         case CHAT_COMMAND_ECHO:
@@ -731,8 +774,11 @@ int chat(FAR struct chat_ctl* ctl, FAR char* script)
 
   DEBUGASSERT(script != NULL);
 
+  memset(&priv, 0, sizeof(struct chat));
+
   chat_init(&priv, ctl);
   ret = chat_script_parse(&priv, script);
+
   if (!ret)
     {
       /* TODO: optionally, free 'script' here */

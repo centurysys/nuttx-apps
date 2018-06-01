@@ -42,6 +42,12 @@
 
 #include "netutils/chat.h"
 
+/************************************************************************************
+ * Pre-processor Definitions
+ ************************************************************************************/
+
+#define MAX_ABORTS 20
+
 /****************************************************************************
  * Public Types
  ****************************************************************************/
@@ -91,6 +97,9 @@ struct chat
 {
   struct chat_ctl ctl;             /* Embedded 'chat_ctl' type. */
   FAR struct chat_line* script;    /* first line of the script */
+
+  int aborts;
+  char *abort_str[MAX_ABORTS];
 };
 
 #endif /* __APPS_NETUTILS_CHAT_CHAT_H */
