@@ -1,8 +1,7 @@
 ############################################################################
-# apps/Make.defs
-# Common make definitions provided to all applications
+# apps/examples/gps/Makefile
 #
-#   Copyright (C) 2011, 2014, 2016, 2018 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2008, 2010-2013 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -34,59 +33,25 @@
 #
 ############################################################################
 
-# Builtin Registration
+-include $(TOPDIR)/Make.defs
 
-BUILTIN_REGISTRY = $(APPDIR)$(DELIM)builtin$(DELIM)registry
+# GPS built-in application info
 
-DEPCONFIG = $(TOPDIR)$(DELIM).config
+CONFIG_EXAMPLES_GPS_PRIORITY ?= SCHED_PRIORITY_DEFAULT
+CONFIG_EXAMPLES_GPS_STACKSIZE ?= 2048
 
-ifeq ($(CONFIG_WINDOWS_NATIVE),y)
-define REGISTER
-	$(Q) echo Register: $1
-	$(Q) echo { "$1", $2, $3, $4 }, > "$(BUILTIN_REGISTRY)$(DELIM)$4.bdat"
-	$(Q) echo int $4(int argc, char *argv[]); > "$(BUILTIN_REGISTRY)$(DELIM)$4.pdat"
-	$(Q) touch $(BUILTIN_REGISTRY)$(DELIM).updated"
-endef
-else
-define REGISTER
-	$(Q) echo "Register: $1"
-	$(Q) echo "{ \"$1\", $2, $3, $4 }," > "$(BUILTIN_REGISTRY)$(DELIM)$4.bdat"
-	$(Q) echo "int $4(int argc, char *argv[]);" > "$(BUILTIN_REGISTRY)$(DELIM)$4.pdat"
-	$(Q) touch "$(BUILTIN_REGISTRY)$(DELIM).updated"
-endef
-endif
+APPNAME = gps
+PRIORITY = $(CONFIG_EXAMPLES_GPS_PRIORITY)
+STACKSIZE = $(CONFIG_EXAMPLES_GPS_STACKSIZE)
 
-# Tools
+# GPS Example
 
-ifeq ($(DIRLINK),)
-ifeq ($(CONFIG_WINDOWS_NATIVE),y)
-  DIRLINK   = $(TOPDIR)\tools\link.bat
-  DIRUNLINK = $(TOPDIR)\tools\unlink.bat
-else ifeq ($(CONFIG_WINDOWS_MSYS),y)
-  DIRLINK = $(TOPDIR)$(DELIM)tools$(DELIM)copydir.sh
-  DIRUNLINK = $(TOPDIR)$(DELIM)tools$(DELIM)unlink.sh
-else
-  DIRUNLINK = $(TOPDIR)/tools/unlink.sh
-ifeq ($(WINTOOL),y)
-  DIRLINK = $(TOPDIR)/tools/copydir.sh
-else
-  DIRLINK   = $(TOPDIR)/tools/link.sh
-endif
-endif
-endif
+ASRCS =
+CSRCS =
+MAINSRC = gps_main.c
 
-ifeq ($(CONFIG_WINDOWS_NATIVE),y)
-  MKKCONFIG = $(APPDIR)\tools\mkkconfig.bat
-else
-  MKKCONFIG = $(APPDIR)/tools/mkkconfig.sh
-endif
+CONFIG_EXAMPLES_GPS_PROGNAME ?= gps$(EXEEXT)
+PROGNAME = $(CONFIG_EXAMPLES_GPS_PROGNAME)
 
-ifeq ($(WINTOOL),y)
-  INCDIROPT = -w
-endif
-
-# Standard include path
-
-CFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(APPDIR)$(DELIM)include"}
-CXXFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(APPDIR)$(DELIM)include"}
+include $(APPDIR)/Application.mk
 
