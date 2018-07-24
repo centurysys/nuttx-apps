@@ -51,6 +51,7 @@
 #include <errno.h>
 #include <poll.h>
 #include <time.h>
+#include <signal.h>
 #include <debug.h>
 
 #include <netinet/in.h>
@@ -63,6 +64,20 @@
 #include "netutils/pppd.h"
 
 /****************************************************************************
+ * Pre-processor Definitions
+ ****************************************************************************/
+
+#ifndef SIGTERM
+#define SIGTERM 15
+#endif
+
+/****************************************************************************
+ * Private Data
+ ****************************************************************************/
+
+volatile static int sig_received;
+
+/****************************************************************************
  * Extenal Functions
  ****************************************************************************/
 
@@ -73,6 +88,36 @@ extern void ppp_arch_modem_reset(const char *tty);
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
+
+/****************************************************************************
+ * Name: sig_handler
+ ****************************************************************************/
+
+static void sig_handler(int signo, siginfo_t *info, void *ucontext)
+{
+  sig_received = signo;
+}
+
+/****************************************************************************
+ * Name: setup_signal
+ ****************************************************************************/
+
+static void setup_signal(void)
+{
+  struct sigaction sa;
+
+  sig_received = 0;
+
+  memset(&sa, 0, sizeof(struct sigaction));
+
+  sigemptyset(&sa.sa_mask);
+  sa.sa_sigaction = sig_handler;
+
+  if (sigaction(SIGTERM, &sa, NULL) < 0)
+    {
+      syslog(LOG_ERR, "pppd: sigaction() failed.\n");
+    }
+}
 
 /****************************************************************************
  * Name: make_nonblock
@@ -156,6 +201,8 @@ static int open_tty(char *dev)
       return errcode;
     }
 
+  errcode = ioctl(fd, TIOCMBIS, TIOCM_DTR);
+
   //printf("tty fd:%i\n", fd);
 
   return fd;
@@ -202,7 +249,7 @@ static u8_t ppp_check_errors(struct ppp_context_s *ctx)
 
 void ppp_disconnect(struct ppp_context_s *ctx)
 {
-  int ret;
+  int ret, modem;
   struct pppd_settings_s *pppd_settings = ctx->settings;
 
   netlib_ifdown((char*)ctx->ifname);
@@ -211,9 +258,8 @@ void ppp_disconnect(struct ppp_context_s *ctx)
   sleep(1);
   lcp_disconnect(ctx, ++ctx->ppp_id);
   sleep(1);
-  write(ctx->ctl.fd, "+++", 3);
+  write(ctx->ctl.fd, "~+++", 4);
   sleep(2);
-  write(ctx->ctl.fd, "ATE1\r\n", 6);
 
   if (pppd_settings->disconnect_script)
     {
@@ -222,6 +268,10 @@ void ppp_disconnect(struct ppp_context_s *ctx)
         {
           syslog(LOG_ERR, "ppp: disconnect script failed\n");
         }
+
+      modem = TIOCM_DTR;
+      ret = ioctl(ctx->ctl.fd, TIOCMBIC, (unsigned long) &modem);
+      syslog(LOG_INFO, "TIOCMBIC(TIOCM_DTR) -> %d\n", ret);
     }
 
   ctx->ip_len = 0;
@@ -233,11 +283,10 @@ void ppp_disconnect(struct ppp_context_s *ctx)
 
 void ppp_reconnect(struct ppp_context_s *ctx)
 {
-  int ret;
+  int ret, res;
   int retry = PPP_MAX_CONNECT;
+  int modem;
   struct pppd_settings_s *pppd_settings = ctx->settings;
-
-  //printf("* ppp_reconnect\n");
 
   netlib_ifdown((char*)ctx->ifname);
 
@@ -245,9 +294,21 @@ void ppp_reconnect(struct ppp_context_s *ctx)
   sleep(1);
   lcp_disconnect(ctx, ++ctx->ppp_id);
   sleep(1);
-  write(ctx->ctl.fd, "+++", 3);
+
+#if 0
+  modem = TIOCM_DTR;
+
+  ret = ioctl(ctx->ctl.fd, TIOCMBIC, (unsigned long) &modem);
+  syslog(LOG_INFO, "TIOCMBIC(TIOCM_DTR) -> %d\n", ret);
+
   sleep(2);
-  write(ctx->ctl.fd, "ATE1\r\n", 6);
+
+  ret = ioctl(ctx->ctl.fd, TIOCMBIS, (unsigned long) &modem);
+  syslog(LOG_INFO, "TIOCMBIS(TIOCM_DTR) -> %d\n", ret);
+#endif
+
+  write(ctx->ctl.fd, "~+++", 4);
+  sleep(2);
 
   if (pppd_settings->disconnect_script)
     {
@@ -266,6 +327,17 @@ void ppp_reconnect(struct ppp_context_s *ctx)
           if (ret < 0)
             {
               syslog(LOG_ERR, "ppp: connect script failed\n");
+
+              modem = TIOCM_DTR;
+
+              res = ioctl(ctx->ctl.fd, TIOCMBIC, (unsigned long) &modem);
+              syslog(LOG_INFO, "TIOCMBIC(TIOCM_DTR) -> %d\n", res);
+
+              sleep(1);
+
+              res = ioctl(ctx->ctl.fd, TIOCMBIS, (unsigned long) &modem);
+              syslog(LOG_INFO, "TIOCMBIS(TIOCM_DTR) -> %d\n", res);
+
               --retry;
               if (retry == 0)
                 {
@@ -354,6 +426,8 @@ int pppd(struct pppd_settings_s *pppd_settings)
   int ret;
   struct ppp_context_s *ctx;
 
+  setup_signal();
+
   ctx = (struct ppp_context_s*)malloc(sizeof(struct ppp_context_s));
   memset(ctx, 0, sizeof(struct ppp_context_s));
   strcpy((char*)ctx->ifname, "ppp0");
@@ -407,7 +481,7 @@ int pppd(struct pppd_settings_s *pppd_settings)
 
       ppp_poll(ctx);
 
-      if (ppp_check_errors(ctx))
+      if (ppp_check_errors(ctx) || sig_received != 0)
         {
           syslog(LOG_ERR, "pppd: Connection Terminated.\n");
 
@@ -417,6 +491,8 @@ int pppd(struct pppd_settings_s *pppd_settings)
             }
           else
             {
+              //close_tty(ctx->ctl.fd);
+              ppp_disconnect(ctx);
               break;
             }
         }
@@ -438,5 +514,6 @@ int pppd(struct pppd_settings_s *pppd_settings)
         }
     }
 
+  free(ctx);
   return 1;
 }
