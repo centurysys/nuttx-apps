@@ -1,7 +1,7 @@
 ############################################################################
 # apps/import/Makefile
 #
-#   Copyright (C) 2014 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2014, 2018 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -39,25 +39,41 @@
 # Sub-directories from the NuttX export package
 
 SUBDIRS = arch build include libs startup tmp
-FILES   = .config
+FILES   = .config System.map User.map
 
-all: nothing
-.PHONY: nothing context depend clean distclean
+ifneq (,$(wildcard ./symtab.c))
+define MKSYMTAB
+	$(Q) $(MAKE) -f Makefile.symtab $1 TOPDIR="$(TOPDIR)" APPDIR="$(APPDIR)"
+endef
+else
+define MKSYMTAB
+endef
+endif
+
+all: symtab
+.PHONY: symtab context depend clean distclean
 .PRECIOUS: ../libapps$(LIBEXT)
 
-nothing:
+symtab:
+	$(call MKSYMTAB, all)
 
 install:
+	$(call MKSYMTAB, install)
 
 context:
+	$(call MKSYMTAB, context)
 
 depend:
+	$(call MKSYMTAB, depend)
 
 clean:
+	$(call MKSYMTAB, clean)
 
 distclean:
 	$(foreach SDIR, $(SUBDIRS), $(call DELDIR, $(SDIR)))
 	$(foreach FILE, $(FILES), $(call DELFILE, $(FILE)))
+	$(call MKSYMTAB, distclean)
+	$(call DELFILE, symtab.c)
 
 # Library path
 

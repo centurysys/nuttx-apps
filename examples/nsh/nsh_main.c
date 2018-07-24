@@ -50,7 +50,7 @@
 #  include <nuttx/binfmt/builtin.h>
 #endif
 
-#if defined(CONFIG_LIBC_EXECFUNCS) && defined(CONFIG_EXECFUNCS_SYMTAB)
+#if defined(CONFIG_LIBC_EXECFUNCS)
 #  include <nuttx/binfmt/symtab.h>
 #endif
 
@@ -69,18 +69,49 @@
  */
 
 #define HAVE_DUMMY_SYMTAB 1
-#if !defined(CONFIG_LIBC_EXECFUNCS) || !defined(CONFIG_EXECFUNCS_SYMTAB)
+
+/* Symbol table is not needed if loadable binary modules are not supported */
+
+#if !defined(CONFIG_LIBC_EXECFUNCS)
 #  undef HAVE_DUMMY_SYMTAB
+#  undef CONFIG_EXAMPLES_NSH_SYMTAB
 #endif
 
-/* boardctl() support is also required  for this "feature" */
+/* boardctl() support is also required  for application-space symbol table
+ * support.
+ */
 
 #if !defined(CONFIG_LIB_BOARDCTL) || !defined(CONFIG_BOARDCTL_APP_SYMTAB)
 #  undef HAVE_DUMMY_SYMTAB
+#  undef CONFIG_EXAMPLES_NSH_SYMTAB
 #endif
 
-#if defined(CONFIG_FS_BINFS) && !defined(HAVE_DUMMY_SYMTAB)
-#  warning "Prequisites not met for BINFS dummy symbol table"
+/* If a symbol table is provided by board-specific logic, then we do not
+ * need to do anything from the application space.
+ */
+
+#ifdef CONFIG_EXECFUNCS_HAVE_SYMTAB
+#  undef HAVE_DUMMY_SYMTAB
+#  undef CONFIG_EXAMPLES_NSH_SYMTAB
+#endif
+
+/* If we are going to use the application-space symbol table, then suppress
+ * the dummy symbol table.
+ */
+
+#if defined(CONFIG_EXAMPLES_NSH_SYMTAB)
+#  undef HAVE_DUMMY_SYMTAB
+#endif
+
+/* Check if we have met the BINFS requirement either via a board-provided
+ * symbol table, an application provided symbol table, or a dummy symbol
+ * table
+ */
+
+#if defined(CONFIG_FS_BINFS) && !defined(HAVE_DUMMY_SYMTAB) && \
+   !defined(CONFIG_EXAMPLES_NSH_SYMTAB) && \
+   !defined(CONFIG_EXECFUNCS_HAVE_SYMTAB)
+#  warning "Prequisites not met for BINFS symbol table"
 #endif
 
 /* C++ initialization requires CXX initializer support */
@@ -109,7 +140,7 @@
  * Private Data
  ****************************************************************************/
 
-#ifdef HAVE_DUMMY_SYMTAB
+#if defined(HAVE_DUMMY_SYMTAB)
 /* If posix_spawn() is enabled as required for CONFIG_NSH_FILE_APPS, then
  * a symbol table is needed by the internals of posix_spawn().  The symbol
  * table is needed to support ELF and NXFLAT binaries to dynamically link to
@@ -120,7 +151,13 @@
  * you want to support ELF or NXFLAT binaries!
  */
 
-static const struct symtab_s CONFIG_EXECFUNCS_SYMTAB[1];  /* Wasted memory! */
+static const struct symtab_s g_dummy_symtab[1];  /* Wasted memory! */
+
+#elif defined(CONFIG_EXAMPLES_NSH_SYMTAB)
+
+extern const struct symtab_s CONFIG_EXAMPLES_NSH_SYMTAB_ARRAYNAME[];
+extern const int CONFIG_EXAMPLES_NSH_SYMTAB_COUNTNAME;
+
 #endif
 
 /****************************************************************************
@@ -137,7 +174,7 @@ int main(int argc, FAR char *argv[])
 int nsh_main(int argc, char *argv[])
 #endif
 {
-#ifdef HAVE_DUMMY_SYMTAB
+#if defined(HAVE_DUMMY_SYMTAB) || defined (CONFIG_EXAMPLES_NSH_SYMTAB)
   struct boardioc_symtab_s symdesc;
 #endif
   int exitval = 0;
@@ -149,11 +186,18 @@ int nsh_main(int argc, char *argv[])
   up_cxxinitialize();
 #endif
 
-#ifdef HAVE_DUMMY_SYMTAB
+#if defined(HAVE_DUMMY_SYMTAB) || defined (CONFIG_EXAMPLES_NSH_SYMTAB)
+#if defined(HAVE_DUMMY_SYMTAB)
   /* Make sure that we are using our symbol table */
 
   symdesc.symtab   = (FAR struct symtab_s *)g_dummy_symtab; /* Discard 'const' */
   symdesc.nsymbols = 0;
+
+#else  /* if defined(CONFIG_EXAMPLES_NSH_SYMTAB) */
+  symdesc.symtab   = (FAR struct symtab_s *)CONFIG_EXAMPLES_NSH_SYMTAB_ARRAYNAME; /* Discard 'const' */
+  symdesc.nsymbols = CONFIG_EXAMPLES_NSH_SYMTAB_COUNTNAME;
+#endif
+
   (void)boardctl(BOARDIOC_APP_SYMTAB, (uintptr_t)&symdesc);
 #endif
 
