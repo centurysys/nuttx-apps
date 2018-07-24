@@ -51,15 +51,22 @@
  ****************************************************************************/
 
 static FAR char connect_script[] =
-  "ECHO ON "
-  "TIMEOUT 30 "
-  "\"\" ATE1 "
-  "OK AT+CGDCONT=1,\\\"IP\\\",\\\"internet\\\" "
+  "ABORT BUSY "
+  "ABORT \"NO CARRIER\" "
+  "ABORT ERROR "
+  "TIMEOUT 10 "
+  "\"\" ATE0 "
+  "OK AT+COPS=2 "
+  "OK AT+CGDCONT=1,\\\"IP\\\",\\\"dream.jp\\\" "
+  "OK AT+UAUTHREQ=1,1,\\\"user@dream.jp\\\",\\\"dti\\\" "
+  "OK AT+COPS? "
   "OK ATD*99***1# "
   "CONNECT \\c";
 
 static FAR char disconnect_script[] =
-  "\"\" ATZ "
+  "\"\" ATE0 "
+  "OK AT+COPS? "
+  "OK AT+CGACT? "
   "OK \\c";
 
 /****************************************************************************
@@ -76,11 +83,12 @@ int pppd_main(int argc, char *argv[])
   {
     .disconnect_script = disconnect_script,
     .connect_script = connect_script,
-    .ttyname = "/dev/ttyS1",
+    .ttyname = "/dev/ttyS3",
 #ifdef CONFIG_NETUTILS_PPPD_PAP
-    .pap_username = "user",
-    .pap_password = "pass",
+    .pap_username = "user@dream.jp",
+    .pap_password = "dti",
 #endif
+    .persist = 0,
   };
 
   return pppd(&pppd_settings);
