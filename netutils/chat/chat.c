@@ -663,7 +663,11 @@ static int chat_line_run(FAR struct chat* priv,
               numarg = 0;
             }
 
-          sleep(numarg);
+          if (numarg > 0)
+            {
+              info("sleep %d second(s).\n", numarg);
+              sleep(numarg);
+            }
           break;
 
         case CHAT_COMMAND_SAY:
