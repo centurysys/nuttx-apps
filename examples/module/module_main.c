@@ -1,7 +1,7 @@
 /****************************************************************************
  * examples/module/module_main.c
  *
- *   Copyright (C) 2015, 2017 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2015, 2017-2018 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,9 +40,8 @@
 #include <nuttx/config.h>
 #include <nuttx/compiler.h>
 
-#ifdef CONFIG_EXAMPLES_MODULE_BUILTINFS
-#  include <sys/mount.h>
-#endif
+#include <sys/mount.h>
+#include <sys/stat.h>
 
 #include <sys/boardctl.h>
 #include <stdio.h>
@@ -57,9 +56,11 @@
 #include <nuttx/module.h>
 #include <nuttx/binfmt/symtab.h>
 
-#ifdef CONFIG_EXAMPLES_MODULE_BUILTINFS
+#if  defined(CONFIG_EXAMPLES_MODULE_ROMFS)
 #  include <nuttx/drivers/ramdisk.h>
 #  include "drivers/romfs.h"
+#elif defined(CONFIG_EXAMPLES_MODULE_CROMFS)
+#  include "drivers/cromfs.h"
 #endif
 
 /****************************************************************************
@@ -78,30 +79,49 @@
 #  error "You must select CONFIG_MODULE in your configuration file"
 #endif
 
-#ifdef CONFIG_EXAMPLES_MODULE_BUILTINFS
-#  ifndef CONFIG_FS_ROMFS
-#    error "You must select CONFIG_FS_ROMFS in your configuration file"
+#if defined(CONFIG_EXAMPLES_MODULE_BUILTINFS)
+#  if !defined(CONFIG_FS_ROMFS) && !defined(CONFIG_FS_CROMFS)
+#    error "You must select CONFIG_FS_ROMFS or CONFIG_FS_CROMFS in your configuration file"
 #  endif
 
 #  ifdef CONFIG_DISABLE_MOUNTPOINT
 #    error "You must not disable mountpoints via CONFIG_DISABLE_MOUNTPOINT in your configuration file"
 #  endif
 
-  /* Describe the ROMFS file system */
+#  if defined(CONFIG_EXAMPLES_MODULE_ROMFS)
+/* Describe the ROMFS file system */
 
-#  define SECTORSIZE   64
-#  define NSECTORS(b)  (((b)+SECTORSIZE-1)/SECTORSIZE)
-#  define BINDIR       "/mnt/romfs"
+#    define SECTORSIZE   64
+#    define NSECTORS(b)  (((b)+SECTORSIZE-1)/SECTORSIZE)
+#    define MOUNTPT      "/mnt/romfs"
 
-#  ifndef CONFIG_EXAMPLES_MODULE_DEVMINOR
-#    define CONFIG_EXAMPLES_MODULE_DEVMINOR 0
+#    ifndef CONFIG_EXAMPLES_MODULE_DEVMINOR
+#      define CONFIG_EXAMPLES_MODULE_DEVMINOR 0
+#    endif
+
+#    ifndef CONFIG_EXAMPLES_MODULE_DEVPATH
+#      define CONFIG_EXAMPLES_MODULE_DEVPATH "/dev/ram0"
+#    endif
+
+#  elif defined(CONFIG_EXAMPLES_MODULE_CROMFS)
+/* Describe the CROMFS file system */
+
+#    define MOUNTPT      "/mnt/cromfs"
 #  endif
 
-#  ifndef CONFIG_EXAMPLES_MODULE_DEVPATH
-#    define CONFIG_EXAMPLES_MODULE_DEVPATH "/dev/ram0"
-#  endif
+#  define BINDIR         MOUNTPT
+
+#elif defined(CONFIG_EXAMPLES_MODULE_FSMOUNT)
+/* Describe how to auto-mount the external file system */
+
+#  define MOUNTPT        "/mnt/" CONFIG_EXAMPLES_MODULE_FSTYPE
+#  define BINDIR         MOUNTPT
+
 #else
-#  define BINDIR       CONFIG_EXAMPLES_MODULE_BINDIR
+/* Describe how to use the pre-mounted external file system */
+
+#  define BINDIR         CONFIG_EXAMPLES_MODULE_BINDIR
+
 #endif /* CONFIG_EXAMPLES_MODULE_BUILTINFS */
 
 /****************************************************************************
@@ -132,6 +152,9 @@ int module_main(int argc, char *argv[])
 #endif
 {
   struct boardioc_symtab_s symdesc;
+#ifdef CONFIG_EXAMPLES_MODULE_FSREMOVEABLE
+  struct stat buf;
+#endif
   FAR void *handle;
   char buffer[128];
   ssize_t nbytes;
@@ -150,10 +173,20 @@ int module_main(int argc, char *argv[])
     }
 
 #ifdef CONFIG_EXAMPLES_MODULE_BUILTINFS
+#if defined(CONFIG_EXAMPLES_MODULE_ROMFS)
   /* Create a ROM disk for the ROMFS filesystem */
 
   printf("main: Registering romdisk at /dev/ram%d\n",
          CONFIG_EXAMPLES_MODULE_DEVMINOR);
+
+#if defined(CONFIG_BUILD_FLAT)
+  /* This example violates the portable POSIX interface by calling the OS
+   * internal function romdisk_register() (aka ramdisk_register()).  We can
+   * squeak by in with this violation in the FLAT build mode, but not in
+   * other build modes.  In other build modes, the following logic must be
+   * performed in the OS board initialization logic (where it really belongs
+   * anyway).
+   */
 
   ret = romdisk_register(CONFIG_EXAMPLES_MODULE_DEVMINOR, (FAR uint8_t *)romfs_img,
                          NSECTORS(romfs_img_len), SECTORSIZE);
@@ -169,19 +202,85 @@ int module_main(int argc, char *argv[])
 
       printf("main: ROM disk already registered\n");
     }
+#endif
 
   /* Mount the file system */
 
   printf("main: Mounting ROMFS filesystem at target=%s with source=%s\n",
-         BINDIR, CONFIG_EXAMPLES_MODULE_DEVPATH);
+         MOUNTPT, CONFIG_EXAMPLES_MODULE_DEVPATH);
 
-  ret = mount(CONFIG_EXAMPLES_MODULE_DEVPATH, BINDIR, "romfs", MS_RDONLY, NULL);
+  ret = mount(CONFIG_EXAMPLES_MODULE_DEVPATH, MOUNTPT, "romfs",
+              MS_RDONLY, NULL);
   if (ret < 0)
     {
       fprintf(stderr, "ERROR: mount(%s,%s,romfs) failed: %s\n",
-              CONFIG_EXAMPLES_MODULE_DEVPATH, BINDIR, errno);
+              CONFIG_EXAMPLES_MODULE_DEVPATH, MOUNTPT, errno);
       exit(EXIT_FAILURE);
     }
+
+#elif defined(CONFIG_EXAMPLES_MODULE_CROMFS)
+  /* Mount the CROMFS file system */
+
+  printf("Mounting CROMFS filesystem at target=%s\n", MOUNTPT);
+
+  ret = mount(NULL, MOUNTPT, "cromfs", MS_RDONLY, NULL);
+  if (ret < 0)
+    {
+      errmsg("ERROR: mount(%s, cromfs) failed: %d\n", MOUNTPT, errno);
+    }
+
+#endif /* CONFIG_EXAMPLES_MODULE_ROMFS */
+#elif defined(CONFIG_EXAMPLES_MODULE_EXTERN)
+  /* An external file system is being used */
+
+#if defined(CONFIG_EXAMPLES_MODULE_FSMOUNT)
+#if defined(CONFIG_EXAMPLES_MODULE_FSREMOVEABLE)
+  /* The file system is removable, wait until the block driver is available */
+
+  do
+    {
+      ret = stat(CONFIG_EXAMPLES_MODULE_DEVPATH, &buf);
+      if (ret < 0)
+        {
+          int errcode = errno;
+          if (errcode == ENOENT)
+            {
+              printf("%s does not exist.  Waiting...\n",
+                     CONFIG_EXAMPLES_MODULE_DEVPATH);
+              sleep(1);
+            }
+          else
+            {
+              printf("ERROR: stat(%s) failed: %d  Aborting...\n",
+                     CONFIG_EXAMPLES_MODULE_DEVPATH, errcode);
+              exit(EXIT_FAILURE);
+            }
+        }
+      else if (!S_ISBLK(buf.st_mode))
+        {
+          printf("ERROR: stat(%s) exists but is not a block driver: %04x\n",
+                 CONFIG_EXAMPLES_MODULE_DEVPATH, buf.st_mode);
+          exit(EXIT_FAILURE);
+        }
+    }
+  while (ret < 0);
+#endif  /* CONFIG_EXAMPLES_MODULE_FSREMOVEABLE */
+
+  /* Mount the external file system */
+
+  message("Mounting %s filesystem at target=%s\n",
+          CONFIG_EXAMPLES_MODULE_FSTYPE, MOUNTPT);
+
+  ret = mount(CONFIG_EXAMPLES_MODULE_DEVPATH, MOUNTPT,
+              CONFIG_EXAMPLES_MODULE_FSTYPE, MS_RDONLY, NULL);
+  if (ret < 0)
+    {
+      errmsg("ERROR: mount(%s, %s, %s) failed: %d\n",\
+             CONFIG_EXAMPLES_MODULE_DEVPATH, CONFIG_EXAMPLES_MODULE_FSTYPE,
+             MOUNTPT, errno);
+    }
+
+#endif /* CONFIG_EXAMPLES_MODULE_FSMOUNT */
 #endif /* CONFIG_EXAMPLES_MODULE_BUILTINFS */
 
   /* Install the character driver  */
@@ -190,7 +289,8 @@ int module_main(int argc, char *argv[])
   if (handle == NULL)
     {
       int errcode = errno;
-      fprintf(stderr, "ERROR: insmod failed: %d\n", errcode);
+      fprintf(stderr, "ERROR: insmod(%s/chardev, chardev) failed: %d\n",
+              BINDIR, errcode);
       exit(EXIT_FAILURE);
     }
 
