@@ -134,8 +134,10 @@ static const char g_write_string[] = "Hi there, installed driver\n";
  * Symbols from Auto-Generated Code
  ****************************************************************************/
 
+#ifdef CONFIG_BUILD_FLAT
 extern const struct symtab_s g_mod_exports[];
 extern const int g_mod_nexports;
+#endif
 
 /****************************************************************************
  * Public Functions
@@ -151,8 +153,11 @@ int main(int argc, FAR char *argv[])
 int module_main(int argc, char *argv[])
 #endif
 {
+#ifdef CONFIG_BUILD_FLAT
   struct boardioc_symtab_s symdesc;
-#ifdef CONFIG_EXAMPLES_MODULE_FSREMOVEABLE
+#endif
+#if defined(CONFIG_EXAMPLES_MODULE_FSMOUNT) && \
+    defined(CONFIG_EXAMPLES_MODULE_FSREMOVEABLE)
   struct stat buf;
 #endif
   FAR void *handle;
@@ -161,6 +166,7 @@ int module_main(int argc, char *argv[])
   int ret;
   int fd;
 
+#ifdef CONFIG_BUILD_FLAT
   /* Set the OS symbol table indirectly through the boardctl() */
 
   symdesc.symtab   = (FAR struct symtab_s *)g_mod_exports;
@@ -171,6 +177,7 @@ int module_main(int argc, char *argv[])
       fprintf(stderr, "ERROR: boardctl(BOARDIOC_OS_SYMTAB) failed: %d\n", ret);
       exit(EXIT_FAILURE);
     }
+#endif
 
 #ifdef CONFIG_EXAMPLES_MODULE_BUILTINFS
 #if defined(CONFIG_EXAMPLES_MODULE_ROMFS)
@@ -230,7 +237,7 @@ int module_main(int argc, char *argv[])
     }
 
 #endif /* CONFIG_EXAMPLES_MODULE_ROMFS */
-#elif defined(CONFIG_EXAMPLES_MODULE_EXTERN)
+#else /*  CONFIG_EXAMPLES_MODULE_BUILTINFS */
   /* An external file system is being used */
 
 #if defined(CONFIG_EXAMPLES_MODULE_FSMOUNT)
@@ -268,14 +275,14 @@ int module_main(int argc, char *argv[])
 
   /* Mount the external file system */
 
-  message("Mounting %s filesystem at target=%s\n",
-          CONFIG_EXAMPLES_MODULE_FSTYPE, MOUNTPT);
+  printf("Mounting %s filesystem at target=%s\n",
+         CONFIG_EXAMPLES_MODULE_FSTYPE, MOUNTPT);
 
   ret = mount(CONFIG_EXAMPLES_MODULE_DEVPATH, MOUNTPT,
               CONFIG_EXAMPLES_MODULE_FSTYPE, MS_RDONLY, NULL);
   if (ret < 0)
     {
-      errmsg("ERROR: mount(%s, %s, %s) failed: %d\n",\
+      printf("ERROR: mount(%s, %s, %s) failed: %d\n",\
              CONFIG_EXAMPLES_MODULE_DEVPATH, CONFIG_EXAMPLES_MODULE_FSTYPE,
              MOUNTPT, errno);
     }

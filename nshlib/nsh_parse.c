@@ -468,7 +468,8 @@ static int nsh_saveresult(FAR struct nsh_vtbl_s *vtbl, bool result)
   if (np->np_iestate[np->np_iendx].ie_state == NSH_ITEF_IF)
     {
       np->np_fail = false;
-      np->np_iestate[np->np_iendx].ie_ifcond = result;
+      np->np_iestate[np->np_iendx].ie_ifcond =
+        np->np_iestate[np->np_iendx].ie_inverted ^ result;
       return OK;
     }
   else
@@ -1771,7 +1772,7 @@ static int nsh_loop(FAR struct nsh_vtbl_s *vtbl, FAR char **ppcmd,
   bool enable;
   int ret;
 
-  if (cmd)
+  if (cmd != NULL)
     {
       /* Check if the command is preceded by "while" or "until" */
 
@@ -1785,9 +1786,9 @@ static int nsh_loop(FAR struct nsh_vtbl_s *vtbl, FAR char **ppcmd,
           /* Get the cmd following the "while" or "until" */
 
           *ppcmd = nsh_argument(vtbl, saveptr, memlist);
-          if (!*ppcmd)
+          if (*ppcmd == NULL || **ppcmd == '\0')
             {
-              nsh_output(vtbl, g_fmtarginvalid, "if");
+              nsh_output(vtbl, g_fmtarginvalid, cmd);
               goto errout;
             }
 
@@ -1957,8 +1958,9 @@ static int nsh_itef(FAR struct nsh_vtbl_s *vtbl, FAR char **ppcmd,
   FAR struct nsh_parser_s *np = &vtbl->np;
   FAR char *cmd = *ppcmd;
   bool disabled;
+  bool inverted = false;
 
-  if (cmd)
+  if (cmd != NULL)
     {
       /* Check if the command is preceded by "if" */
 
@@ -1967,10 +1969,26 @@ static int nsh_itef(FAR struct nsh_vtbl_s *vtbl, FAR char **ppcmd,
           /* Get the cmd following the if */
 
           *ppcmd = nsh_argument(vtbl, saveptr, memlist);
-          if (!*ppcmd)
+          if (*ppcmd == NULL || **ppcmd == '\0')
             {
               nsh_output(vtbl, g_fmtarginvalid, "if");
               goto errout;
+            }
+
+          /* Check for inverted logic */
+
+          if (strcmp(*ppcmd, "!") == 0)
+            {
+              inverted = true;
+
+              /* Get the next cmd */
+
+              *ppcmd = nsh_argument(vtbl, saveptr, memlist);
+              if (*ppcmd == NULL || **ppcmd == '\0')
+                {
+                  nsh_output(vtbl, g_fmtarginvalid, "if");
+                  goto errout;
+                }
             }
 
           /* Verify that "if" is valid in this context */
@@ -1996,6 +2014,7 @@ static int nsh_itef(FAR struct nsh_vtbl_s *vtbl, FAR char **ppcmd,
           np->np_iestate[np->np_iendx].ie_state    = NSH_ITEF_IF;
           np->np_iestate[np->np_iendx].ie_disabled = disabled;
           np->np_iestate[np->np_iendx].ie_ifcond   = false;
+          np->np_iestate[np->np_iendx].ie_inverted = inverted;
         }
 
       /* Check if the token is "then" */
@@ -2085,6 +2104,7 @@ errout:
   np->np_iestate[0].ie_state    = NSH_ITEF_NORMAL;
   np->np_iestate[0].ie_disabled = false;
   np->np_iestate[0].ie_ifcond   = false;
+  np->np_iestate[0].ie_inverted = false;
   return ERROR;
 }
 #endif
