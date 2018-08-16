@@ -69,8 +69,10 @@ static int test_led_switch(void)
 {
   int state;
 
-  boardctl(BIOC_GET_LEDSW, (uintptr_t) &state);
+  boardctl(BIOC_GET_INITSW, (uintptr_t) &state);
+  printf(" - INIT Switch is %s.\n", (state == 0 ? "ON" : "OFF"));
 
+  boardctl(BIOC_GET_LEDSW, (uintptr_t) &state);
   printf(" - LED OFF Switch is %s.\n", (state == 0 ? "ON" : "OFF"));
 
   return state;
