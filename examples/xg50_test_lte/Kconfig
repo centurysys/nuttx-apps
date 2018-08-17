@@ -1,0 +1,10 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config EXAMPLES_XG50_TEST_LTE
+	bool "XG-50 shipment test (u-blox LTE module)"
+	default n
+	---help---
+		Enable XG-50 shipment test (u-blox LTE module)
