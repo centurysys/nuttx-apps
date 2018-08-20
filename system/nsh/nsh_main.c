@@ -1,5 +1,5 @@
 /****************************************************************************
- * examples/nsh/nsh_main.c
+ * system/nsh/nsh_main.c
  *
  *   Copyright (C) 2007-2013, 2017-2018 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -74,7 +74,7 @@
 
 #if !defined(CONFIG_LIBC_EXECFUNCS)
 #  undef HAVE_DUMMY_SYMTAB
-#  undef CONFIG_EXAMPLES_NSH_SYMTAB
+#  undef CONFIG_SYSTEM_NSH_SYMTAB
 #endif
 
 /* boardctl() support is also required  for application-space symbol table
@@ -83,7 +83,7 @@
 
 #if !defined(CONFIG_LIB_BOARDCTL) || !defined(CONFIG_BOARDCTL_APP_SYMTAB)
 #  undef HAVE_DUMMY_SYMTAB
-#  undef CONFIG_EXAMPLES_NSH_SYMTAB
+#  undef CONFIG_SYSTEM_NSH_SYMTAB
 #endif
 
 /* If a symbol table is provided by board-specific logic, then we do not
@@ -92,15 +92,27 @@
 
 #ifdef CONFIG_EXECFUNCS_HAVE_SYMTAB
 #  undef HAVE_DUMMY_SYMTAB
-#  undef CONFIG_EXAMPLES_NSH_SYMTAB
+#  undef CONFIG_SYSTEM_NSH_SYMTAB
 #endif
 
 /* If we are going to use the application-space symbol table, then suppress
  * the dummy symbol table.
  */
 
-#if defined(CONFIG_EXAMPLES_NSH_SYMTAB)
+#if defined(CONFIG_SYSTEM_NSH_SYMTAB)
 #  undef HAVE_DUMMY_SYMTAB
+#endif
+
+/* Check if we need to build in support for the system() and/or popen()
+ * functions.  In the KERNEL build mode (only), NSH is build as a ELF
+ * program and must be capable of executing a single command provided
+ * on the command line.
+ */
+
+#undef HAVE_NSH_COMMAND
+#if (defined(CONFIG_SYSTEM_SYSTEM) || defined(CONFIG_SYSTEM_POPEN)) && \
+     defined(CONFIG_BUILD_KERNEL)
+#  define HAVE_NSH_COMMAND 1
 #endif
 
 /* Check if we have met the BINFS requirement either via a board-provided
@@ -109,7 +121,7 @@
  */
 
 #if defined(CONFIG_FS_BINFS) && !defined(HAVE_DUMMY_SYMTAB) && \
-   !defined(CONFIG_EXAMPLES_NSH_SYMTAB) && \
+   !defined(CONFIG_SYSTEM_NSH_SYMTAB) && \
    !defined(CONFIG_EXECFUNCS_HAVE_SYMTAB)
 #  warning "Prequisites not met for BINFS symbol table"
 #endif
@@ -117,7 +129,7 @@
 /* C++ initialization requires CXX initializer support */
 
 #if !defined(CONFIG_HAVE_CXX) || !defined(CONFIG_HAVE_CXXINITIALIZE)
-#  undef CONFIG_EXAMPLES_NSH_CXXINITIALIZE
+#  undef CONFIG_SYSTEM_NSH_CXXINITIALIZE
 #endif
 
 /* The NSH telnet console requires networking support (and TCP/IP) */
@@ -153,49 +165,51 @@
 
 static const struct symtab_s g_dummy_symtab[1];  /* Wasted memory! */
 
-#elif defined(CONFIG_EXAMPLES_NSH_SYMTAB)
+#elif defined(CONFIG_SYSTEM_NSH_SYMTAB)
 
-extern const struct symtab_s CONFIG_EXAMPLES_NSH_SYMTAB_ARRAYNAME[];
-extern const int CONFIG_EXAMPLES_NSH_SYMTAB_COUNTNAME;
+extern const struct symtab_s CONFIG_SYSTEM_NSH_SYMTAB_ARRAYNAME[];
+extern const int CONFIG_SYSTEM_NSH_SYMTAB_COUNTNAME;
 
 #endif
 
 /****************************************************************************
- * Public Functions
+ * Private Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Name: nsh_main
+ * Name: nsh_task
+ *
+ * Description:
+ *   This is the main logic for the case of the NSH task.  It will perform
+ *   one-time NSH initialization and start an interactive session on the
+ *   current console device.
+ *
  ****************************************************************************/
 
-#ifdef CONFIG_BUILD_KERNEL
-int main(int argc, FAR char *argv[])
-#else
-int nsh_main(int argc, char *argv[])
-#endif
+static int nsh_task(void)
 {
-#if defined(HAVE_DUMMY_SYMTAB) || defined (CONFIG_EXAMPLES_NSH_SYMTAB)
+#if defined(HAVE_DUMMY_SYMTAB) || defined (CONFIG_SYSTEM_NSH_SYMTAB)
   struct boardioc_symtab_s symdesc;
 #endif
   int exitval = 0;
   int ret;
 
-#if defined(CONFIG_EXAMPLES_NSH_CXXINITIALIZE)
+#if defined(CONFIG_SYSTEM_NSH_CXXINITIALIZE)
   /* Call all C++ static constructors */
 
   up_cxxinitialize();
 #endif
 
-#if defined(HAVE_DUMMY_SYMTAB) || defined (CONFIG_EXAMPLES_NSH_SYMTAB)
+#if defined(HAVE_DUMMY_SYMTAB) || defined (CONFIG_SYSTEM_NSH_SYMTAB)
 #if defined(HAVE_DUMMY_SYMTAB)
   /* Make sure that we are using our symbol table */
 
   symdesc.symtab   = (FAR struct symtab_s *)g_dummy_symtab; /* Discard 'const' */
   symdesc.nsymbols = 0;
 
-#else  /* if defined(CONFIG_EXAMPLES_NSH_SYMTAB) */
-  symdesc.symtab   = (FAR struct symtab_s *)CONFIG_EXAMPLES_NSH_SYMTAB_ARRAYNAME; /* Discard 'const' */
-  symdesc.nsymbols = CONFIG_EXAMPLES_NSH_SYMTAB_COUNTNAME;
+#else  /* if defined(CONFIG_SYSTEM_NSH_SYMTAB) */
+  symdesc.symtab   = (FAR struct symtab_s *)CONFIG_SYSTEM_NSH_SYMTAB_ARRAYNAME; /* Discard 'const' */
+  symdesc.nsymbols = CONFIG_SYSTEM_NSH_SYMTAB_COUNTNAME;
 #endif
 
   (void)boardctl(BOARDIOC_APP_SYMTAB, (uintptr_t)&symdesc);
@@ -255,4 +269,42 @@ int nsh_main(int argc, char *argv[])
 #endif
 
   return exitval;
+}
+
+/****************************************************************************
+ * Public Functions
+ ****************************************************************************/
+
+/****************************************************************************
+ * Name: nsh_main
+ ****************************************************************************/
+
+#ifdef CONFIG_BUILD_KERNEL
+int main(int argc, FAR char *argv[])
+#else
+int nsh_main(int argc, char *argv[])
+#endif
+{
+  /* There are two modes that NSH can be executed in:
+   *
+   * 1) As a normal, interactive shell.  In this case, no arguments are
+   *    expected on the command line.  OR
+   * 2) As a single command processor.  In this case, the single command is
+   *    is provided in argv[1].
+   *
+   * NOTE:  The latter mode is only available if CONFIG_BUILD_KERNEL=y.  In
+   * that cause, this main() function will be build as a process.  The process
+   * will be started with a command by the implementations of the system() and
+   * popen() interfaces.
+   */
+
+#ifdef HAVE_NSH_COMMAND
+  if (argc > 1)
+    {
+      return nsh_system(argc, argv);
+    }
+#endif
+    {
+      return nsh_task();
+    }
 }

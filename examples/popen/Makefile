@@ -1,8 +1,7 @@
 ############################################################################
-# apps/examples/nsh/Make.defs
-# Adds selected applications to apps/ build
+# apps/examples/popen/Makefile
 #
-#   Copyright (C) 2015 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2018 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -34,6 +33,24 @@
 #
 ############################################################################
 
-ifeq ($(CONFIG_EXAMPLES_NSH),y)
-CONFIGURED_APPS += examples/nsh
-endif
+-include $(TOPDIR)/Make.defs
+
+# popen() built-in application info
+
+CONFIG_EXAMPLES_POPEN_PRIORITY ?= SCHED_PRIORITY_DEFAULT
+CONFIG_EXAMPLES_POPEN_STACKSIZE ?= 2048
+
+APPNAME = popen
+PRIORITY = $(CONFIG_EXAMPLES_POPEN_PRIORITY)
+STACKSIZE = $(CONFIG_EXAMPLES_POPEN_STACKSIZE)
+
+# popen() Example
+
+ASRCS =
+CSRCS =
+MAINSRC = popen_main.c
+
+CONFIG_EXAMPLES_POPEN_PROGNAME ?= popen$(EXEEXT)
+PROGNAME = $(CONFIG_EXAMPLES_POPEN_PROGNAME)
+
+include $(APPDIR)/Application.mk
