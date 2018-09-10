@@ -4,7 +4,7 @@
 #
 
 config EXAMPLES_STAT
-	bool "Test of stat(), fstat(), and statfs()"
+	tristate "Test of stat(), fstat(), and statfs()"
 	default n
 	---help---
 		Enable the test of stat(), fstat(), and statfs().
@@ -14,7 +14,7 @@ if EXAMPLES_STAT
 config EXAMPLES_STAT_PROGNAME
 	string "Program name"
 	default "stat"
-	depends on BUILD_KERNEL
+	depends on BUILD_LOADABLE
 	---help---
 		This is the name of the program that will be use when the NSH ELF
 		program is installed.

@@ -72,9 +72,9 @@
  *
  ****************************************************************************/
 
-int system(FAR char *cmd)
+int system(FAR const char *cmd)
 {
-  FAR char *argv[2];
+  FAR const char *argv[2];
   struct sched_param param;
   posix_spawnattr_t attr;
   pid_t pid;
@@ -144,7 +144,7 @@ int system(FAR char *cmd)
   argv[0] = cmd;
   argv[1] = NULL;
 
-#ifdef CONFIG_BUILD_KERNEL
+#ifdef CONFIG_BUILD_LOADABLE
   errcode = posix_spawn(&pid, CONFIG_SYSTEM_OPEN_SHPATH,  NULL, &attr,
                         argv, (FAR char * const *)NULL);
 #else

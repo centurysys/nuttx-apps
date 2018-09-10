@@ -46,10 +46,6 @@
 #include <sched.h>
 #include <errno.h>
 
-#if defined(CONFIG_FS_BINFS) && (CONFIG_BUILTIN)
-#  include <nuttx/binfmt/builtin.h>
-#endif
-
 #if defined(CONFIG_LIBC_EXECFUNCS)
 #  include <nuttx/binfmt/symtab.h>
 #endif
@@ -111,7 +107,7 @@
 
 #undef HAVE_NSH_COMMAND
 #if (defined(CONFIG_SYSTEM_SYSTEM) || defined(CONFIG_SYSTEM_POPEN)) && \
-     defined(CONFIG_BUILD_KERNEL)
+     defined(CONFIG_BUILD_LOADABLE)
 #  define HAVE_NSH_COMMAND 1
 #endif
 
@@ -215,17 +211,6 @@ static int nsh_task(void)
   (void)boardctl(BOARDIOC_APP_SYMTAB, (uintptr_t)&symdesc);
 #endif
 
-#if defined(CONFIG_FS_BINFS) && (CONFIG_BUILTIN)
-  /* Register the BINFS file system */
-
-  ret = builtin_initialize();
-  if (ret < 0)
-    {
-     fprintf(stderr, "ERROR: builtin_initialize failed: %d\n", ret);
-     exitval = 1;
-   }
-#endif
-
   /* Initialize the NSH library */
 
   nsh_initialize();
@@ -279,7 +264,7 @@ static int nsh_task(void)
  * Name: nsh_main
  ****************************************************************************/
 
-#ifdef CONFIG_BUILD_KERNEL
+#ifdef BUILD_MODULE
 int main(int argc, FAR char *argv[])
 #else
 int nsh_main(int argc, char *argv[])
@@ -292,7 +277,7 @@ int nsh_main(int argc, char *argv[])
    * 2) As a single command processor.  In this case, the single command is
    *    is provided in argv[1].
    *
-   * NOTE:  The latter mode is only available if CONFIG_BUILD_KERNEL=y.  In
+   * NOTE:  The latter mode is only available if CONFIG_BUILD_LOADABLE=y.  In
    * that cause, this main() function will be build as a process.  The process
    * will be started with a command by the implementations of the system() and
    * popen() interfaces.

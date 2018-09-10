@@ -4,7 +4,7 @@
 #
 
 config EXAMPLES_IPFORWARD
-	bool "IP forwarding example"
+	tristate "IP forwarding example"
 	default n
 	depends on NET_TUN && (NET_TCP || NET_ICMPv6)
 	---help---
@@ -30,7 +30,7 @@ endchoice # L3 Protocol
 config EXAMPLES_IPFORWARD_PROGNAME
 	string "IP forwarding rogram name"
 	default "ipfwd"
-	depends on BUILD_KERNEL
+	depends on BUILD_LOADABLE
 	---help---
 		This is the name of the program that will be use when the NSH ELF
 		program is installed.

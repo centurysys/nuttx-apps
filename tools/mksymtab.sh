@@ -36,16 +36,6 @@
 
 usage="Usage: $0 <imagedirpath> <outfilepath>"
 
-# Make sure we understand where we are
-
-if [ ! -f tools/mksymtab.sh ]; then
-  cd .. || { echo "ERROR: cd .. failed"; exit 1; }
-  if [ ! -f tools/mksymtab.sh ]; then
-    error "This script must be executed from the top-level apps/ directory"
-    exit 1
-  fi
-fi
-
 # Check for the required directory path
 
 dir=$1
@@ -78,13 +68,15 @@ rm -f $outfile
 # Extract all of the undefined symbols from the ELF files and create a
 # list of sorted, unique undefined variable names.
 
-execlist=`find ${dir} -executable -type f`
-for exec in ${execlist}; do
-  nm $exec | fgrep ' U ' | sed -e "s/^[ ]*//g" | cut -d' ' -f2  >>_tmplist
-done
+execlist=`find ${dir} -type f`
+if [ ! -z "${execlist}" ]; then
+  for exec in ${execlist}; do
+    nm $exec | fgrep ' U ' | sed -e "s/^[ ]*//g" | cut -d' ' -f2  >>_tmplist
+  done
 
-varlist=`cat _tmplist | sort - | uniq -`
-rm -f _tmplist
+  varlist=`cat _tmplist | sort - | uniq -`
+  rm -f _tmplist
+fi
 
 # Now output the symbol table as a structure in a C source file.  All
 # undefined symbols are declared as void* types.  If the toolchain does
@@ -100,7 +92,13 @@ for var in $varlist; do
 done
 
 echo "" >>$outfile
-echo "const struct symtab_s g_symtab[] = " >>$outfile
+echo "#if defined(CONFIG_EXECFUNCS_HAVE_SYMTAB)" >>$outfile
+echo "const struct symtab_s CONFIG_EXECFUNCS_SYMTAB_ARRAY[] = " >>$outfile
+echo "#elif defined(CONFIG_SYSTEM_NSH_SYMTAB)" >>$outfile
+echo "const struct symtab_s CONFIG_SYSTEM_NSH_SYMTAB_ARRAYNAME[] = " >>$outfile
+echo "#else" >>$outfile
+echo "const struct symtab_s dummy_symtab[] = " >>$outfile
+echo "#endif" >>$outfile
 echo "{" >>$outfile
 
 for var in $varlist; do
@@ -109,4 +107,10 @@ done
 
 echo "};" >>$outfile
 echo "" >>$outfile
-echo "const int g_nsymbols = sizeof(g_symtab) / sizeof(struct symtab_s);" >>$outfile
+echo "#if defined(CONFIG_EXECFUNCS_HAVE_SYMTAB)" >>$outfile
+echo "const int CONFIG_EXECFUNCS_NSYMBOLS_VAR = sizeof(CONFIG_EXECFUNCS_SYMTAB_ARRAY) / sizeof(struct symtab_s);" >>$outfile
+echo "#elif defined(CONFIG_SYSTEM_NSH_SYMTAB)" >>$outfile
+echo "const int CONFIG_SYSTEM_NSH_SYMTAB_COUNTNAME = sizeof(CONFIG_SYSTEM_NSH_SYMTAB_ARRAYNAME) / sizeof(struct symtab_s);" >>$outfile
+echo "#else" >>$outfile
+echo "const int dummy_nsymtabs = sizeof(dummy_symtab) / sizeof(struct symtab_s);" >>$outfile
+echo "#endif" >>$outfile

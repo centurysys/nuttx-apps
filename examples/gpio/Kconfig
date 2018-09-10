@@ -4,7 +4,7 @@
 #
 
 config EXAMPLES_GPIO
-	bool "GPIO driver example"
+	tristate "GPIO driver example"
 	default n
 	depends on DEV_GPIO
 	---help---
@@ -15,7 +15,7 @@ if EXAMPLES_GPIO
 config EXAMPLES_GPIO_PROGNAME
 	string "Program name"
 	default "gpio"
-	depends on BUILD_KERNEL
+	depends on BUILD_LOADABLE
 	---help---
 		This is the name of the program that will be use when the NSH ELF
 		program is installed.

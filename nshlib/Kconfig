@@ -18,6 +18,12 @@ config NSH_LIBRARY
 
 if NSH_LIBRARY
 
+config NSH_PROMPT_STRING
+	string "Prompt String"
+	default "nsh> "
+	---help---
+		Provide the shell prompt string, default is "nsh> ".
+
 menuconfig NSH_MOTD
 	bool "Message of the Day (MOTD)"
 	default n
@@ -139,10 +145,10 @@ config NSH_CMDPARMS
 
 config NSH_MAXARGUMENTS
 	int "Maximum number of command arguments"
-	default 6
+	default 7
 	---help---
 		The maximum number of NSH command arguments.
-		Default: 6
+		Default: 7
 
 config NSH_ARGCAT
 	bool "Concatenation of argument strings"
@@ -193,7 +199,6 @@ config NSH_BUILTIN_APPS
 
 config NSH_FILE_APPS
 	bool "Enable execution of program files"
-	option modules
 	default n
 	depends on LIBC_EXECFUNCS
 	---help---
@@ -416,8 +421,8 @@ config NSH_DISABLE_PASSWD
 
 config NSH_DISABLE_POWEROFF
 	bool "Disable poweroff"
-	default n if !DEFAULT_SMALL && !BOARDCTL_RESET
-	default y if DEFAULT_SMALL || BOARDCTL_RESET
+	default n if !DEFAULT_SMALL
+	default y if DEFAULT_SMALL
 	depends on BOARDCTL_POWEROFF
 
 config NSH_DISABLE_PRINTF
@@ -453,8 +458,8 @@ config NSH_DISABLE_READLINK
 
 config NSH_DISABLE_REBOOT
 	bool "Disable reboot"
-	default n if !DEFAULT_SMALL && !BOARDCTL_POWEROFF
-	default y if DEFAULT_SMALL || BOARDCTL_POWEROFF
+	default n if !DEFAULT_SMALL
+	default y if DEFAULT_SMALL
 	depends on BOARDCTL_RESET
 
 config NSH_DISABLE_RM

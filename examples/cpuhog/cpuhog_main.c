@@ -96,7 +96,7 @@ static struct state_s
  * Public Functions
  ****************************************************************************/
 
-#ifdef CONFIG_BUILD_KERNEL
+#ifdef BUILD_MODULE
 int main(int argc, FAR char *argv[])
 #else
 int cpuhog_main(int argc, char *argv[])
@@ -121,7 +121,7 @@ int cpuhog_main(int argc, char *argv[])
 
       while (sem_wait(&g_state.sem) != 0)
         {
-          ASSERT(errno == EINTR || errno == ECANCELED);
+          DEBUGASSERT(errno == EINTR || errno == ECANCELED);
         }
 
       /* Burn some inside semlock */

@@ -4,7 +4,7 @@
 #
 
 config IEEE802154_I8SAK
-	bool "IEEE 802.15.4 Swiss Army Knife"
+	tristate "IEEE 802.15.4 Swiss Army Knife"
 	default n
 	select IEEE802154_LIBUTILS
 	select IEEE802154_LIBMAC
@@ -16,7 +16,7 @@ if IEEE802154_I8SAK
 config IEEE802154_I8SAK_PROGNAME
 	string "Program name"
 	default "i8"
-	depends on BUILD_KERNEL
+	depends on BUILD_LOADABLE
 	---help---
 		This is the name of the program that will be use when the NSH ELF
 		program is installed.

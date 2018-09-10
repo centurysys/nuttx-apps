@@ -221,7 +221,7 @@ static int nxterm_task(int argc, char **argv)
  * Name: nxterm_main
  ****************************************************************************/
 
-#ifdef CONFIG_BUILD_KERNEL
+#ifdef BUILD_MODULE
 int main(int argc, FAR char *argv[])
 #else
 int nxterm_main(int argc, char **argv)
@@ -405,7 +405,7 @@ int nxterm_main(int argc, char **argv)
    g_nxterm_vars.pid = task_create("NxTerm", CONFIG_EXAMPLES_NXTERM_PRIO,
                                   CONFIG_EXAMPLES_NXTERM_STACKSIZE,
                                   nxterm_task, NULL);
-   ASSERT(g_nxterm_vars.pid > 0);
+   DEBUGASSERT(g_nxterm_vars.pid > 0);
    return EXIT_SUCCESS;
 
   /* Error Exits ************************************************************/

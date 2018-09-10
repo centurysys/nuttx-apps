@@ -4,7 +4,7 @@
 #
 
 config EXAMPLES_NXLINES
-	bool "NX graphics lines example"
+	tristate "NX graphics lines example"
 	default n
 	depends on NX
 	select LIB_BOARDCTL
@@ -16,7 +16,7 @@ if EXAMPLES_NXLINES
 config EXAMPLES_NXLINES_PROGNAME
 	string "NX lines program name"
 	default "nxhello"
-	depends on BUILD_KERNEL
+	depends on BUILD_LOADABLE
 	---help---
 		This is the name of the program that will be use when the NSH ELF
 		program is installed.

@@ -4,7 +4,7 @@
 #
 
 config EXAMPLES_HIDKBD
-	bool "USB HID keyboard example"
+	tristate "USB HID keyboard example"
 	default n
 	---help---
 		Enable the USB HID keyboard example
@@ -14,7 +14,7 @@ if EXAMPLES_HIDKBD
 config EXAMPLES_HIDKBD_PROGNAME
 	string "Program name"
 	default "hidkbd"
-	depends on BUILD_KERNEL
+	depends on BUILD_LOADABLE
 	---help---
 		This is the name of the program that will be use when the Nettest
 		program is installed.

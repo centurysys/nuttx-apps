@@ -61,9 +61,13 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define SIGINT  2
-#define SIGKILL 9
-#define SIGTERM 15
+#ifndef SIGKILL
+#  define SIGKILL 9
+#endif
+
+/****************************************************************************
+ * Private Types
+ ****************************************************************************/
 
 enum parity_mode
 {
@@ -119,6 +123,7 @@ static FAR void *cu_listener(FAR void *parameter)
 static void sigint(int sig)
 {
   pthread_cancel(g_cu.listener);
+  tcflush(g_cu.outfd, TCIOFLUSH);
   close(g_cu.outfd);
   close(g_cu.infd);
   exit(0);
@@ -261,7 +266,7 @@ static int cu_cmd(char bcmd)
  *
  ****************************************************************************/
 
-#ifdef CONFIG_BUILD_KERNEL
+#ifdef BUILD_MODULE
 int main(int argc, FAR char *argv[])
 #else
 int cu_main(int argc, FAR char *argv[])
@@ -287,8 +292,6 @@ int cu_main(int argc, FAR char *argv[])
 
   memset(&sa, 0, sizeof(sa));
   sa.sa_handler = sigint;
-  sigaction(SIGINT, &sa, NULL);
-  sigaction(SIGTERM, &sa, NULL);
   sigaction(SIGKILL, &sa, NULL);
 
   while ((option = getopt(argc, argv, "l:s:eor?")) != ERROR)

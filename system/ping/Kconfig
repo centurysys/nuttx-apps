@@ -4,17 +4,18 @@
 #
 
 config SYSTEM_PING
-	bool "ICMP 'ping' command"
+	tristate "ICMP 'ping' command"
 	default n
-	depends on NET_ICMP_SOCKET
+	depends on NET_ICMP_SOCKET || NET_USRSOCK
 	---help---
 		Enable support for the ICMP 'ping' command.
 
 if SYSTEM_PING
+
 config SYSTEM_PING_PROGNAME
 	string "Ping program name"
 	default "ping"
-	depends on BUILD_KERNEL
+	depends on BUILD_LOADABLE
 	---help---
 		This is the name of the program that will be use when the NSH ELF
 		program is installed.

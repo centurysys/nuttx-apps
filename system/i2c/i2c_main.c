@@ -345,7 +345,7 @@ static void i2c_teardown(FAR struct i2ctool_s *i2ctool)
  * Name: i2c_main
  ****************************************************************************/
 
-#ifdef CONFIG_BUILD_KERNEL
+#ifdef BUILD_MODULE
 int main(int argc, FAR char *argv[])
 #else
 int i2c_main(int argc, char *argv[])
@@ -365,7 +365,7 @@ int i2c_main(int argc, char *argv[])
       g_i2ctool.addr = CONFIG_I2CTOOL_MINADDR;
     }
 
-  if (g_i2ctool.regaddr < CONFIG_I2CTOOL_MAXREGADDR)
+  if (g_i2ctool.regaddr > CONFIG_I2CTOOL_MAXREGADDR)
     {
       g_i2ctool.regaddr = 0;
     }

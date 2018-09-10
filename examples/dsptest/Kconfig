@@ -4,7 +4,7 @@
 #
 
 config EXAMPLES_DSPTEST
-	bool "LIBDSP library testing"
+	tristate "LIBDSP library testing"
 	default n
 	---help---
 		Enable the LIBDSP library testing
@@ -14,7 +14,7 @@ if EXAMPLES_DSPTEST
 config EXAMPLES_DSPTEST_PROGNAME
 	string "Program name"
 	default "dsptest"
-	depends on BUILD_KERNEL
+	depends on BUILD_LOADABLE
 	---help---
 		This is the name of the program that will be use when the NSH ELF
 		program is installed.

@@ -4,7 +4,7 @@
 #
 
 config EXAMPLES_LSM330SPI_TEST
-	bool "LSM330 SPI test program"
+	tristate "LSM330 SPI test program"
 	default n
 	---help---
 		Enable the LSM330 sensor SPI test program.
@@ -14,7 +14,7 @@ if EXAMPLES_LSM330SPI_TEST
 config EXAMPLES_LSM330SPI_TEST_PROGNAME
 	string "Program name"
 	default "lsm330spi_test"
-	depends on BUILD_KERNEL
+	depends on BUILD_LOADABLE
 	---help---
 		This is the name of the program that will be use when the NSH ELF
 		program is installed.

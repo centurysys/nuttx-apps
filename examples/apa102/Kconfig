@@ -4,7 +4,7 @@
 #
 
 config EXAMPLES_APA102
-	bool "APA102 LED Strip example"
+	tristate "APA102 LED Strip example"
 	default n
 	---help---
 		Enable the APA102 example
@@ -14,7 +14,7 @@ if EXAMPLES_APA102
 config EXAMPLES_APA102_PROGNAME
 	string "Program name"
 	default "apa102"
-	depends on BUILD_KERNEL
+	depends on BUILD_LOADABLE
 	---help---
 		This is the name of the program that will be use when the NSH ELF
 		program is installed.

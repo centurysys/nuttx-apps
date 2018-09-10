@@ -67,7 +67,8 @@ LIBPATH ?= $(TOPDIR)$(DELIM)staging
 
 # The install path
 
-BIN_DIR = $(APPDIR)$(DELIM)bin
+EXE_DIR = $(APPDIR)$(DELIM)exe
+BIN_DIR = $(EXE_DIR)$(DELIM)system$(DELIM)bin
 
 # The final build target
 
@@ -75,13 +76,13 @@ BIN = libapps$(LIBEXT)
 
 # Symbol table for loadable apps.
 
-SYMTABSRC = $(APPDIR)$(DELIM)symtab_apps.c
-SYMTABOBJ = $(APPDIR)$(DELIM)symtab_apps$(OBJEXT)
+SYMTABSRC = $(EXE_DIR)$(DELIM)symtab_apps.c
+SYMTABOBJ = $(SYMTABSRC:.c=$(OBJEXT))
 
 # Build targets
 
 all: $(BIN)
-.PHONY: import symtab install dirlinks context context_serialize clean_context context_rest .depdirs preconfig depend clean distclean
+.PHONY: import install dirlinks context context_serialize clean_context context_rest .depdirs preconfig depend clean distclean
 .PRECIOUS: libapps$(LIBEXT)
 
 define MAKE_template
@@ -102,34 +103,70 @@ $(foreach SDIR, $(CONFIGURED_APPS), $(eval $(call SDIR_template,$(SDIR),depend))
 $(foreach SDIR, $(CLEANDIRS), $(eval $(call SDIR_template,$(SDIR),clean)))
 $(foreach SDIR, $(CLEANDIRS), $(eval $(call SDIR_template,$(SDIR),distclean)))
 
-make_symbols:
-ifeq ($(CONFIG_SYSTEM_NSH_SYMTAB),y)
-	mkdir -p $(BIN_DIR)
-	$(Q) $(APPDIR)$(DELIM)tools$(DELIM)mksymtab.sh $(BIN_DIR) $(SYMTABSRC)
-	$(call COMPILE, $(SYMTABSRC), $(SYMTABOBJ))
-	$(call ARCHIVE, $(APPDIR)$(DELIM)$(BIN), $(SYMTABOBJ))
+# In the KERNEL build, we must build and install all of the modules.  No
+# symbol table is needed
+
+ifeq ($(CONFIG_BUILD_KERNEL),y)
+
+.install: $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_install)
+
+install: $(BIN_DIR) .install
+
+$(BIN_DIR):
+	$(Q) mkdir -p $(BIN_DIR)
+
+.import: $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_all)
+	$(Q) $(MAKE) install TOPDIR="$(TOPDIR)" APPDIR="$(APPDIR)"
+
+import: $(BIN_DIR)
+	$(Q) $(MAKE) .import TOPDIR="$(APPDIR)$(DELIM)import"
+
+else
+
+# In FLAT and protected modes, the modules have already been created.  A
+# symbol table is required.
+
+ifeq ($(CONFIG_BUILD_LOADABLE),)
+
+$(BIN): $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_all)
+
+else
+
+$(SYMTABSRC): $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_all)
+	$(Q) $(MAKE) install TOPDIR="$(TOPDIR)" APPDIR="$(APPDIR)"
+	$(Q) $(APPDIR)$(DELIM)tools$(DELIM)mksymtab.sh $(EXE_DIR)$(DELIM)system $(SYMTABSRC)
+
+$(SYMTABOBJ): %$(OBJEXT): %.c
+ifeq ($(WINTOOL),y)
+	$(call COMPILE, -fno-lto "${shell cygpath -w $<}", "${shell cygpath -w $@}")
+else
+	$(call COMPILE, -fno-lto $<, $@)
 endif
 
-$(BIN): $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_all) make_symbols
+$(BIN): $(SYMTABOBJ)
+ifeq ($(WINTOOL),y)
+	$(call ARCHIVE, $(BIN), "${shell cygpath -w $^}")
+else
+	$(call ARCHIVE, $(BIN), $^)
+endif
+endif # !CONFIG_BUILD_KERNEL && CONFIG_BUILD_LOADABLE
 
 .install: $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_install)
 
 $(BIN_DIR):
-	mkdir -p $(BIN_DIR)
+	$(Q) mkdir -p $(BIN_DIR)
 
 install: $(BIN_DIR) .install
 
 .import: $(BIN) install
 
-symtab: $(BIN_DIR)
-	$(Q) tools/mksymtab.sh $(BIN_DIR) $(APPDIR)$(DELIM)import/symtab.c
-	$(call MAKE_template,import,symtab)
-
 import:
 	$(Q) $(MAKE) .import TOPDIR="$(APPDIR)$(DELIM)import"
 
+endif # CONFIG_BUILD_KERNEL
+
 dirlinks:
-	$(Q) $(MAKE) -C platform dirlinks TOPDIR="$(TOPDIR)" APPDIR="$(APPDIR)"
+	$(Q) $(MAKE) -C platform dirlinks TOPDIR="$(TOPDIR)" APPDIR="$(APPDIR)"  BIN_DIR="$(BIN_DIR)"
 
 context_rest: $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_context)
 
@@ -153,13 +190,15 @@ preconfig: Kconfig
 depend: .depend
 
 clean_context:
-	$(Q) $(MAKE) -C platform clean_context TOPDIR="$(TOPDIR)" APPDIR="$(APPDIR)"
+	$(Q) $(MAKE) -C platform clean_context TOPDIR="$(TOPDIR)" APPDIR="$(APPDIR)" BIN_DIR="$(BIN_DIR)"
 
 clean: $(foreach SDIR, $(CLEANDIRS), $(SDIR)_clean)
 	$(call DELFILE, $(SYMTABSRC))
+	$(call DELFILE, $(SYMTABOBJ))
 	$(call DELFILE, $(BIN))
 	$(call DELFILE, Kconfig)
 	$(call DELDIR, $(BIN_DIR))
+	$(call DELDIR, $(EXE_DIR))
 	$(call CLEAN)
 
 distclean: $(foreach SDIR, $(CLEANDIRS), $(SDIR)_distclean)
@@ -179,7 +218,9 @@ else
 endif
 	$(call DELFILE, .depend)
 	$(call DELFILE, $(SYMTABSRC))
+	$(call DELFILE, $(SYMTABOBJ))
 	$(call DELFILE, $(BIN))
 	$(call DELFILE, Kconfig)
 	$(call DELDIR, $(BIN_DIR))
+	$(call DELDIR, $(EXE_DIR))
 	$(call CLEAN)

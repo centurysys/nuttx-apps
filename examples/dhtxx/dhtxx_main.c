@@ -1,8 +1,8 @@
 /****************************************************************************
- * apps/system/zmodem/zm_dumpbuffer.c
+ * examples/dhtxx/dhtxx_main.c
  *
- *   Copyright (C) 2013 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <gnutt@nuttx.org>
+ *   Copyright (C) 2018 Abdelatif GUETTOUCHE. All rights reserved.
+ *   Author: Abdelatif GUETTOUCHE <abdelatif.guettouche@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,82 +38,53 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
-
 #include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
 
-#include "zm.h"
-
-#ifdef CONFIG_SYSTEM_ZMODEM_DUMPBUFFER
-
-/****************************************************************************
- * Pre-processor definitions
- ****************************************************************************/
+#include <nuttx/sensors/dhtxx.h>
 
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Name:  zm_dumpbuffer
- *
- * Description:
- *  Dump a buffer of zmodem data.
- *
+ * dhtxx_main
  ****************************************************************************/
 
-void zm_dumpbuffer(FAR const char *msg, FAR const void *buffer, size_t buflen)
+#ifdef BUILD_MODULE
+int main(int argc, FAR char *argv[])
+#else
+int dhtxx_main(int argc, char *argv[])
+#endif
 {
-  FAR const uint8_t *ptr = (FAR const uint8_t *)buffer;
-  size_t i;
-  int j, k;
+  struct dhtxx_sensor_data_s data;
+  int fd;
+  int ret;
+  int i;
 
-  zmprintf("%s [%p]:\n", msg, ptr);
-  for (i = 0; i < buflen; i += 32)
+  printf("Dhtxx app is running.\n");
+
+  fd = open("/dev/dht0", O_RDWR);
+
+  for (i = 0; i < 20; i++)
     {
-      zmprintf("%04x: ", i);
-      for (j = 0; j < 32; j++)
+      ret = read(fd, &data, sizeof(struct dhtxx_sensor_data_s));
+      if (ret < 0)
         {
-          k = i + j;
-
-          if (j == 16)
-            {
-              zmprintf(" ");
-            }
-
-          if (k < buflen)
-            {
-              zmprintf("%02x", ptr[k]);
-            }
-          else
-            {
-              zmprintf("  ");
-            }
+          printf("Read error.\n");
+          printf("Sensor reported error %d\n", data.status);
+        }
+      else
+        {
+          printf("Read successful.\n");
+          printf("Humidity = %2.2f %%, temperature = %2.2f C\n", 
+                  data.hum, data.temp);
         }
 
-      zmprintf(" ");
-      for (j = 0; j < 32; j++)
-        {
-         k = i + j;
+      sleep(1);
+    }
 
-          if (j == 16)
-            {
-              zmprintf(" ");
-            }
-
-          if (k < buflen)
-            {
-              if (ptr[k] >= 0x20 && ptr[k] < 0x7f)
-                {
-                  zmprintf("%c", ptr[k]);
-                }
-              else
-                {
-                  zmprintf(".");
-                }
-            }
-        }
-      zmprintf("\n");
-   }
+  close(fd);
+  return 0;
 }
-
-#endif /* CONFIG_SYSTEM_ZMODEM_DUMPBUFFER */

@@ -72,7 +72,7 @@ static void show_usage(FAR const char *progname, int exitcode)
 
 static bool get_cpuset(const char *arg, cpu_set_t *cpu_set)
 {
-  ASSERT(NULL != arg);
+  DEBUGASSERT(NULL != arg);
 
   bool ret = false;
   int val  = atoi(arg);
@@ -94,7 +94,7 @@ static bool get_cpuset(const char *arg, cpu_set_t *cpu_set)
  * Public Functions
  ****************************************************************************/
 
-#ifdef CONFIG_BUILD_KERNEL
+#ifdef BUILD_MODULE
 int main(int argc, FAR char *argv[])
 #else
 int taskset_main(int argc, char **argv)

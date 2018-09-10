@@ -4,7 +4,7 @@
 #
 
 config EXAMPLES_MAX31855
-	bool "\"max31855\" example"
+	tristate "\"max31855\" example"
 	default n
 	---help---
 		Enable the \"max31855, World!\" example
@@ -14,7 +14,7 @@ if EXAMPLES_MAX31855
 config EXAMPLES_MAX31855_PROGNAME
 	string "Program name"
 	default "max31855"
-	depends on BUILD_KERNEL
+	depends on BUILD_LOADABLE
 	---help---
 		This is the name of the program that will be use when the NSH ELF
 		program is installed.

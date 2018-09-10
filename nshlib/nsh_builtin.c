@@ -47,6 +47,7 @@
 #include <nuttx/config.h>
 
 #ifdef CONFIG_SCHED_WAITPID
+#  include <sys/ioctl.h>
 #  include <sys/wait.h>
 #endif
 
@@ -134,6 +135,13 @@ int nsh_builtin(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
         {
           int rc = 0;
 
+          /* Setup up to receive SIGINT if control-C entered.  The return
+           * value is ignored because this console device may not support
+           * SIGINT.
+           */
+
+          (void)ioctl(stdout->fs_fd, TIOCSCTTY, ret);
+
           /* Wait for the application to exit.  We did lock the scheduler
            * above, but that does not guarantee that the application did not
            * already run to completion in the case where I/O was redirected.
@@ -145,9 +153,14 @@ int nsh_builtin(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
            * even if task is still active:  If the I/O was re-directed by a
            * proxy task, then the ask is a child of the proxy, and not this
            * task.  waitpid() fails with ECHILD in either case.
+           *
+           * NOTE: WUNTRACED does nothing in the default case, but in the
+           * case the where CONFIG_SIG_SIGSTOP_ACTION=y, the built-in app
+           * may also be stopped.  In that case WUNTRACED will force
+           * waitpid() to return with ECHILD.
            */
 
-          ret = waitpid(ret, &rc, 0);
+          ret = waitpid(ret, &rc, WUNTRACED);
           if (ret < 0)
             {
               /* If the child thread does not exist, waitpid() will return
@@ -187,6 +200,8 @@ int nsh_builtin(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
               * the most recently executed task.
               */
             }
+
+          (void)ioctl(stdout->fs_fd, TIOCSCTTY, -1);
         }
 #  ifndef CONFIG_NSH_DISABLEBG
       else

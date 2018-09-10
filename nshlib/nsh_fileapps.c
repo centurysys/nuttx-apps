@@ -40,6 +40,7 @@
 #include <nuttx/config.h>
 
 #ifdef CONFIG_SCHED_WAITPID
+#  include <sys/ioctl.h>
 #  include <sys/wait.h>
 #endif
 
@@ -171,15 +172,27 @@ int nsh_fileapp(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
         {
           int rc = 0;
 
+          /* Setup up to receive SIGINT if control-C entered.  The return
+           * value is ignored because this console device may not support
+           * SIGINT.
+           */
+
+          (void)ioctl(stdout->fs_fd, TIOCSCTTY, pid);
+
           /* Wait for the application to exit.  We did lock the scheduler
            * above, but that does not guarantee that the application did not
            * already run to completion in the case where I/O was redirected.
            * Here the scheduler will be unlocked while waitpid is waiting
            * and if the application has not yet run, it will now be able to
            * do so.
+           *
+           * NOTE: WUNTRACED does nothing in the default case, but in the
+           * case the where CONFIG_SIG_SIGSTOP_ACTION=y, the file app
+           * may also be stopped.  In that case WUNTRACED will force
+           * waitpid() to return with ECHILD.
            */
 
-          ret = waitpid(pid, &rc, 0);
+          ret = waitpid(pid, &rc, WUNTRACED);
           if (ret < 0)
             {
               /* If the child thread does not exist, waitpid() will return
@@ -219,6 +232,8 @@ int nsh_fileapp(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
               * the most recently executed task.
               */
             }
+
+          (void)ioctl(stdout->fs_fd, TIOCSCTTY, -1);
         }
 #  ifndef CONFIG_NSH_DISABLEBG
       else

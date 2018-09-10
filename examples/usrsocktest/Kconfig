@@ -4,7 +4,7 @@
 #
 
 config EXAMPLES_USRSOCKTEST
-	bool "USRSOCK test example"
+	tristate "USRSOCK test example"
 	default n
 	depends on NET && NET_USRSOCK && !DISABLE_POLL
 	select NET_USRSOCK_TCP
@@ -20,7 +20,7 @@ if EXAMPLES_USRSOCKTEST
 config EXAMPLES_USRSOCKTEST_PROGNAME
 	string "Program name"
 	default "usrsocktest"
-	depends on BUILD_KERNEL
+	depends on BUILD_LOADABLE
 	---help---
 		This is the name of the program that will be use when the NSH ELF
 		program is installed.
