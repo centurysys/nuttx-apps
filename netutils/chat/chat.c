@@ -771,7 +771,7 @@ static int chat_script_free(FAR struct chat* priv)
  * Public Functions
  ****************************************************************************/
 
-int chat(FAR struct chat_ctl* ctl, FAR char* script)
+int chat(FAR struct chat_ctl* ctl, FAR const char* script)
 {
   int ret = 0;
   struct chat priv;
@@ -781,7 +781,7 @@ int chat(FAR struct chat_ctl* ctl, FAR char* script)
   memset(&priv, 0, sizeof(struct chat));
 
   chat_init(&priv, ctl);
-  ret = chat_script_parse(&priv, script);
+  ret = chat_script_parse(&priv, (char *) script);
 
   if (!ret)
     {

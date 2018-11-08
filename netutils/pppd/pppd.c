@@ -71,6 +71,7 @@
 #define SIGTERM 15
 #endif
 
+
 /****************************************************************************
  * Private Data
  ****************************************************************************/
@@ -212,9 +213,9 @@ static int open_tty(char *dev)
  * Name: ppp_check_errors
  ****************************************************************************/
 
-static u8_t ppp_check_errors(struct ppp_context_s *ctx)
+static uint8_t ppp_check_errors(struct ppp_context_s *ctx)
 {
-  u8_t ret = 0;
+  uint8_t ret = 0;
 
   /* Check Errors */
 
@@ -382,7 +383,7 @@ time_t ppp_arch_clock_seconds(void)
  * Name: ppp_arch_getchar
  ****************************************************************************/
 
-int ppp_arch_getchar(struct ppp_context_s *ctx, u8_t *c)
+int ppp_arch_getchar(struct ppp_context_s *ctx, uint8_t *c)
 {
   int ret;
 
@@ -394,7 +395,7 @@ int ppp_arch_getchar(struct ppp_context_s *ctx, u8_t *c)
  * Name: ppp_arch_putchar
  ****************************************************************************/
 
-int ppp_arch_putchar(struct ppp_context_s *ctx, u8_t c)
+int ppp_arch_putchar(struct ppp_context_s *ctx, uint8_t c)
 {
   int ret;
   struct pollfd fds;

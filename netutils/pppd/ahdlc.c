@@ -90,9 +90,9 @@
  *
  ****************************************************************************/
 
-static u16_t crcadd(u16_t crcvalue, u8_t c)
+static uint16_t crcadd(uint16_t crcvalue, uint8_t c)
 {
-  u16_t b;
+  uint16_t b;
 
   b = (crcvalue ^ c) & 0xFF;
   b = (b ^ (b << 4)) & 0xFF;
@@ -145,9 +145,9 @@ void ahdlc_rx_ready(struct ppp_context_s *ctx)
  *
  ****************************************************************************/
 
-u8_t ahdlc_rx(struct ppp_context_s *ctx, u8_t c)
+uint8_t ahdlc_rx(struct ppp_context_s *ctx, uint8_t c)
 {
-  //static u16_t protocol;
+  //static uint16_t protocol;
 
   /* Check to see if PPP packet is useable, we should have hardware
      flow control set, but if host ignores it and sends us a char when
@@ -222,16 +222,16 @@ u8_t ahdlc_rx(struct ppp_context_s *ctx, u8_t c)
                 {
                   /* Send up packet */
 
-                  ppp_upcall(ctx, (u16_t)ctx->ahdlc_rx_buffer[0],
-                      (u8_t *)&ctx->ahdlc_rx_buffer[1],
-                      (u16_t)(ctx->ahdlc_rx_count - 1));
+                  ppp_upcall(ctx, (uint16_t)ctx->ahdlc_rx_buffer[0],
+                      (uint8_t *)&ctx->ahdlc_rx_buffer[1],
+                      (uint16_t)(ctx->ahdlc_rx_count - 1));
                 }
               else
                 {
                   /* Send up packet */
 
-                  ppp_upcall(ctx, (u16_t)(ctx->ahdlc_rx_buffer[0] << 8 | ctx->ahdlc_rx_buffer[1]),
-                      (u8_t *)&ctx->ahdlc_rx_buffer[2], (u16_t)(ctx->ahdlc_rx_count - 2));
+                  ppp_upcall(ctx, (uint16_t)(ctx->ahdlc_rx_buffer[0] << 8 | ctx->ahdlc_rx_buffer[1]),
+                      (uint8_t *)&ctx->ahdlc_rx_buffer[2], (uint16_t)(ctx->ahdlc_rx_count - 2));
                 }
 
               ctx->ahdlc_tx_offline = 0;    /* The remote side is alive */
@@ -247,8 +247,8 @@ u8_t ahdlc_rx(struct ppp_context_s *ctx, u8_t c)
 #endif
               /* Shouldn't we dump the packet and not pass it up? */
 
-              /*ppp_upcall((u16_t)ahdlc_rx_buffer[0],
-                (u8_t *)&ahdlc_rx_buffer[0], (u16_t)(ahdlc_rx_count+2));
+              /*ppp_upcall((uint16_t)ahdlc_rx_buffer[0],
+                (uint8_t *)&ahdlc_rx_buffer[0], (uint16_t)(ahdlc_rx_count+2));
                 dump_ppp_packet(&ahdlc_rx_buffer[0],ahdlc_rx_count);*/
             }
 
@@ -312,7 +312,7 @@ u8_t ahdlc_rx(struct ppp_context_s *ctx, u8_t c)
  *
  ****************************************************************************/
 
-void ahdlc_tx_char(struct ppp_context_s *ctx, u16_t protocol, u8_t c)
+void ahdlc_tx_char(struct ppp_context_s *ctx, uint16_t protocol, uint8_t c)
 {
   /* Add in crc */
 
@@ -347,11 +347,11 @@ void ahdlc_tx_char(struct ppp_context_s *ctx, u16_t protocol, u8_t c)
  *
  ****************************************************************************/
 
-u8_t ahdlc_tx(struct ppp_context_s *ctx, u16_t protocol, u8_t *header,
-              u8_t *buffer, u16_t headerlen, u16_t datalen)
+uint8_t ahdlc_tx(struct ppp_context_s *ctx, uint16_t protocol, uint8_t *header,
+              uint8_t *buffer, uint16_t headerlen, uint16_t datalen)
 {
-  u16_t i;
-  u8_t c;
+  uint16_t i;
+  uint8_t c;
 
   DEBUG1(("\nAHDLC_TX - transmit frame, protocol 0x%04x, length %d  offline %d\n",
           protocol, datalen + headerlen, ctx->ahdlc_tx_offline));
@@ -401,8 +401,8 @@ u8_t ahdlc_tx(struct ppp_context_s *ctx, u16_t protocol, u8_t *header,
 
   /* Write Protocol */
 
-  ahdlc_tx_char(ctx, protocol,(u8_t)(protocol >> 8));
-  ahdlc_tx_char(ctx, protocol,(u8_t)(protocol & 0xff));
+  ahdlc_tx_char(ctx, protocol,(uint8_t)(protocol >> 8));
+  ahdlc_tx_char(ctx, protocol,(uint8_t)(protocol & 0xff));
 
   /* Write header if it exists */
 
@@ -433,8 +433,8 @@ u8_t ahdlc_tx(struct ppp_context_s *ctx, u16_t protocol, u8_t *header,
   /* Send crc, lsb then msb */
 
   i = ctx->ahdlc_tx_crc ^ 0xffff;
-  ahdlc_tx_char(ctx, protocol, (u8_t)(i & 0xff));
-  ahdlc_tx_char(ctx, protocol, (u8_t)((i >> 8) & 0xff));
+  ahdlc_tx_char(ctx, protocol, (uint8_t)(i & 0xff));
+  ahdlc_tx_char(ctx, protocol, (uint8_t)((i >> 8) & 0xff));
 
   /* Write trailing 0x7e, probably not needed but it doesn't hurt */
 

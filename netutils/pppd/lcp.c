@@ -69,11 +69,11 @@
  ****************************************************************************/
 
 /* We need this when we neg our direction.
-   u8_t lcp_tx_options; */
+   uint8_t lcp_tx_options; */
 
 /* Define the supported parameters for this module here. */
 
-static const u8_t lcplist[] =
+static const uint8_t lcplist[] =
 {
   LCP_MAGICNUMBER,
   LCP_PFC,
@@ -107,12 +107,12 @@ void lcp_init(struct ppp_context_s *ctx)
  *
  ****************************************************************************/
 
-void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
+void lcp_rx(struct ppp_context_s *ctx, uint8_t *buffer, uint16_t count)
 {
-  u8_t *bptr = buffer, *tptr;
-  u8_t error = 0;
-  u8_t id;
-  u16_t len, j;
+  uint8_t *bptr = buffer, *tptr;
+  uint8_t error = 0;
+  uint8_t id;
+  uint16_t len, j;
   struct pppd_settings_s *pppd_settings = ctx->settings;
   char buf[256], *ptr;
   int wlen;
@@ -138,7 +138,7 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
     ctx->lcp_state &= ~LCP_TX_UP;
 
     DEBUG1(("received [LCP Config Request id %u\n", id));
-    if (scan_packet(ctx, (u16_t)LCP, lcplist, buffer, bptr, (u16_t)(len-4)))
+    if (scan_packet(ctx, (uint16_t)LCP, lcplist, buffer, bptr, (uint16_t)(len-4)))
       {
         /* Must do the -4 here, !scan packet */
 
@@ -240,7 +240,7 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
                       *tptr++ = 0x4;
                       *tptr++ = 0xc0;
                       *tptr++ = 0x23;
-                      ahdlc_tx(ctx, LCP, 0, buffer, 0, (u16_t)(tptr-buffer));
+                      ahdlc_tx(ctx, LCP, 0, buffer, 0, (uint16_t)(tptr-buffer));
                       return;
                     }
                 }
@@ -268,7 +268,7 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
 
               bptr++; /* For now just dump */
 
-              wlen = sprintf(ptr, " <magic 0x%x>", *((u32_t *) bptr));
+              wlen = sprintf(ptr, " <magic 0x%x>", *((uint32_t *) bptr));
               ptr += wlen;
 
               bptr++;
@@ -315,7 +315,7 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
             bptr = buffer;
             *bptr++ = CONF_NAK;        /* Write Conf_rej */
 
-            sprintf(buf, "sent [LCP ConfNak id=0x%x]", *((u8_t *) bptr));
+            sprintf(buf, "sent [LCP ConfNak id=0x%x]", *((uint8_t *) bptr));
             syslog(LOG_INFO, "pppd: %s\n", buf);
 
             bptr++;/*tptr++;*/        /* skip over ID */
@@ -329,7 +329,7 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
 
             DEBUG1(("\nWriting NAK frame \n"));
             // Send packet ahdlc_txz(procol,header,data,headerlen,datalen);
-            ahdlc_tx(ctx, LCP, 0, buffer, 0, (u16_t)(tptr-buffer));
+            ahdlc_tx(ctx, LCP, 0, buffer, 0, (uint16_t)(tptr-buffer));
             DEBUG1(("- end NAK Write frame\n"));
           }
         else
@@ -342,7 +342,7 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
             bptr = buffer;
             *bptr++ = CONF_ACK;  /* Write Conf_ACK */
 
-            sprintf(buf, "sent [LCP ConfAck id=0x%x]", *((u8_t *) bptr));
+            sprintf(buf, "sent [LCP ConfAck id=0x%x]", *((uint8_t *) bptr));
             syslog(LOG_INFO, "pppd: %s\n", buf);
 
             bptr++;              /* Skip ID (send same one) */
@@ -350,7 +350,7 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
             /* Set stuff */
 
             /*ppp_flags|=tflag;*/
-            /* DEBUG2("SET- stuff -- are we up? c=%d dif=%d \n", count, (u16_t)(bptr-buffer)); */
+            /* DEBUG2("SET- stuff -- are we up? c=%d dif=%d \n", count, (uint16_t)(bptr-buffer)); */
 
             /* Write the ACK frame */
 
@@ -392,7 +392,7 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
   case CONF_NAK: /* Config Nack */
     DEBUG1(("LCP-CONF NAK\n"));
 
-    sprintf(buf, "rcvd [LCP ConfNak id=0x%x]", *((u8_t *) bptr));
+    sprintf(buf, "rcvd [LCP ConfNak id=0x%x]", *((uint8_t *) bptr));
     syslog(LOG_INFO, "pppd: %s\n", buf);
 
     ctx->ppp_id++;
@@ -401,7 +401,7 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
   case CONF_REJ: /* Config Reject */
     DEBUG1(("LCP-CONF REJ\n"));
 
-    sprintf(buf, "rcvd [LCP ConfRej id=0x%x]", *((u8_t *) bptr));
+    sprintf(buf, "rcvd [LCP ConfRej id=0x%x]", *((uint8_t *) bptr));
     syslog(LOG_INFO, "pppd: %s\n", buf);
 
     ctx->ppp_id++;
@@ -411,10 +411,10 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
     DEBUG1(("LCP-TERM-REQ -"));
     bptr = buffer;
 
-    sprintf(buf, "rcvd [LCP TermReq id=0x%x]", *((u8_t *) bptr));
+    sprintf(buf, "rcvd [LCP TermReq id=0x%x]", *((uint8_t *) bptr));
     syslog(LOG_INFO, "pppd: %s\n", buf);
 
-    sprintf(buf, "sent [LCP TermAck id=0x%x]", *((u8_t *) bptr));
+    sprintf(buf, "sent [LCP TermAck id=0x%x]", *((uint8_t *) bptr));
     syslog(LOG_INFO, "pppd: %s\n", buf);
 
     *bptr++ = TERM_ACK; /* Write TERM_ACK */
@@ -475,10 +475,10 @@ void lcp_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
  * Name: lcp_disconnect
  ****************************************************************************/
 
-void lcp_disconnect(struct ppp_context_s *ctx, u8_t id)
+void lcp_disconnect(struct ppp_context_s *ctx, uint8_t id)
 {
-  u8_t buffer[4];
-  u8_t *bptr = buffer;
+  uint8_t buffer[4];
+  uint8_t *bptr = buffer;
 
   *bptr++ = TERM_REQ;
   *bptr++ = id;
@@ -492,10 +492,11 @@ void lcp_disconnect(struct ppp_context_s *ctx, u8_t id)
  * Name: lcp_echo_request
  ****************************************************************************/
 
-void lcp_echo_request(struct ppp_context_s *ctx, u8_t *buffer)
+void lcp_echo_request(struct ppp_context_s *ctx)
 {
-  u8_t *bptr;
-  u16_t t;
+  uint8_t buffer[8];
+  uint8_t *bptr;
+  uint16_t t;
   LCPPKT *pkt;
 
   if ((ctx->lcp_state & LCP_TX_UP) && (ctx->lcp_state & LCP_RX_UP))
@@ -544,10 +545,10 @@ void lcp_echo_request(struct ppp_context_s *ctx, u8_t *buffer)
  *
  ****************************************************************************/
 
-void lcp_task(struct ppp_context_s *ctx, u8_t *buffer)
+void lcp_task(struct ppp_context_s *ctx, uint8_t *buffer)
 {
-  u8_t *bptr;
-  u16_t t;
+  uint8_t *bptr;
+  uint16_t t;
   LCPPKT *pkt;
   char buf[256], *ptr;
   int wlen;

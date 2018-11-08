@@ -83,10 +83,10 @@ void pap_init(struct ppp_context_s *ctx)
  *
  ****************************************************************************/
 
-void pap_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
+void pap_rx(struct ppp_context_s *ctx, uint8_t *buffer, uint16_t count)
 {
-  u8_t *bptr=buffer;
-  u8_t len;
+  uint8_t *bptr=buffer;
+  uint8_t len;
 
   switch (*bptr++)
   {
@@ -127,10 +127,10 @@ void pap_rx(struct ppp_context_s *ctx, u8_t *buffer, u16_t count)
  *
  ****************************************************************************/
 
-void pap_task(struct ppp_context_s *ctx, u8_t *buffer)
+void pap_task(struct ppp_context_s *ctx, uint8_t *buffer)
 {
-  u8_t *bptr;
-  u16_t t;
+  uint8_t *bptr;
+  uint16_t t;
   PAPPKT *pkt;
   char buf[256], *ptr;
   int wlen;
@@ -171,7 +171,7 @@ void pap_task(struct ppp_context_s *ctx, u8_t *buffer)
 
           /* Write peer length */
 
-          *bptr++ = (u8_t)t;
+          *bptr++ = (uint8_t)t;
           memcpy(bptr, ctx->settings->pap_username, t);
           bptr += t;
 
@@ -180,7 +180,7 @@ void pap_task(struct ppp_context_s *ctx, u8_t *buffer)
           ptr += wlen;
 
           t = strlen((char*)ctx->settings->pap_password);
-          *bptr++ = (u8_t)t;
+          *bptr++ = (uint8_t)t;
           memcpy(bptr, ctx->settings->pap_password, t);
           bptr += t;
 
