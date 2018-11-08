@@ -544,6 +544,11 @@
 # define CONFIG_LIB_HOMEDIR "/"
 #endif
 
+#undef NSH_HAVE_VARS
+#if defined(CONFIG_NSH_VARS) || !defined(CONFIG_DISABLE_ENVIRON)
+#  define NSH_HAVE_VARS
+#endif
+
 /* Stubs used when working directory is not supported */
 
 #if CONFIG_NFILE_DESCRIPTORS <= 0 || defined(CONFIG_DISABLE_ENVIRON)
@@ -677,14 +682,25 @@
 #  undef NSH_HAVE_TRIMDIR
 #endif
 
-/* nsh_catfile used by cat, ifconfig, ifup/down, df, free, irqinfo, and mount (with
- * no arguments).
+#if !defined(CONFIG_FS_PROCFS) || defined(CONFIG_DISABLE_ENVIRON) || \
+     defined(CONFIG_FS_PROCFS_EXCLUDE_ENVIRON) || !defined(NSH_HAVE_CATFILE)
+#  undef CONFIG_NSH_DISABLE_ENV
+#  define CONFIG_NSH_DISABLE_ENV 1
+#endif
+
+#if !defined(CONFIG_NSH_VARS) || defined(CONFIG_DISABLE_ENVIRON)
+#  undef CONFIG_NSH_DISABLE_EXPORT
+#  define CONFIG_NSH_DISABLE_EXPORT 1
+#endif
+
+/* nsh_catfile used by cat, ifconfig, ifup/down, df, free, env, irqinfo, and
+ * mount (with no arguments).
  */
 
 #if !defined(CONFIG_NSH_DISABLE_CAT) && !defined(CONFIG_NSH_DISABLE_IFCONFIG) && \
     !defined(CONFIG_NSH_DISABLE_IFUPDOWN) && !defined(CONFIG_NSH_DISABLE_DF) && \
-    !defined(CONFIG_NSH_DISABLE_FREE) && !defined(HAVE_IRQINFO) && \
-    !defined(HAVE_MOUNT_LIST)
+    !defined(CONFIG_NSH_DISABLE_FREE) && !defined(CONFIG_NSH_DISABLE_ENV) && \
+    !defined(HAVE_IRQINFO) && !defined(HAVE_MOUNT_LIST)
 #  undef NSH_HAVE_CATFILE
 #endif
 
@@ -715,9 +731,11 @@
 #  define NSH_NP_SET_OPTIONS_INIT    (NSH_PFLAG_SILENT)
 #endif
 
-#if defined(CONFIG_DISABLE_ENVIRON) && defined(CONFIG_NSH_DISABLESCRIPT)
+#if !defined(NSH_HAVE_VARS) && defined(CONFIG_NSH_DISABLESCRIPT)
 #  undef  CONFIG_NSH_DISABLE_SET
 #  define CONFIG_NSH_DISABLE_SET 1
+#  undef  CONFIG_NSH_DISABLE_UNSET
+#  define CONFIG_NSH_DISABLE_UNSET 1
 #endif
 
 /****************************************************************************
@@ -844,6 +862,13 @@ typedef CODE int (*nsh_direntry_handler_t)(FAR struct nsh_vtbl_s *vtbl,
                                            FAR const char *dirpath,
                                            FAR struct dirent *entryp,
                                            FAR void *pvarg);
+
+#if defined(CONFIG_NSH_VARS) && !defined(CONFIG_NSH_DISABLE_SET)
+/* Used with nsh_foreach_var() */
+
+typedef int (*nsh_foreach_var_t)(FAR struct nsh_vtbl_s *vtbl, FAR void *arg,
+                                 FAR const char *pair);
+#endif
 
 /****************************************************************************
  * Public Data
@@ -1009,6 +1034,9 @@ void nsh_usbtrace(void);
 #ifndef CONFIG_NSH_DISABLE_EXEC
   int cmd_exec(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
 #endif
+#ifndef CONFIG_NSH_DISABLE_EXPORT
+   int cmd_export(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+#endif
 #ifndef CONFIG_NSH_DISABLE_MB
   int cmd_mb(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
 #endif
@@ -1166,6 +1194,10 @@ int cmd_irqinfo(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
 # endif /* !CONFIG_DISABLE_MOUNTPOINT */
 #endif /* CONFIG_NFILE_DESCRIPTORS */
 
+#ifndef CONFIG_NSH_DISABLE_ENV
+int cmd_env(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+#endif
+
 #if defined(CONFIG_NET)
 #  if defined(CONFIG_NET_ARP) && !defined(CONFIG_NSH_DISABLE_ARP)
       int cmd_arp(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
@@ -1237,13 +1269,12 @@ int cmd_irqinfo(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
 #endif
 
 #ifndef CONFIG_NSH_DISABLE_SET
-      int cmd_set(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+   int cmd_set(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
 #endif
-#ifndef CONFIG_DISABLE_ENVIRON
-#  ifndef CONFIG_NSH_DISABLE_UNSET
-      int cmd_unset(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
-#  endif
-#endif /* CONFIG_DISABLE_ENVIRON */
+
+#ifndef CONFIG_NSH_DISABLE_UNSET
+   int cmd_unset(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+#endif
 
 #ifndef CONFIG_DISABLE_SIGNALS
 #  ifndef CONFIG_NSH_DISABLE_KILL
@@ -1432,6 +1463,59 @@ void nsh_trimdir(FAR char *dirpath);
 
 #ifdef NSH_HAVE_TRIMSPACES
 FAR char *nsh_trimspaces(FAR char *str);
+#endif
+
+/****************************************************************************
+ * Name: nsh_getvar, nsh_setvar, and nsh_setvar
+ *
+ * Description:
+ *   Get, set, or unset an NSH variable.
+ *
+ * Input Parameters:
+ *   vtbl  - NSH session data
+ *   name  - The name of the variable to get or set
+ *   value - The value to use with nsh_setvar()
+ *
+ * Returned value:
+ *   nsh_getvar() returns a read-only reference to the variable value on
+ *   success or NULL on failure.
+ *   nset_unsetvar() returns OK on success or an negated errno value on
+ *   failure.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_NSH_VARS
+FAR char *nsh_getvar(FAR struct nsh_vtbl_s *vtbl, FAR const char *name);
+#ifndef CONFIG_NSH_DISABLE_SET
+int nsh_setvar(FAR struct nsh_vtbl_s *vtbl, FAR const char *name,
+               FAR const char *value);
+#endif
+#if !defined(CONFIG_NSH_DISABLE_UNSET) || !defined(CONFIG_NSH_DISABLE_EXPORT)
+int nsh_unsetvar(FAR struct nsh_vtbl_s *vtbl, FAR const char *name);
+#endif
+#endif
+
+/****************************************************************************
+ * Name: nsh_foreach_var
+ *
+ * Description:
+ *   Visit each name-value pair in the environment.
+ *
+ * Input Parameters:
+ *   vtbl  - NSH session data
+ *   cb    - The callback function to be invoked for each environment
+ *           variable.
+ *
+ * Returned Value:
+ *   Zero if the all NSH variables have been traversed.  A non-zero value
+ *   means that the callback function requested early termination by
+ *   returning a nonzero value.
+ *
+ ****************************************************************************/
+
+#if defined(CONFIG_NSH_VARS) && !defined(CONFIG_NSH_DISABLE_SET)
+int nsh_foreach_var(FAR struct nsh_vtbl_s *vtbl, nsh_foreach_var_t cb,
+                    FAR void *arg);
 #endif
 
 #endif /* __APPS_NSHLIB_NSH_H */

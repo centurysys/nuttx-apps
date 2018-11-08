@@ -1,7 +1,7 @@
 /****************************************************************************
  * examples/fstest/fstest_main.c
  *
- *   Copyright (C) 2015 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2015, 2018 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,6 +40,8 @@
 #include <nuttx/config.h>
 
 #include <sys/mount.h>
+#include <sys/ioctl.h>
+#include <sys/statfs.h>
 
 #include <stdint.h>
 #include <stdio.h>
@@ -98,6 +100,7 @@ struct fstest_filedesc_s
 {
   FAR char *name;
   bool deleted;
+  bool failed;
   size_t len;
   uint32_t crc;
 };
@@ -112,6 +115,8 @@ static struct fstest_filedesc_s g_files[CONFIG_EXAMPLES_FSTEST_MAXOPEN];
 static const char g_mountdir[] = CONFIG_EXAMPLES_FSTEST_MOUNTPT "/";
 static int g_nfiles;
 static int g_ndeleted;
+static int g_nfailed;
+static bool g_media_full;
 
 static struct mallinfo g_mmbefore;
 static struct mallinfo g_mmprevious;
@@ -271,6 +276,114 @@ static void fstest_freefile(FAR struct fstest_filedesc_s *file)
 }
 
 /****************************************************************************
+ * Name: fstest_gc and fstest_gc_withfd
+ ****************************************************************************/
+
+#ifdef CONFIG_EXAMPLES_FSTEST_SPIFFS
+static int fstest_gc_withfd(int fd, size_t nbytes)
+{
+  int ret;
+
+#ifdef CONFIG_SPIFFS_DUMP
+  /* Dump the logic content of FLASH before garbage collection */
+
+  printf("SPIFFS Content (before GC):\n");
+
+  ret = ioctl(fd, FIOC_DUMP, (unsigned long)nbytes);
+  if (ret < 0)
+    {
+      printf("ERROR: ioctl(FIOC_DUMP) failed: %d\n", errno);
+    }
+#endif
+
+  /* Perform SPIFFS garbage collection */
+
+  printf("SPIFFS Garbage Collection:  %lu bytes\n", (unsigned long)nbytes);
+
+  ret = ioctl(fd, FIOC_OPTIMIZE, (unsigned long)nbytes);
+  if (ret < 0)
+    {
+      int ret2;
+
+      printf("ERROR: ioctl(FIOC_OPTIMIZE) failed: %d\n", errno);
+      printf("SPIFFS Integrity Test\n");
+
+      ret2 = ioctl(fd, FIOC_INTEGRITY, 0);
+      if (ret2 < 0)
+        {
+          printf("ERROR: ioctl(FIOC_INTEGRITY) failed: %d\n", errno);
+        }
+    }
+  else
+    {
+      /* Check the integrity of the SPIFFS file system */
+
+      printf("SPIFFS Integrity Test\n");
+
+      ret = ioctl(fd, FIOC_INTEGRITY, 0);
+      if (ret < 0)
+        {
+          printf("ERROR: ioctl(FIOC_INTEGRITY) failed: %d\n", errno);
+        }
+    }
+
+#ifdef CONFIG_SPIFFS_DUMP
+  /* Dump the logic content of FLASH after garbage collection */
+
+  printf("SPIFFS Content (After GC):\n");
+
+  ret = ioctl(fd, FIOC_DUMP, (unsigned long)nbytes);
+  if (ret < 0)
+    {
+      printf("ERROR: ioctl(FIOC_DUMP) failed: %d\n", errno);
+    }
+#endif
+
+  return ret;
+}
+
+static int fstest_gc(size_t nbytes)
+{
+  FAR struct fstest_filedesc_s *file;
+  int ret = OK;
+  int fd;
+  int i;
+
+  /* Find the first valid file */
+
+  for (i = 0; i < CONFIG_EXAMPLES_FSTEST_MAXOPEN; i++)
+    {
+      file = &g_files[i];
+      if (file->name != NULL && !file->deleted)
+        {
+          /* Open the file for reading */
+
+          fd = open(file->name, O_RDONLY);
+          if (fd < 0)
+            {
+              printf("ERROR: Failed to open file for reading: %d\n", errno);
+              ret = ERROR;
+            }
+          else
+            {
+              /* Use this file descriptor to support the garbage collection */
+
+              ret = fstest_gc_withfd(fd, nbytes);
+              close(fd);
+            }
+
+          break;
+        }
+    }
+
+  return ret;
+}
+#else
+#  define fstest_gc_withfd(f,n) (-ENOSYS)
+#  define fstest_gc(n)          (-ENOSYS)
+#endif
+
+/****************************************************************************
  * Name: fstest_wrfile
  ****************************************************************************/
 
@@ -284,6 +397,7 @@ static inline int fstest_wrfile(FAR struct fstest_filedesc_s *file)
 
   fstest_randname(file);
   fstest_randfile(file);
+
   fd = open(file->name, O_WRONLY | O_CREAT | O_EXCL, 0666);
   if (fd < 0)
     {
@@ -320,18 +434,25 @@ static inline int fstest_wrfile(FAR struct fstest_filedesc_s *file)
         {
           int errcode = errno;
 
-          /* If the write failed because there is no space on the device,
-           * then don't complain.
+          /* If the write failed because an interrupt occurred or because there
+           * there is no space on the device, then don't complain.
            */
 
-          if (errcode != ENOSPC)
+          if (errcode == EINTR)
+            {
+              continue;
+            }
+          else if (errcode == ENOSPC)
+            {
+              g_media_full = true;
+            }
+          else
             {
               printf("ERROR: Failed to write file: %d\n", errcode);
               printf("  File name:    %s\n", file->name);
               printf("  File size:    %d\n", file->len);
               printf("  Write offset: %ld\n", (long)offset);
               printf("  Write size:   %ld\n", (long)nbytestowrite);
-              ret = ERROR;
             }
 
           close(fd);
@@ -382,6 +503,8 @@ static int fstest_fillfs(void)
 
   /* Create a file for each unused file structure */
 
+  g_media_full = false;
+
   for (i = 0; i < CONFIG_EXAMPLES_FSTEST_MAXOPEN; i++)
     {
       file = &g_files[i];
@@ -400,6 +523,11 @@ static int fstest_fillfs(void)
          printf("  Created file %s\n", file->name);
 #endif
          g_nfiles++;
+
+         if (g_media_full)
+           {
+             break;
+           }
         }
     }
 
@@ -421,38 +549,50 @@ static ssize_t fstest_rdblock(int fd, FAR struct fstest_filedesc_s *file,
       len = maxio;
     }
 
-  nbytesread = read(fd, &g_fileimage[offset], len);
-  if (nbytesread < 0)
+  for (; ; )
     {
-      printf("ERROR: Failed to read file: %d\n", errno);
-      printf("  File name:    %s\n", file->name);
-      printf("  File size:    %d\n", file->len);
-      printf("  Read offset:  %ld\n", (long)offset);
-      printf("  Read size:    %ld\n", (long)len);
-      return ERROR;
-    }
-  else if (nbytesread == 0)
-    {
-#if 0 /* No... we do this on purpose sometimes */
-      printf("ERROR: Unexpected end-of-file:\n");
-      printf("  File name:    %s\n", file->name);
-      printf("  File size:    %d\n", file->len);
-      printf("  Read offset:  %ld\n", (long)offset);
-      printf("  Read size:    %ld\n", (long)len);
-#endif
-      return ERROR;
-    }
-  else if (nbytesread != len)
-    {
-      printf("ERROR: Partial read:\n");
-      printf("  File name:    %s\n", file->name);
-      printf("  File size:    %d\n", file->len);
-      printf("  Read offset:  %ld\n", (long)offset);
-      printf("  Read size:    %ld\n", (long)len);
-      printf("  Bytes read:   %ld\n", (long)nbytesread);
-    }
+      nbytesread = read(fd, &g_fileimage[offset], len);
+      if (nbytesread < 0)
+        {
+          int errcode = errno;
 
-  return nbytesread;
+          if (errcode == EINTR)
+            {
+              continue;
+            }
+          else
+            {
+              printf("ERROR: Failed to read file: %d\n", errno);
+              printf("  File name:    %s\n", file->name);
+              printf("  File size:    %d\n", file->len);
+              printf("  Read offset:  %ld\n", (long)offset);
+              printf("  Read size:    %ld\n", (long)len);
+              return ERROR;
+            }
+        }
+      else if (nbytesread == 0)
+        {
+#if 0 /* No... we do this on purpose sometimes */
+          printf("ERROR: Unexpected end-of-file:\n");
+          printf("  File name:    %s\n", file->name);
+          printf("  File size:    %d\n", file->len);
+          printf("  Read offset:  %ld\n", (long)offset);
+          printf("  Read size:    %ld\n", (long)len);
+#endif
+          return ERROR;
+        }
+      else if (nbytesread != len)
+        {
+          printf("ERROR: Partial read:\n");
+          printf("  File name:    %s\n", file->name);
+          printf("  File size:    %d\n", file->len);
+          printf("  Read offset:  %ld\n", (long)offset);
+          printf("  Read size:    %ld\n", (long)len);
+          printf("  Bytes read:   %ld\n", (long)nbytesread);
+        }
+
+      return nbytesread;
+    }
 }
 
 /****************************************************************************
@@ -481,7 +621,7 @@ static inline int fstest_rdfile(FAR struct fstest_filedesc_s *file)
       return ERROR;
     }
 
-  /* Read all of the data info the fileimage buffer using random read sizes */
+  /* Read all of the data info the file image buffer using random read sizes */
 
   for (ntotalread = 0; ntotalread < file->len; )
     {
@@ -525,6 +665,52 @@ static inline int fstest_rdfile(FAR struct fstest_filedesc_s *file)
 }
 
 /****************************************************************************
+ * Name: fstest_filesize
+ ****************************************************************************/
+
+#ifdef CONFIG_HAVE_LONG_LONG
+static unsigned long long fstest_filesize(void)
+{
+  unsigned long long bytes_used;
+  FAR struct fstest_filedesc_s *file;
+  int i;
+
+  bytes_used = 0;
+
+  for (i = 0; i < CONFIG_EXAMPLES_FSTEST_MAXOPEN; i++)
+    {
+      file = &g_files[i];
+      if (file->name != NULL && !file->deleted)
+        {
+          bytes_used += file->len;
+        }
+    }
+
+  return bytes_used;
+}
+#else
+static unsigned long fstest_filesize(void)
+{
+  unsigned long bytes_used;
+  FAR struct fstest_filedesc_s *file;
+  int i;
+
+  bytes_used = 0;
+
+  for (i = 0; i < CONFIG_EXAMPLES_FSTEST_MAXOPEN; i++)
+    {
+      file = &g_files[i];
+      if (file->name != NULL && !file->deleted)
+        {
+          bytes_used += file->len;
+        }
+    }
+
+  return bytes_used;
+}
+#endif
+
+/****************************************************************************
  * Name: fstest_verifyfs
  ****************************************************************************/
 
@@ -566,7 +752,7 @@ static int fstest_verifyfs(void)
               if (file->deleted)
                 {
 #if CONFIG_EXAMPLES_FSTEST_VERBOSE != 0
-                  printf("Succesffully read a deleted file\n");
+                  printf("ERROR: Successfully read a deleted file\n");
                   printf("  File name: %s\n", file->name);
                   printf("  File size: %d\n", file->len);
 #endif
@@ -578,7 +764,7 @@ static int fstest_verifyfs(void)
               else
                 {
 #if CONFIG_EXAMPLES_FSTEST_VERBOSE != 0
-                  printf("  Verifed file %s\n", file->name);
+                  printf("  Verified file %s\n", file->name);
 #endif
                 }
             }
@@ -602,8 +788,8 @@ static int fstest_delfiles(void)
 
   /* Are there any files to be deleted? */
 
-  int nfiles = g_nfiles - g_ndeleted;
-  if (nfiles < 1)
+  int nfiles = g_nfiles - g_ndeleted - g_nfailed;
+  if (nfiles <= 1)
     {
       return 0;
     }
@@ -643,6 +829,19 @@ static int fstest_delfiles(void)
                   printf("  File name:  %s\n", file->name);
                   printf("  File size:  %d\n", file->len);
                   printf("  File index: %d\n", j);
+
+                  /* If we don't do this we can get stuck in an infinite
+                   * loop on certain failures to unlink a file.
+                   */
+
+                  file->failed = true;
+                  g_nfailed++;
+                  nfiles--;
+
+                  if (nfiles < 1)
+                    {
+                      return ret;
+                    }
                 }
               else
                 {
@@ -758,6 +957,7 @@ int main(int argc, FAR char *argv[])
 int fstest_main(int argc, char *argv[])
 #endif
 {
+  struct statfs buf;
   unsigned int i;
   int ret;
 
@@ -800,6 +1000,11 @@ int fstest_main(int argc, char *argv[])
       /* Directory listing */
 
       fstest_directory();
+#ifdef CONFIG_HAVE_LONG_LONG
+      printf("Total file size: %llu\n", fstest_filesize());
+#else
+      printf("Total file size: %lu\n", fstest_filesize());
+#endif
 
       /* Verify all files written to FLASH */
 
@@ -839,6 +1044,11 @@ int fstest_main(int argc, char *argv[])
       /* Directory listing */
 
       fstest_directory();
+#ifdef CONFIG_HAVE_LONG_LONG
+      printf("Total file size: %llu\n", fstest_filesize());
+#else
+      printf("Total file size: %lu\n", fstest_filesize());
+#endif
 
       /* Verify all files written to FLASH */
 
@@ -857,6 +1067,28 @@ int fstest_main(int argc, char *argv[])
           printf("  Number deleted:  %d\n", g_ndeleted);
 #endif
         }
+
+      /* Show file system usage */
+
+      ret = statfs(g_mountdir, &buf);
+      if (ret < 0)
+        {
+           printf("ERROR: statfs failed: %d\n", errno);
+        }
+      else
+        {
+           printf("File System:\n");
+           printf("  Block Size:      %lu\n", (unsigned long)buf.f_bsize);
+           printf("  No. Blocks:      %lu\n", (unsigned long)buf.f_blocks);
+           printf("  Free Blocks:     %ld\n", (long)buf.f_bfree);
+           printf("  Avail. Blocks:   %ld\n", (long)buf.f_bavail);
+           printf("  No. File Nodes:  %ld\n", (long)buf.f_files);
+           printf("  Free File Nodes: %ld\n", (long)buf.f_ffree);
+        }
+
+      /* Perform garbage collection, integrity checks */
+
+      (void)fstest_gc(buf.f_bfree);
 
       /* Show memory usage */
 

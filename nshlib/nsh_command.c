@@ -192,6 +192,10 @@ static const struct cmdmap_s g_cmdmap[] =
 # endif
 #endif
 
+#ifndef CONFIG_NSH_DISABLE_ENV
+  { "env",      cmd_env,      1, 1, NULL },
+#endif
+
 #ifndef CONFIG_NSH_DISABLE_EXEC
   { "exec",     cmd_exec,     2, 3, "<hex-address>" },
 #endif
@@ -200,8 +204,12 @@ static const struct cmdmap_s g_cmdmap[] =
   { "exit",     cmd_exit,     1, 1, NULL },
 #endif
 
+#ifndef CONFIG_NSH_DISABLE_EXPORT
+  { "export",   cmd_export,   2, 3, "[<name> [<value>]]" },
+#endif
+
 #ifndef CONFIG_NSH_DISABLESCRIPT
-  { "false",     cmd_false,   1, 1, NULL },
+  { "false",    cmd_false,    1, 1, NULL },
 #endif
 
 #ifndef CONFIG_NSH_DISABLE_FREE
@@ -326,9 +334,9 @@ static const struct cmdmap_s g_cmdmap[] =
      defined(CONFIG_FS_SMARTFS) && defined(CONFIG_FSUTILS_MKSMARTFS)
 # ifndef CONFIG_NSH_DISABLE_MKSMARTFS
 #  ifdef CONFIG_SMARTFS_MULTI_ROOT_DIRS
-  { "mksmartfs",  cmd_mksmartfs,  2, 5, "[-s sector-size] <path> [<num-root-directories>]" },
+  { "mksmartfs",  cmd_mksmartfs,  2, 6, "[-s <sector-size>] [-f] <path> [<num-root-directories>]" },
 #  else
-  { "mksmartfs",  cmd_mksmartfs,  2, 4, "[-s sector-size] <path>" },
+  { "mksmartfs",  cmd_mksmartfs,  2, 5, "[-s <sector-size>] [-f] <path>" },
 #  endif
 # endif
 #endif
@@ -442,6 +450,15 @@ static const struct cmdmap_s g_cmdmap[] =
 #endif
 
 #ifndef CONFIG_NSH_DISABLE_SET
+#ifdef CONFIG_NSH_VARS
+#  if !defined(CONFIG_DISABLE_ENVIRON) && !defined(CONFIG_NSH_DISABLESCRIPT)
+  { "set",      cmd_set,      1, 4, "[{+|-}{e|x|xe|ex}] [<name> <value>]" },
+#  elif !defined(CONFIG_DISABLE_ENVIRON) && defined(CONFIG_NSH_DISABLESCRIPT)
+  { "set",      cmd_set,      1, 3, "[<name> <value>]" },
+#  elif defined(CONFIG_DISABLE_ENVIRON) && !defined(CONFIG_NSH_DISABLESCRIPT)
+  { "set",      cmd_set,      1, 2, "[{+|-}{e|x|xe|ex}]" },
+#  endif
+#else
 #  if !defined(CONFIG_DISABLE_ENVIRON) && !defined(CONFIG_NSH_DISABLESCRIPT)
   { "set",      cmd_set,      2, 4, "[{+|-}{e|x|xe|ex}] [<name> <value>]" },
 #  elif !defined(CONFIG_DISABLE_ENVIRON) && defined(CONFIG_NSH_DISABLESCRIPT)
@@ -450,6 +467,7 @@ static const struct cmdmap_s g_cmdmap[] =
   { "set",      cmd_set,      2, 2, "{+|-}{e|x|xe|ex}" },
 #  endif
 #endif
+#endif /* CONFIG_NSH_DISABLE_SET */
 
 #if  CONFIG_NFILE_DESCRIPTORS > 0 && CONFIG_NFILE_STREAMS > 0 && !defined(CONFIG_NSH_DISABLESCRIPT)
 # ifndef CONFIG_NSH_DISABLE_SH
@@ -513,10 +531,8 @@ static const struct cmdmap_s g_cmdmap[] =
 # endif
 #endif
 
-#ifndef CONFIG_DISABLE_ENVIRON
-# ifndef CONFIG_NSH_DISABLE_UNSET
+#ifndef CONFIG_NSH_DISABLE_UNSET
   { "unset",    cmd_unset,    2, 2, "<name>" },
-# endif
 #endif
 
 #if defined(CONFIG_NETUTILS_CODECS) && defined(CONFIG_CODECS_URLCODE)
