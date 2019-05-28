@@ -1,7 +1,7 @@
 /****************************************************************************
  * apps/include/graphics/nxwidgets/inxwindow.hxx
  *
- *   Copyright (C) 2012, 2015 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2012, 2015, 2019 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -120,6 +120,15 @@ namespace NXWidgets
     virtual CWidgetControl *getWidgetControl(void) const = 0;
 
     /**
+     * Synchronize the window with the NX server.  This function will delay
+     * until the the NX server has caught up with all of the queued requests.
+     * When this function returns, the state of the NX server will be the
+     * same as the state of application.
+     */
+
+    virtual void synchronize(void) = 0;
+
+    /**
      * Request the position and size information of the window. The values
      * will be returned asynchronously through the client callback method.
      * The GetPosition() method may than be called to obtain the positional
@@ -141,7 +150,8 @@ namespace NXWidgets
     /**
      * Get the size of the window (as reported by the NX callback).
      *
-     * @return The size.
+     * @param pSize The location to return window size.
+     * @return True on success, false on any failure.
      */
 
     virtual bool getSize(FAR struct nxgl_size_s *pSize) = 0;
@@ -150,7 +160,7 @@ namespace NXWidgets
      * Set the position and size of the window.
      *
      * @param pPos The new position of the window.
-     * @return True on success, false on failure.
+     * @return True on success, false on any failure.
      */
 
     virtual bool setPosition(FAR const struct nxgl_point_s *pPos) = 0;
@@ -159,7 +169,7 @@ namespace NXWidgets
      * Set the size of the selected window.
      *
      * @param pSize The new size of the window.
-     * @return OK on success; ERROR on failure with errno set appropriately.
+     * @return True on success, false on any failure.
      */
 
     virtual bool setSize(FAR const struct nxgl_size_s *pSize) = 0;
@@ -167,7 +177,7 @@ namespace NXWidgets
     /**
      * Bring the window to the top of the display.
      *
-     * @return OK on success; ERROR on failure with errno set appropriately.
+     * @return True on success, false on any failure.
      */
 
     virtual bool raise(void) = 0;
@@ -175,11 +185,46 @@ namespace NXWidgets
     /**
      * Lower the window to the bottom of the display.
      *
-     * @return OK on success; ERROR on failure with errno set appropriately.
+     * @return True on success, false on any failure.
      */
 
     virtual bool lower(void) = 0;
 
+    /**
+     * Return true if the window is currently being displayed
+     *
+     * @return True if the window is visible
+     */
+
+    virtual bool isVisible(void) = 0;
+
+    /**
+     * Show a hidden window
+     *
+     * @return True on success, false on any failure.
+     */
+
+    virtual bool show(void) = 0;
+
+    /**
+     * Hide a visible window
+     *
+     * @return True on success, false on any failure.
+     */
+
+    virtual bool hide(void) = 0;
+
+    /**
+     * May be used to either (1) raise a window to the top of the display and
+     * select modal behavior, or (2) disable modal behavior.
+     *
+     * @param enable True: enter modal state; False: leave modal state
+     * @return True on success, false on any failure.
+     */
+
+    virtual bool modal(bool enable) = 0;
+
+#ifdef CONFIG_NXTERM_NXKBDIN
     /**
      * Each window implementation also inherits from CCallback.  CCallback,
      * by default, forwards NX keyboard input to the various widgets residing
@@ -194,7 +239,6 @@ namespace NXWidgets
      *    directed to the widgets within the window.
      */
 
-#ifdef CONFIG_NXTERM_NXKBDIN
     virtual void redirectNxTerm(NXTERM handle) = 0;
 #endif
 

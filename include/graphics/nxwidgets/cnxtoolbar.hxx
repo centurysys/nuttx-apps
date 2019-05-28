@@ -1,7 +1,7 @@
 /****************************************************************************
  * apps/include/graphics/nxwidgets/cnxtoolbar.hxx
  *
- *   Copyright (C) 2012, 2015 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2012, 2015, 2019 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -130,6 +130,18 @@ namespace NXWidgets
     CWidgetControl *getWidgetControl(void) const;
 
     /**
+     * Synchronize the window with the NX server.  This function will delay
+     * until the the NX server has caught up with all of the queued requests.
+     * When this function returns, the state of the NX server will be the
+     * same as the state of the application.
+     */
+
+    inline void synchronize(void)
+    {
+      CCallback::synchronize(m_hNxTkWindow, CCallback::NXTK_FRAMEDWINDOW);
+    }
+
+    /**
      * Request the position and size information of the toolbar. The values
      * will be returned asynchronously through the client callback method.
      * The GetPosition() method may than be called to obtain the positional
@@ -164,17 +176,24 @@ namespace NXWidgets
      * @return Always returns false.
      */
 
-    bool setPosition(FAR const struct nxgl_point_s *pPos);
+    inline bool setPosition(FAR const struct nxgl_point_s *pPos)
+    {
+      return false;
+    }
 
     /**
-     * Set the position and size of the toolbar.  The position of
-     * the toolbar is fixed at the top of the parent framed window.
+     * Set the size of the selected toolbar.  The only variable dimension
+     * is the height of the toolbar, but that cannot be changed once
+     * it is created.
      *
-     * @param pPos The new position of the toolbar.
+     * @param pSize The new size of the toolbar.
      * @return Always returns false.
      */
 
-    bool setSize(FAR const struct nxgl_size_s *pSize);
+    inline bool setSize(FAR const struct nxgl_size_s *pSize)
+    {
+      return false;
+    }
 
     /**
      * Bring the toolbar to the top of the display.  The toolbar is
@@ -184,17 +203,73 @@ namespace NXWidgets
      * @return Always returns false.
      */
 
-    bool raise(void);
+    inline bool raise(void)
+    {
+      return false;
+    }
 
     /**
      * Lower the toolbar to the bottom of the display.  The toolbar is
      * a component of the containing, parent, framed window.  It
-     * cannot be lowered separately.
+     * cannot be raised separately.
      *
      * @return Always returns false.
      */
 
-    bool lower(void);
+    inline bool lower(void)
+    {
+      return false;
+    }
+
+    /**
+     * Return true if the toolbar is currently being displayed
+     *
+     * @return True if the window is visible
+     */
+
+    inline bool isVisible(void)
+    {
+      return !nxtk_ishidden(m_hNxTkWindow);
+    }
+
+    /**
+     * Show a hidden toolbar.  The toolbar is a component of the containing,
+     * parent, framed window.  It cannot be shown separately.
+     *
+     * @return True on success, false on any failure.
+     */
+
+    inline bool show(void)
+    {
+      return nxtk_setvisibility(m_hNxTkWindow, false) == OK;
+    }
+
+    /**
+     * Hide a visible window.  The toolbar is a component of the containing,
+     * parent, framed window.  It cannot be hidden separately.
+     *
+     * @return True on success, false on any failure.
+     */
+
+    inline bool hide(void)
+    {
+      return nxtk_setvisibility(m_hNxTkWindow, true) == OK;
+    }
+
+    /**
+     * May be used to either (1) raise a window to the top of the display and
+     * select modal behavior, or (2) disable modal behavior.  The toolbar is
+     * a component of the containing, parent, framed window.  It cannot
+     * be placed in the modal state separately.
+     *
+     * @param enable True: enter modal state; False: leave modal state
+     * @return Always returns false.
+     */
+
+    inline bool modal(bool enable)
+    {
+      return false;
+    }
 
     /**
      * Each window implementation also inherits from CCallback.  CCallback,

@@ -1,7 +1,8 @@
 /****************************************************************************
  * apps/nshlib/nsh_telnetd.c
  *
- *   Copyright (C) 2007-2013, 2016-2017 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2013, 2016-2017, 2019 Gregory Nutt. All rights
+ *     reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -89,7 +90,7 @@ static int nsh_telnetmain(int argc, char *argv[])
   DEBUGASSERT(pstate != NULL);
   vtbl = &pstate->cn_vtbl;
 
-  _info("Session [%d] Started\n", getpid());
+  ninfo("Session [%d] Started\n", getpid());
 
 #ifdef CONFIG_NSH_TELNET_LOGIN
   /* Login User and Password Check */
@@ -151,39 +152,53 @@ static int nsh_telnetmain(int argc, char *argv[])
       fflush(pstate->cn_outstream);
 
       /* Get the next line of input from the Telnet client */
+
 #ifdef CONFIG_TELNET_CHARACTER_MODE
 #ifdef CONFIG_NSH_CLE
+      /* cle() returns a negated errno value on failure (errno is not set) */
+
       ret = cle(pstate->cn_line, CONFIG_NSH_LINELEN,
                 INSTREAM(pstate), OUTSTREAM(pstate));
-#else
-      ret = readline(pstate->cn_line, CONFIG_NSH_LINELEN,
-                     INSTREAM(pstate), OUTSTREAM(pstate));
-#endif
-#else
-      if (fgets(pstate->cn_line, CONFIG_NSH_LINELEN,
-                INSTREAM(pstate)) != NULL)
+      if (ret < 0)
         {
-          ret = strlen(pstate->cn_line);
-        }
-      else
-        {
-          ret = EOF;
-        }
-#endif
-
-      if (ret != EOF)
-        {
-          /* Parse process the received Telnet command */
-
-          (void)nsh_parse(vtbl, pstate->cn_line);
-          fflush(pstate->cn_outstream);
-        }
-      else
-        {
-          fprintf(pstate->cn_outstream, g_fmtcmdfailed, "nsh_telnetmain",
-                  "cle/readline/fgets", NSH_ERRNO);
+          fprintf(pstate->cn_errstream, g_fmtcmdfailed, "nsh_telnetmain",
+                  "cle", NSH_ERRNO_OF(-ret));
           nsh_exit(vtbl, 1);
         }
+#else
+      /* readline() returns EOF on failure (errno is not set) */
+
+      ret = readline(pstate->cn_line, CONFIG_NSH_LINELEN,
+                     INSTREAM(pstate), OUTSTREAM(pstate));
+      if (ret == EOF)
+        {
+          /* NOTE: readline() does not set the errno variable, but perhaps we
+           * will be lucky and it will still be valid.
+           */
+
+          fprintf(pstate->cn_errstream, g_fmtcmdfailed, "nsh_telnetmain",
+                  "readline", NSH_ERRNO);
+          nsh_exit(vtbl, 1);
+        }
+#endif
+#else
+      /* fgets() returns NULL on failure (errno will be set) */
+
+      if (fgets(pstate->cn_line, CONFIG_NSH_LINELEN,
+                INSTREAM(pstate)) == NULL)
+        {
+          fprintf(pstate->cn_errstream, g_fmtcmdfailed, "nsh_telnetmain",
+                  "fgets", NSH_ERRNO);
+          nsh_exit(vtbl, 1);
+        }
+
+      ret = strlen(pstate->cn_line);
+#endif
+
+      /* Parse process the received Telnet command */
+
+      (void)nsh_parse(vtbl, pstate->cn_line);
+      fflush(pstate->cn_outstream);
     }
 
   /* Clean up */
@@ -192,6 +207,7 @@ static int nsh_telnetmain(int argc, char *argv[])
 
   /* We do not get here, but this is necessary to keep some compilers happy */
 
+  UNUSED(ret);
   return OK;
 }
 
@@ -257,7 +273,7 @@ int nsh_telnetstart(sa_family_t family)
 
       /* Start the telnet daemon */
 
-      _info("Starting the Telnet daemon\n");
+      ninfo("Starting the Telnet daemon\n");
 
       ret = telnetd_start(&config);
       if (ret < 0)
@@ -284,7 +300,7 @@ int nsh_telnetstart(sa_family_t family)
  *
  *   Normally this command would be suppressed with CONFIG_NSH_DISABLE_TELNETD
  *   because the Telnet daemon is automatically started in nsh_main.c.  The
- *   exception is when CONFIG_NSH_NETLOCAL is selected.  IN that case, the
+ *   exception is when CONFIG_NETINIT_NETLOCAL is selected.  IN that case, the
  *   network is not enabled at initialization but rather must be enabled from
  *   the NSH command line or via other applications.
  *

@@ -58,11 +58,8 @@
 
 /* Help command summary layout */
 
-#define MAX_CMDLEN    12
-#define CMDS_PER_LINE 6
-
+#define HELP_LINELEN  80
 #define NUM_CMDS      ((sizeof(g_cmdmap)/sizeof(struct cmdmap_s)) - 1)
-#define NUM_CMD_ROWS  ((NUM_CMDS + (CMDS_PER_LINE-1)) / CMDS_PER_LINE)
 
 /****************************************************************************
  * Private Types
@@ -94,7 +91,8 @@ static int  cmd_false(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
 static int  cmd_exit(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
 #endif
 
-static int  cmd_unrecognized(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+static int  cmd_unrecognized(FAR struct nsh_vtbl_s *vtbl, int argc,
+                             char **argv);
 
 /****************************************************************************
  * Private Data
@@ -135,21 +133,22 @@ static const struct cmdmap_s g_cmdmap[] =
   { "break",     cmd_break,   1, 1, NULL },
 #endif
 
-#if CONFIG_NFILE_DESCRIPTORS > 0
-# ifndef CONFIG_NSH_DISABLE_CAT
+#ifndef CONFIG_NSH_DISABLE_CAT
   { "cat",      cmd_cat,      2, CONFIG_NSH_MAXARGUMENTS, "<path> [<path> [<path> ...]]" },
-# endif
+#endif
+
 #ifndef CONFIG_DISABLE_ENVIRON
 # ifndef CONFIG_NSH_DISABLE_CD
   { "cd",       cmd_cd,       1, 2, "[<dir-path>|-|~|..]" },
 # endif
 #endif
-# ifndef CONFIG_NSH_DISABLE_CP
+
+#ifndef CONFIG_NSH_DISABLE_CP
   { "cp",       cmd_cp,       3, 3, "<source-path> <dest-path>" },
-# endif
-# ifndef CONFIG_NSH_DISABLE_CMP
+#endif
+
+#ifndef CONFIG_NSH_DISABLE_CMP
   { "cmp",      cmd_cmp,      3, 3, "<path1> <path2>" },
-# endif
 #endif
 
 #ifndef CONFIG_NSH_DISABLE_DIRNAME
@@ -160,7 +159,7 @@ static const struct cmdmap_s g_cmdmap[] =
   { "date",     cmd_date,     1, 3, "[-s \"MMM DD HH:MM:SS YYYY\"]" },
 #endif
 
-#if CONFIG_NFILE_DESCRIPTORS > 0 && !defined(CONFIG_NSH_DISABLE_DD)
+#ifndef CONFIG_NSH_DISABLE_DD
   { "dd",       cmd_dd,       3, 6, "if=<infile> of=<outfile> [bs=<sectsize>] [count=<sectors>] [skip=<sectors>]" },
 # endif
 
@@ -168,8 +167,8 @@ static const struct cmdmap_s g_cmdmap[] =
   { "delroute", cmd_delroute, 2, 3, "<target> [<netmask>]" },
 #endif
 
-#if CONFIG_NFILE_DESCRIPTORS > 0 && !defined(CONFIG_DISABLE_MOUNTPOINT) && \
-    defined(CONFIG_FS_READABLE) && !defined(CONFIG_NSH_DISABLE_DF)
+#if !defined(CONFIG_DISABLE_MOUNTPOINT) && defined(CONFIG_FS_READABLE) && \
+    !defined(CONFIG_NSH_DISABLE_DF)
 #ifdef NSH_HAVE_CATFILE
 #if defined(HAVE_DF_HUMANREADBLE) && defined(HAVE_DF_BLOCKOUTPUT)
   { "df",       cmd_df,       1, 2, "[-h]" },
@@ -179,8 +178,7 @@ static const struct cmdmap_s g_cmdmap[] =
 #endif
 #endif
 
-#if CONFIG_NFILE_DESCRIPTORS > 0 && defined(CONFIG_RAMLOG_SYSLOG) && \
-   !defined(CONFIG_NSH_DISABLE_DMESG)
+#if defined(CONFIG_RAMLOG_SYSLOG) && !defined(CONFIG_NSH_DISABLE_DMESG)
   { "dmesg",    cmd_dmesg,    1, 1, NULL },
 #endif
 
@@ -216,7 +214,7 @@ static const struct cmdmap_s g_cmdmap[] =
   { "free",     cmd_free,     1, 1, NULL },
 #endif
 
-#if defined(CONFIG_NET_UDP) && CONFIG_NFILE_DESCRIPTORS > 0
+#ifdef CONFIG_NET_UDP
 # ifndef CONFIG_NSH_DISABLE_GET
   { "get",      cmd_get,      4, 7, "[-b|-n] [-f <local-path>] -h <ip-address> <remote-path>" },
 # endif
@@ -230,13 +228,11 @@ static const struct cmdmap_s g_cmdmap[] =
 # endif
 #endif
 
-#if CONFIG_NFILE_DESCRIPTORS > 0
 #ifndef CONFIG_NSH_DISABLE_HEXDUMP
 #ifndef CONFIG_NSH_CMDOPT_HEXDUMP
   { "hexdump",  cmd_hexdump,  2, 2, "<file or device>" },
 #else
   { "hexdump",  cmd_hexdump,  2, 4, "<file or device> [skip=<bytes>] [count=<bytes>]" },
-#endif
 #endif
 #endif
 
@@ -258,34 +254,28 @@ static const struct cmdmap_s g_cmdmap[] =
   { "irqinfo",  cmd_irqinfo,  1, 1, NULL },
 #endif
 
-#ifndef CONFIG_DISABLE_SIGNALS
-# ifndef CONFIG_NSH_DISABLE_KILL
+#ifndef CONFIG_NSH_DISABLE_KILL
   { "kill",     cmd_kill,     3, 3, "-<signal> <pid>" },
-# endif
 #endif
 
-#if CONFIG_NFILE_DESCRIPTORS > 0 && !defined(CONFIG_DISABLE_MOUNTPOINT)
+#ifndef CONFIG_DISABLE_MOUNTPOINT
 # if defined(CONFIG_DEV_LOOP) && !defined(CONFIG_NSH_DISABLE_LOSETUP)
   { "losetup",   cmd_losetup, 3, 6, "[-d <dev-path>] | [[-o <offset>] [-r] <dev-path> <file-path>]" },
 # endif
 #endif
 
-#if CONFIG_NFILE_DESCRIPTORS > 0 && !defined(CONFIG_DISABLE_MOUNTPOINT)
+#ifndef CONFIG_DISABLE_MOUNTPOINT
 # if defined(CONFIG_SMART_DEV_LOOP) && !defined(CONFIG_NSH_DISABLE_LOSMART)
   { "losmart",   cmd_losmart, 2, 11, "[-d <dev-path>] | [[-m <minor>] [-o <offset>] [-e <erase-size>] [-s <sect-size>] [-r] <file-path>]" },
 # endif
 #endif
 
-#if CONFIG_NFILE_DESCRIPTORS > 0
-#  if !defined(CONFIG_NSH_DISABLE_LN) && defined(CONFIG_PSEUDOFS_SOFTLINKS)
+#if !defined(CONFIG_NSH_DISABLE_LN) && defined(CONFIG_PSEUDOFS_SOFTLINKS)
   { "ln",       cmd_ln,       3, 4, "[-s] <target> <link>" },
-# endif
 #endif
 
-#if CONFIG_NFILE_DESCRIPTORS > 0
-# ifndef CONFIG_NSH_DISABLE_LS
+#ifndef CONFIG_NSH_DISABLE_LS
   { "ls",       cmd_ls,       1, 5, "[-lRs] <dir-path>" },
-# endif
 #endif
 
 #if defined(CONFIG_MODULE) && !defined(CONFIG_NSH_DISABLE_MODCMDS)
@@ -310,14 +300,13 @@ static const struct cmdmap_s g_cmdmap[] =
 # endif
 #endif
 
-#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0 && \
-     defined(CONFIG_FSUTILS_MKFATFS)
+#if !defined(CONFIG_DISABLE_MOUNTPOINT) && defined(CONFIG_FSUTILS_MKFATFS)
 # ifndef CONFIG_NSH_DISABLE_MKFATFS
   { "mkfatfs",  cmd_mkfatfs,  2, 6, "[-F <fatsize>] [-r <rootdirentries>] <block-driver>" },
 # endif
 #endif
 
-#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0
+#ifndef CONFIG_DISABLE_MOUNTPOINT
 # if defined(CONFIG_PIPES) && CONFIG_DEV_FIFO_SIZE > 0 && \
     !defined(CONFIG_NSH_DISABLE_MKFIFO)
   { "mkfifo",   cmd_mkfifo,   2, 2, "<path>" },
@@ -330,8 +319,8 @@ static const struct cmdmap_s g_cmdmap[] =
 # endif
 #endif
 
-#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0 && \
-     defined(CONFIG_FS_SMARTFS) && defined(CONFIG_FSUTILS_MKSMARTFS)
+#if !defined(CONFIG_DISABLE_MOUNTPOINT) && defined(CONFIG_FS_SMARTFS) && \
+    defined(CONFIG_FSUTILS_MKSMARTFS)
 # ifndef CONFIG_NSH_DISABLE_MKSMARTFS
 #  ifdef CONFIG_SMARTFS_MULTI_ROOT_DIRS
   { "mksmartfs",  cmd_mksmartfs,  2, 6, "[-s <sector-size>] [-f] <path> [<num-root-directories>]" },
@@ -345,7 +334,7 @@ static const struct cmdmap_s g_cmdmap[] =
   { "mh",       cmd_mh,       2, 3, "<hex-address>[=<hex-value>][ <hex-byte-count>]" },
 #endif
 
-#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0 && defined(CONFIG_FS_READABLE)
+#if !defined(CONFIG_DISABLE_MOUNTPOINT) && defined(CONFIG_FS_READABLE)
 #ifndef CONFIG_NSH_DISABLE_MOUNT
 #if defined(NSH_HAVE_CATFILE) && defined(HAVE_MOUNT_LIST)
   { "mount",    cmd_mount,    1, 7, "[-t <fstype> [-o <options>] [<block-device>] <mount-point>]" },
@@ -365,8 +354,8 @@ static const struct cmdmap_s g_cmdmap[] =
   { "mw",       cmd_mw,       2, 3, "<hex-address>[=<hex-value>][ <hex-byte-count>]" },
 #endif
 
-#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0 && \
-    defined(CONFIG_NET) && defined(CONFIG_NFS)
+#if !defined(CONFIG_DISABLE_MOUNTPOINT) && defined(CONFIG_NET) && \
+    defined(CONFIG_NFS)
 #  ifndef CONFIG_NSH_DISABLE_NFSMOUNT
   { "nfsmount", cmd_nfsmount, 4, 4, "<server-address> <mount-point> <remote-path>" },
 #  endif
@@ -377,8 +366,8 @@ static const struct cmdmap_s g_cmdmap[] =
   { "nslookup", cmd_nslookup, 2, 2, "<host-name>" },
 #endif
 
-#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0 && \
-    defined(CONFIG_FS_WRITABLE) && defined(CONFIG_NSH_LOGIN_PASSWD) && \
+#if !defined(CONFIG_DISABLE_MOUNTPOINT) && defined(CONFIG_FS_WRITABLE) && \
+    defined(CONFIG_NSH_LOGIN_PASSWD) && \
     !defined(CONFIG_FSUTILS_PASSWD_READONLY)
 #  ifndef CONFIG_NSH_DISABLE_PASSWD
   { "passwd",   cmd_passwd,   3, 3, "<username> <password>" },
@@ -401,22 +390,20 @@ static const struct cmdmap_s g_cmdmap[] =
   { "ps",       cmd_ps,       1, 1, NULL },
 #endif
 
-#if defined(CONFIG_NET_UDP) && CONFIG_NFILE_DESCRIPTORS > 0
+#ifdef CONFIG_NET_UDP
 # ifndef CONFIG_NSH_DISABLE_PUT
   { "put",      cmd_put,      4, 7, "[-b|-n] [-f <remote-path>] -h <ip-address> <local-path>" },
 # endif
 #endif
 
-#if CONFIG_NFILE_DESCRIPTORS > 0 && !defined(CONFIG_DISABLE_ENVIRON)
+#ifndef CONFIG_DISABLE_ENVIRON
 # ifndef CONFIG_NSH_DISABLE_PWD
   { "pwd",      cmd_pwd,      1, 1, NULL },
 # endif
 #endif
 
-#if CONFIG_NFILE_DESCRIPTORS > 0
-#  if !defined(CONFIG_NSH_DISABLE_READLINK) && defined(CONFIG_PSEUDOFS_SOFTLINKS)
+#if !defined(CONFIG_NSH_DISABLE_READLINK) && defined(CONFIG_PSEUDOFS_SOFTLINKS)
   { "readlink", cmd_readlink, 2, 2, "<link>" },
-# endif
 #endif
 
 #if defined(CONFIG_BOARDCTL_RESET) && !defined(CONFIG_NSH_DISABLE_REBOOT)
@@ -469,7 +456,7 @@ static const struct cmdmap_s g_cmdmap[] =
 #endif
 #endif /* CONFIG_NSH_DISABLE_SET */
 
-#if  CONFIG_NFILE_DESCRIPTORS > 0 && CONFIG_NFILE_STREAMS > 0 && !defined(CONFIG_NSH_DISABLESCRIPT)
+#if CONFIG_NFILE_STREAMS > 0 && !defined(CONFIG_NSH_DISABLESCRIPT)
 # ifndef CONFIG_NSH_DISABLE_SH
   { "sh",       cmd_sh,       2, 2, "<script-path>" },
 # endif
@@ -485,10 +472,8 @@ static const struct cmdmap_s g_cmdmap[] =
 #endif
 #endif
 
-#ifndef CONFIG_DISABLE_SIGNALS
-# ifndef CONFIG_NSH_DISABLE_SLEEP
+#ifndef CONFIG_NSH_DISABLE_SLEEP
   { "sleep",    cmd_sleep,    2, 2, "<sec>" },
-# endif
 #endif
 
 #if !defined(CONFIG_NSH_DISABLESCRIPT) && !defined(CONFIG_NSH_DISABLE_TEST)
@@ -511,7 +496,7 @@ static const struct cmdmap_s g_cmdmap[] =
   { "true",     cmd_true,     1, 1, NULL },
 #endif
 
-#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0
+#ifndef CONFIG_DISABLE_MOUNTPOINT
 # ifndef CONFIG_NSH_DISABLE_TRUNCATE
   { "truncate", cmd_truncate, 4, 4, "-s <length> <file-path>" },
 # endif
@@ -525,7 +510,7 @@ static const struct cmdmap_s g_cmdmap[] =
 #endif
 #endif
 
-#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0 && defined(CONFIG_FS_READABLE)
+#if !defined(CONFIG_DISABLE_MOUNTPOINT) && defined(CONFIG_FS_READABLE)
 # ifndef CONFIG_NSH_DISABLE_UMOUNT
   { "umount",   cmd_umount,   2, 2, "<dir-path>" },
 # endif
@@ -544,8 +529,8 @@ static const struct cmdmap_s g_cmdmap[] =
 #  endif
 #endif
 
-#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0 && \
-    defined(CONFIG_FS_WRITABLE) && defined(CONFIG_NSH_LOGIN_PASSWD) && \
+#if !defined(CONFIG_DISABLE_MOUNTPOINT) && defined(CONFIG_FS_WRITABLE) && \
+    defined(CONFIG_NSH_LOGIN_PASSWD) && \
     !defined(CONFIG_FSUTILS_PASSWD_READONLY)
 #  ifndef CONFIG_NSH_DISABLE_USERADD
   { "useradd",   cmd_useradd, 3, 3, "<username> <password>" },
@@ -555,13 +540,11 @@ static const struct cmdmap_s g_cmdmap[] =
 #  endif
 #endif
 
-#ifndef CONFIG_DISABLE_SIGNALS
-# ifndef CONFIG_NSH_DISABLE_USLEEP
+#ifndef CONFIG_NSH_DISABLE_USLEEP
   { "usleep",   cmd_usleep,   2, 2, "<usec>" },
-# endif
 #endif
 
-#if defined(CONFIG_NET_TCP) && CONFIG_NFILE_DESCRIPTORS > 0
+#ifdef CONFIG_NET_TCP
 # ifndef CONFIG_NSH_DISABLE_WGET
   { "wget",     cmd_wget,     2, 4, "[-o <local-path>] <url>" },
 # endif
@@ -585,24 +568,61 @@ static const struct cmdmap_s g_cmdmap[] =
 #ifndef CONFIG_NSH_DISABLE_HELP
 static inline void help_cmdlist(FAR struct nsh_vtbl_s *vtbl)
 {
+  unsigned int colwidth;
+  unsigned int cmdwidth;
+  unsigned int cmdsperline;
+  unsigned int ncmdrows;
   unsigned int i;
   unsigned int j;
   unsigned int k;
 
-  /* Print the command name in NUM_CMD_ROWS rows with CMDS_PER_LINE commands
+  /* Pick an optimal column width */
+
+  for (k = 0, colwidth = 0; k < NUM_CMDS; k++)
+    {
+      cmdwidth = strlen(g_cmdmap[k].cmd);
+      if (cmdwidth > colwidth)
+        {
+          colwidth = cmdwidth;
+        }
+    }
+
+  colwidth += 2;
+
+  /* Determine the number of commands to put on one line */
+
+  if (colwidth > HELP_LINELEN)
+    {
+      cmdsperline = 1;
+    }
+  else
+    {
+      cmdsperline = HELP_LINELEN / colwidth;
+    }
+
+  /* Determine the total number of lines to output */
+
+  ncmdrows = (NUM_CMDS + (cmdsperline - 1)) / cmdsperline;
+
+  /* Print the command name in 'ncmdrows' rows with 'cmdsperline' commands
    * on each line.
    */
 
-  for (i = 0; i < NUM_CMD_ROWS; i++)
+  for (i = 0; i < ncmdrows; i++)
     {
       nsh_output(vtbl, "  ");
-      for (j = 0, k = i; j < CMDS_PER_LINE && k < NUM_CMDS; j++, k += NUM_CMD_ROWS)
+      for (j = 0, k = i;
+           j < cmdsperline && k < NUM_CMDS;
+           j++, k += ncmdrows)
         {
-#ifdef CONFIG_NOPRINTF_FIELDWIDTH
-          nsh_output(vtbl, "%s\t", g_cmdmap[k].cmd);
-#else
-          nsh_output(vtbl, "%-12s", g_cmdmap[k].cmd);
-#endif
+          nsh_output(vtbl, "%s", g_cmdmap[k].cmd);
+
+          for (cmdwidth = strlen(g_cmdmap[k].cmd);
+               cmdwidth < colwidth;
+               cmdwidth++)
+            {
+              nsh_output(vtbl, " ");
+            }
         }
 
       nsh_output(vtbl, "\n");
@@ -693,7 +713,7 @@ static int help_cmd(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd)
         }
     }
 
-  nsh_output(vtbl, g_fmtcmdnotfound, cmd);
+  nsh_error(vtbl, g_fmtcmdnotfound, cmd);
   return ERROR;
 }
 #endif
@@ -725,14 +745,71 @@ static inline void help_builtins(FAR struct nsh_vtbl_s *vtbl)
 {
 #ifdef CONFIG_NSH_BUILTIN_APPS
   FAR const char *name;
-  int i;
+  unsigned int num_builtins;
+  unsigned int column_width;
+  unsigned int builtin_width;
+  unsigned int builtins_per_line;
+  unsigned int num_builtin_rows;
+  unsigned int i;
+  unsigned int j;
+  unsigned int k;
+
+  /* Count the number of built-in commands and get the optimal column width */
+
+  num_builtins = 0;
+  column_width = 0;
+
+  for (i = 0; (name = builtin_getname(i)) != NULL; i++)
+    {
+      num_builtins++;
+
+      builtin_width = strlen(name);
+      if (builtin_width > column_width)
+        {
+          column_width = builtin_width;
+        }
+    }
+
+  column_width += 2;
+
+  /* Determine the number of commands to put on one line */
+
+  if (column_width > HELP_LINELEN)
+    {
+      builtins_per_line = 1;
+    }
+  else
+    {
+      builtins_per_line = HELP_LINELEN / column_width;
+    }
+
+  /* Determine the total number of lines to output */
+
+  num_builtin_rows = ((num_builtins + (builtins_per_line - 1)) /
+                      builtins_per_line);
 
   /* List the set of available built-in commands */
 
   nsh_output(vtbl, "\nBuiltin Apps:\n");
-  for (i = 0; (name = builtin_getname(i)) != NULL; i++)
+  for (i = 0; i < num_builtin_rows; i++)
     {
-      nsh_output(vtbl, "  %s\n", name);
+      nsh_output(vtbl, "  ");
+      for (j = 0, k = i;
+           j < builtins_per_line && k < num_builtins;
+           j++, k += num_builtin_rows)
+        {
+          name = builtin_getname(k);
+          nsh_output(vtbl, "%s", name);
+
+          for (builtin_width = strlen(name);
+               builtin_width < column_width;
+               builtin_width++)
+            {
+              nsh_output(vtbl, " ");
+            }
+        }
+
+      nsh_output(vtbl, "\n");
     }
 #endif
 }
@@ -826,9 +903,10 @@ static int cmd_help(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
  * Name: cmd_unrecognized
  ****************************************************************************/
 
-static int cmd_unrecognized(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
+static int cmd_unrecognized(FAR struct nsh_vtbl_s *vtbl, int argc,
+                            char **argv)
 {
-  nsh_output(vtbl, g_fmtcmdnotfound, argv[0]);
+  nsh_error(vtbl, g_fmtcmdnotfound, argv[0]);
   return ERROR;
 }
 
@@ -915,14 +993,14 @@ int nsh_command(FAR struct nsh_vtbl_s *vtbl, int argc, char *argv[])
             {
               /* Fewer than the minimum number were provided */
 
-              nsh_output(vtbl, g_fmtargrequired, cmd);
+              nsh_error(vtbl, g_fmtargrequired, cmd);
               return ERROR;
             }
           else if (argc > cmdmap->maxargs)
             {
               /* More than the maximum number were provided */
 
-              nsh_output(vtbl, g_fmttoomanyargs, cmd);
+              nsh_error(vtbl, g_fmttoomanyargs, cmd);
               return ERROR;
             }
           else

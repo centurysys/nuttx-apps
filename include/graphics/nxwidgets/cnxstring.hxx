@@ -2,7 +2,7 @@
  * include/cnxtring.hxx
  *apps/include/graphics/nxwidgets/
  *
- *   Copyright (C) 2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2012, 2018 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -257,6 +257,11 @@ namespace NXWidgets
 
     void setText(const CNxString &text);
 
+    inline void setText(FAR const CNxString *text)
+    {
+      setText(*text);
+    }
+
     /**
      * Set the text in the string.
      *
@@ -433,7 +438,7 @@ namespace NXWidgets
      * substring.
      */
 
-    CNxString *subString(int startIndex) const;
+    FAR CNxString *subString(int startIndex) const;
 
     /**
      * Get a substring from this string.  It is the responsibility of the
@@ -445,7 +450,7 @@ namespace NXWidgets
      * substring.
      */
 
-    CNxString *subString(int startIndex, int length) const;
+    FAR CNxString *subString(int startIndex, int length) const;
 
     /**
      * Overloaded assignment operator.  Copies the data within the argument
@@ -465,7 +470,7 @@ namespace NXWidgets
      * @return This string.
      */
 
-    CNxString &operator=(const char *string);
+    CNxString &operator=(FAR const char *string);
 
     /**
      * Overloaded assignment operator.  Copies the data from the argument
@@ -478,6 +483,27 @@ namespace NXWidgets
     CNxString &operator=(nxwidget_char_t letter);
 
     /**
+     * Overloaded sum operator. Appends the string to current string.
+     */
+
+    inline CNxString &operator+=(const CNxString &other)
+    {
+      append(other);
+      return *this;
+    }
+
+    /**
+     * Overloaded sum operator. Concatenates two strings.
+     */
+
+    inline CNxString operator+(const CNxString &other)
+    {
+      CNxString result = *this;
+      result.append(other);
+      return result;
+    }
+
+    /**
      * Compares this string to the argument.
      *
      * @param string String to compare to.
@@ -488,6 +514,17 @@ namespace NXWidgets
      */
 
     int compareTo(const CNxString &string) const;
+    int compareTo(FAR const char *string) const;
+
+    /**
+     * snprintf()-style string formatting. Automatically allocates correct
+     * amount of memory.
+     *
+     * @param fmt printf format string.
+     * @return New CNxString instance.
+     */
+
+    static CNxString format(const char *fmt, ...);
   };
 }
 

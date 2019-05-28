@@ -1,7 +1,7 @@
 /****************************************************************************
  * apps/include/graphics/nxwidgets/cnxwindow.hxx
  *
- *   Copyright (C) 2012, 2015 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2012, 2015, 2019 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,10 +53,6 @@
 #include "graphics/nxwidgets/inxwindow.hxx"
 
 /****************************************************************************
- * Pre-Processor Definitions
- ****************************************************************************/
-
-/****************************************************************************
  * Implementation Classes
  ****************************************************************************/
 
@@ -89,6 +85,7 @@ namespace NXWidgets
     NXHANDLE        m_hNxServer;     /**< Handle to the NX server. */
     NXWINDOW        m_hNxWindow;     /**< Handle to the NX raw window */
     CWidgetControl *m_widgetControl; /**< The controlling widget for the window */
+    uint8_t         m_flags;         /**< Window properties */
 
   public:
 
@@ -111,9 +108,11 @@ namespace NXWidgets
      *
      * @param hNxServer Handle to the NX server.
      * @param widgetControl Controlling widget for this window.
+     * @param flags Window properties
      */
 
-    CNxWindow(NXHANDLE hNxServer, CWidgetControl *pWidgetControl);
+    CNxWindow(NXHANDLE hNxServer, CWidgetControl *pWidgetControl,
+              uint8_t flags = 0);
 
     /**
      * Destructor.
@@ -138,6 +137,18 @@ namespace NXWidgets
      */
 
     CWidgetControl *getWidgetControl(void) const;
+
+    /**
+     * Synchronize the window with the NX server.  This function will delay
+     * until the the NX server has caught up with all of the queued requests.
+     * When this function returns, the state of the NX server will be the
+     * same as the state of the application.
+     */
+
+    inline void synchronize(void)
+    {
+      CCallback::synchronize(m_hNxWindow, CCallback::NX_RAWWINDOW);
+    }
 
     /**
      * Request the position and size information of the window. The values
@@ -190,7 +201,10 @@ namespace NXWidgets
      * @return True on success, false on any failure.
      */
 
-    bool raise(void);
+    inline bool raise(void)
+    {
+      return nx_raise(m_hNxWindow) == OK;
+    }
 
     /**
      * Lower the window to the bottom of the display.
@@ -198,7 +212,53 @@ namespace NXWidgets
      * @return True on success, false on any failure.
      */
 
-    bool lower(void);
+    inline bool lower(void)
+    {
+      return nx_lower(m_hNxWindow) == OK;
+    }
+
+    /**
+     * Return true if the window is currently being displayed
+     *
+     * @return True if the window is visible
+     */
+
+    inline bool isVisible(void)
+    {
+      return !nx_ishidden(m_hNxWindow);
+    }
+
+    /**
+     * Show a hidden window
+     *
+     * @return True on success, false on any failure.
+     */
+
+    inline bool show(void)
+    {
+      return nx_setvisibility(m_hNxWindow, false) == OK;
+    }
+
+    /**
+     * Hide a visible window
+     *
+     * @return True on success, false on any failure.
+     */
+
+    inline bool hide(void)
+    {
+      return nx_setvisibility(m_hNxWindow, true) == OK;
+    }
+
+    /**
+     * May be used to either (1) raise a window to the top of the display and
+     * select modal behavior, or (2) disable modal behavior.
+     *
+     * @param enable True: enter modal state; False: leave modal state
+     * @return True on success, false on any failure.
+     */
+
+    bool modal(bool enable);
 
     /**
      * Each window implementation also inherits from CCallback.  CCallback,

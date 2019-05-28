@@ -1,7 +1,7 @@
 /****************************************************************************
  * examples/lvgdemo/lvgldemo.c
  *
- *   Copyright (C) 2018 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2019 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,8 +50,10 @@
 
 #include "fbdev.h"
 #include "tp.h"
-#include "demo.h"
 #include "tp_cal.h"
+#include "demo.h"
+#include "lv_test_theme_1.h"
+#include "lv_test_theme_2.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -59,8 +61,8 @@
 
 /* Should we perform board-specific driver initialization?  There are two
  * ways that board initialization can occur:  1) automatically via
- * board_initialize() during bootup if CONFIG_BOARD_INITIALIZE, or 2) via a
- * call to boardctl() if the interface is enabled (CONFIG_LIB_BOARDCTL=y).
+ * board_late_initialize() during bootup if CONFIG_BOARD_LATE_INITIALIZE, or 2)
+ * via a call to boardctl() if the interface is enabled (CONFIG_LIB_BOARDCTL=y).
  * If this task is running as an NSH built-in application, then that
  * initialization has probably already been performed otherwise we do it
  * here.
@@ -68,7 +70,7 @@
 
 #undef NEED_BOARDINIT
 
-#if defined(CONFIG_LIB_BOARDCTL) && !defined(CONFIG_BOARD_INITIALIZE) && \
+#if defined(CONFIG_LIB_BOARDCTL) && !defined(CONFIG_BOARD_LATE_INITIALIZE) && \
     (!defined(CONFIG_NSH_BUILTIN_APPS) || !defined(CONFIG_NSH_ARCHINIT))
 #  define NEED_BOARDINIT 1
 #endif
@@ -81,6 +83,7 @@
  * Name: tick_func
  *
  * Description:
+ *   Calls lv_tick_inc(...) every 5ms.
  *
  * Input Parameters:
  *   data
@@ -196,7 +199,39 @@ int lvgldemo_main(int argc, char *argv[])
 
   /* Demo initialization */
 
-  demo_init();
+#if defined(CONFIG_EXAMPLES_LVGLDEMO_SIMPLE)
+
+  demo_create();
+
+#elif defined(CONFIG_EXAMPLES_LVGLDEMO_THEME_1)
+
+  lv_theme_t *theme = NULL;
+
+#if   defined(CONFIG_EXAMPLES_LVGLDEMO_THEME_1_DEFAULT)
+  theme = lv_theme_default_init(EXAMPLES_LVGLDEMO_THEME_1_HUE, NULL);
+#elif defined(CONFIG_EXAMPLES_LVGLDEMO_THEME_1_ALIEN)
+  theme = lv_theme_alien_init(EXAMPLES_LVGLDEMO_THEME_1_HUE,   NULL);
+#elif defined(CONFIG_EXAMPLES_LVGLDEMO_THEME_1_NIGHT)
+  theme = lv_theme_night_init(EXAMPLES_LVGLDEMO_THEME_1_HUE, NULL);
+#elif defined(CONFIG_EXAMPLES_LVGLDEMO_THEME_1_MONO)
+  theme = lv_theme_mono_init(EXAMPLES_LVGLDEMO_THEME_1_HUE, NULL);
+#elif defined(CONFIG_EXAMPLES_LVGLDEMO_THEME_1_MATERIAL)
+  theme = lv_theme_material_init(EXAMPLES_LVGLDEMO_THEME_1_HUE, NULL);
+#elif defined(CONFIG_EXAMPLES_LVGLDEMO_THEME_1_ZEN)
+  theme = lv_theme_zen_init(EXAMPLES_LVGLDEMO_THEME_1_HUE, NULL);
+#elif defined(CONFIG_EXAMPLES_LVGLDEMO_THEME_1_NEMO)
+  theme = lv_theme_nemo_init(EXAMPLES_LVGLDEMO_THEME_1_HUE, NULL);
+#else
+#  error "No theme selected for this application"
+#endif
+
+ lv_test_theme_1(theme);
+
+#elif defined(CONFIG_EXAMPLES_LVGLDEMO_THEME_2)
+  lv_test_theme_2();
+#else
+#  error "No LVGL demo selected"
+#endif
 
   /* Start TP calibration */
 

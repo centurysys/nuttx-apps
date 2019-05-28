@@ -78,9 +78,14 @@ namespace NXWidgets
 
     /**
      * Handle a NX window redraw request event
+     *
+     * @param nxRect The region in the window to be redrawn
+     * @param more More redraw requests will follow
      */
 
-    virtual void handleRedrawEvent(void) { }
+    virtual void handleRedrawEvent(FAR const nxgl_rect_s *nxRect, bool more)
+    {
+    }
 
     /**
      * Handle a NX window position/size change event
@@ -88,21 +93,22 @@ namespace NXWidgets
 
     virtual void handleGeometryEvent(void) { }
 
+#ifdef CONFIG_NX_XYINPUT
     /**
      * Handle an NX window mouse input event.
-     *
-     * @param e The event data.
      */
 
-#ifdef CONFIG_NX_XYINPUT
-    virtual void handleMouseEvent(void) { }
+    virtual void handleMouseEvent(FAR const struct nxgl_point_s *pos,
+                                  uint8_t buttons)
+    {
+    }
 #endif
 
+#ifdef CONFIG_NX_KBD
     /**
      * Handle a NX window keyboard input event.
      */
 
-#ifdef CONFIG_NX_KBD
     virtual void handleKeyboardEvent(void) { }
 #endif
 

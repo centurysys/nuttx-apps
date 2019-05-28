@@ -1,7 +1,7 @@
 /****************************************************************************
  * apps/include/graphics/nxwidgets/cnxtkwindow.hxx
  *
- *   Copyright (C) 2012, 2015 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2012, 2015, 2019 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -85,10 +85,11 @@ namespace NXWidgets
   {
   protected:
     NXHANDLE        m_hNxServer;     /**< Handle to the NX server. */
-    NXTKWINDOW      m_hNxTkWindow;   /**< Handle to the NX raw window */
+    NXTKWINDOW      m_hNxTkWindow;   /**< Handle to the NxTk window */
     CWidgetControl *m_widgetControl; /**< Controlling widget for the window */
     CNxToolbar     *m_toolbar;       /**< Child toolbar */
     nxgl_coord_t    m_toolbarHeight; /**< The height of the toolbar */
+    uint8_t         m_flags;         /**< Window properties */
 
   public:
 
@@ -111,9 +112,11 @@ namespace NXWidgets
      *
      * @param hNxServer Handle to the NX server.
      * @param widgetControl Controlling widget for this window.
+     * @param flags Window properties
      */
 
-    CNxTkWindow(NXHANDLE hNxServer, CWidgetControl *widgetControl);
+    CNxTkWindow(NXHANDLE hNxServer, CWidgetControl *widgetControl,
+                uint8_t flags);
 
     /**
      * Destructor.
@@ -138,6 +141,18 @@ namespace NXWidgets
      */
 
     CWidgetControl *getWidgetControl(void) const;
+
+    /**
+     * Synchronize the window with the NX server.  This function will delay
+     * until the the NX server has caught up with all of the queued requests.
+     * When this function returns, the state of the NX server will be the
+     * same as the state of the application.
+     */
+
+    inline void synchronize(void)
+    {
+      CCallback::synchronize(m_hNxTkWindow, CCallback::NXTK_FRAMEDWINDOW);
+    }
 
     /**
      * Open a toolbar on the framed window.  This method both instantiates
@@ -217,7 +232,10 @@ namespace NXWidgets
      * @return True on success, false on any failure.
      */
 
-    bool raise(void);
+    inline bool raise(void)
+    {
+      return nxtk_raise(m_hNxTkWindow) == OK;
+    }
 
     /**
      * Lower the window to the bottom of the display.
@@ -225,8 +243,55 @@ namespace NXWidgets
      * @return True on success, false on any failure.
      */
 
-    bool lower(void);
+    inline bool lower(void)
+    {
+      return nxtk_lower(m_hNxTkWindow) == OK;
+    }
 
+    /**
+     * Return true if the window is currently being displayed
+     *
+     * @return True if the window is visible
+     */
+
+    inline bool isVisible(void)
+    {
+      return !nxtk_ishidden(m_hNxTkWindow);
+    }
+
+    /**
+     * Show a hidden window
+     *
+     * @return True on success, false on any failure.
+     */
+
+    inline bool show(void)
+    {
+      return nxtk_setvisibility(m_hNxTkWindow, false) == OK;
+    }
+
+    /**
+     * Hide a visible window
+     *
+     * @return True on success, false on any failure.
+     */
+
+    inline bool hide(void)
+    {
+      return nxtk_setvisibility(m_hNxTkWindow, true) == OK;
+    }
+
+    /**
+     * May be used to either (1) raise a window to the top of the display and
+     * select modal behavior, or (2) disable modal behavior.
+     *
+     * @param enable True: enter modal state; False: leave modal state
+     * @return True on success, false on any failure.
+     */
+
+    bool modal(bool enable);
+
+#ifdef CONFIG_NXTERM_NXKBDIN
     /**
      * Each window implementation also inherits from CCallback.  CCallback,
      * by default, forwards NX keyboard input to the various widgets residing
@@ -241,7 +306,6 @@ namespace NXWidgets
      *    directed to the widgets within the window.
      */
 
-#ifdef CONFIG_NXTERM_NXKBDIN
     inline void redirectNxTerm(NXTERM handle)
     {
       setNxTerm(handle);
@@ -364,4 +428,3 @@ namespace NXWidgets
 #endif // __cplusplus
 
 #endif // __APPS_INCLUDE_GRAPHICS_NXWIDGETS_CNXTKWINDOW_HXX
-
