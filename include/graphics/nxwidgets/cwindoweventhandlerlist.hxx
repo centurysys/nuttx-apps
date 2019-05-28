@@ -135,9 +135,12 @@ namespace NXWidgets
 
     /**
      * Raise the NX window redraw event.
+     *
+     * @param nxRect The region in the window to be redrawn
+     * @param more More redraw requests will follow
      */
 
-    void raiseRedrawEvent(void);
+    void raiseRedrawEvent(FAR const nxgl_rect_s *nxRect, bool more);
 
     /**
      * Raise an NX window position/size change event.
@@ -145,19 +148,20 @@ namespace NXWidgets
 
     void raiseGeometryEvent(void);
 
+#ifdef CONFIG_NX_XYINPUT
     /**
      * Raise an NX mouse window input event.
      */
 
-#ifdef CONFIG_NX_XYINPUT
-    void raiseMouseEvent(void);
+    void raiseMouseEvent(FAR const struct nxgl_point_s *pos,
+                         uint8_t buttons);
 #endif
 
+#ifdef CONFIG_NX_KBD
     /**
      * Raise an NX keybord input event
      */
 
-#ifdef CONFIG_NX_KBD
     void raiseKeyboardEvent(void);
 #endif
 

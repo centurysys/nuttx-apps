@@ -112,7 +112,7 @@ struct ntpc_daemon_s
  * Private Data
  ****************************************************************************/
 
-/* This type describes the state of the NTP client daemon.  Only once
+/* This type describes the state of the NTP client daemon.  Only one
  * instance of the NTP daemon is permitted in this implementation.  This
  * limitation is due only to this global data structure.
  */
@@ -587,7 +587,6 @@ int ntpc_start(void)
  *
  ****************************************************************************/
 
-#ifndef CONFIG_DISABLE_SIGNALS
 int ntpc_stop(void)
 {
   int ret;
@@ -628,4 +627,3 @@ int ntpc_stop(void)
   sched_unlock();
   return OK;
 }
-#endif

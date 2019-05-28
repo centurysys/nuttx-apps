@@ -1,7 +1,7 @@
 /****************************************************************************
  * apps/include/graphics/nxwidgets/cnumericedit.hxx
  *
- *   Copyright (C) 2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2012, 2018 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *           Petteri Aimonen <jpa@kapsi.fi>
  *
@@ -119,6 +119,7 @@ namespace NXWidgets
     CButton *m_button_minus;
     CButton *m_button_plus;
     CNxTimer *m_timer;
+    CNxString m_unittext;
     int m_value;
     int m_minimum;
     int m_maximum;
@@ -149,6 +150,8 @@ namespace NXWidgets
      */
 
     inline CNumericEdit(const CNumericEdit &num) : CNxWidget(num) { };
+
+    void updateText();
 
   public:
 
@@ -193,6 +196,12 @@ namespace NXWidgets
 
     virtual void setFont(CNxFont *font);
 
+    /**
+     * Sets the text to display after the numeric value.
+     */
+
+    void setUnit(const CNxString& text);
+
     inline int getValue() const { return m_value; }
     void setValue(int value);
 
@@ -204,7 +213,6 @@ namespace NXWidgets
 
     inline int getIncrement() const { return m_increment; }
     inline void setIncrement(int value) { m_increment = value; setValue(m_value); }
-
   };
 }
 
