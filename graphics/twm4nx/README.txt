@@ -69,6 +69,7 @@ Progress:
   2019-05-15:  Resizing now seems to work correctly in Twm4Nx.
   2019-05-20:  Calibration screen is now in place.
   2019-05-21:  A "CONTEMPORARY" theme was added.  Still has a few glitches.
+  2019-06-01:  A retro, emulated segment LCD clock is now in place.
 
 How To:
 
@@ -90,6 +91,8 @@ How To:
       o Twm4Nx Icom Manager.  De-iconify and/or raise the Icon Manager to
         the top of the display.
       o Calibration.  Perform touchscreen re-calibration.
+      o Clock.  Start and instance of clock in the window.  The uses the
+        the retro, LCD emulation of apps/graphics/slcd.
       o NuttShell.  Start and instance of NSH running in an NxTerm.
 
     - All windows close after the terminal menu option is selected.
@@ -199,15 +202,17 @@ Issues:
        state (like grabbing and dragging or resizing).  There is also a
        possibility of using auto-raise with a mouse as well.  All of this
        logic is in place, but none has been verified.
-    8. I am suspecting that NxTerm processes are not being shut down
-       properly when an NxTerm window is closed, but I have not yet
-       investigated this.
-    9. NxTerm windows really need to be scrollable.  They are difficult to
+    8. NxTerm windows really need to be scrollable.  They are difficult to
        use with only a few lines on a small display.  A related usability
        issue is the font height:  The fonts report a maximum font height
        that results in a large line spacing on the display and, hence,
        fewer lines visible in the small window.  This is latter issues is
        a problem with the fonts not Twm4Nx, however.
+    9. There is a trivial rounding error in the calculation of the LCD
+       width in SLcd::CSLcd::getWidth().  It currently truncates down.
+       It needs to round up.  This sometimes leaves a small, one-pixel-
+       wide sliver on the clock display.  This display always recovers and
+       this only cosmetic.
 
 Adding Twm4Nx Applications
 ==========================

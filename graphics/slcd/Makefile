@@ -1,7 +1,7 @@
-# apps/netutils/json/Make.defs
-# Adds selected applications to apps/ build
+############################################################################
+# apps/graphics/slcd/Makefile
 #
-#   Copyright (C) 2016 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2019 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -33,7 +33,14 @@
 #
 ############################################################################
 
-ifeq ($(CONFIG_NETUTILS_JSON),y)
-CONFIGURED_APPS += netutils/json
-endif
+-include $(TOPDIR)/Make.defs
+-include $(APPDIR)/Make.defs
 
+# SLcd
+
+ASRCS     =
+CSRCS     =
+CXXSRCS   = cslcd.cxx slcd_mapping.cxx slcd_trapezoids.cxx
+MAINSRC   =
+
+include $(APPDIR)/Application.mk

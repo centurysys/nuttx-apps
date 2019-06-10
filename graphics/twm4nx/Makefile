@@ -36,7 +36,7 @@
 -include $(TOPDIR)/Make.defs
 -include $(APPDIR)/Make.defs
 
-# Add patch to cursor images to CXXFLAGS
+# Add path to cursor images to CXXFLAGS
 
 CXXFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(APPDIR)/graphics/nxglyphs/include"}
 
@@ -66,6 +66,10 @@ endif
 
 ifeq ($(CONFIG_TWM4NX_CALIBRATION),y)
 CXXSRCS  += ccalibration.cxx
+endif
+
+ifeq ($(CONFIG_TWM4NX_CLOCK),y)
+CXXSRCS  += cclock.cxx
 endif
 
 ifeq ($(CONFIG_TWM4NX_NXTERM),y)
