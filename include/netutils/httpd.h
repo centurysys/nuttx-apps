@@ -63,18 +63,6 @@
 #  define CONFIG_NETUTILS_HTTPDSTACKSIZE 4096
 #endif
 
-#ifndef  CONFIG_NETUTILS_HTTPDFSSTATS
-#  define CONFIG_NETUTILS_HTTPDFSSTATS
-#endif
-
-#ifndef CONFIG_NETUTILS_HTTPDFILESTATS
-#  define CONFIG_NETUTILS_HTTPDFILESTATS
-#endif
-
-#ifndef  CONFIG_NET_STATISTICS
-#  undef CONFIG_NETUTILS_HTTPDNETSTATS
-#endif
-
 /* For efficiency reasons, the size of the IO buffer should be a multiple
  * of the TCP MSS value.  Also, the current design requires that the IO
  * buffer be sufficiently large to contain the entire GET request.
@@ -113,6 +101,9 @@ struct httpd_fs_file
 #if defined(CONFIG_NETUTILS_HTTPD_MMAP) || \
     defined(CONFIG_NETUTILS_HTTPD_SENDFILE)
   int fd;
+#endif
+#ifdef CONFIG_NETUTILS_HTTPD_SENDFILE
+  char path[PATH_MAX];
 #endif
 };
 
@@ -206,6 +197,11 @@ int httpd_listen(void);
 void httpd_cgi_register(struct httpd_cgi_call *cgi_call);
 uint16_t httpd_fs_count(char *name);
 int httpd_send_datachunk(int sockfd, void *data, int len, bool chunked);
+
+#ifdef CONFIG_NETUTILS_HTTPD_DIRLIST
+bool httpd_is_file(FAR const char *filename);
+ssize_t httpd_dirlist(int outfd, FAR struct httpd_fs_file *file);
+#endif
 
 #undef EXTERN
 #ifdef __cplusplus

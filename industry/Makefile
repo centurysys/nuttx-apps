@@ -1,7 +1,7 @@
 ############################################################################
-# apps/netutils/webserver/Makefile
+# apps/industry/Makefile
 #
-#   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2019 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -33,23 +33,6 @@
 #
 ############################################################################
 
--include $(TOPDIR)/Make.defs
+MENUDESC = "Industrial Applications"
 
-# Web server library
-
-CSRCS		=
-ifeq ($(CONFIG_NET_TCP),y)
-CSRCS		+= httpd.c httpd_cgi.c
-ifeq ($(CONFIG_NETUTILS_HTTPD_SENDFILE),y)
-CSRCS		+= httpd_sendfile.c
-ifeq ($(CONFIG_NETUTILS_HTTPD_DIRLIST),y)
-CSRCS		+= httpd_dirlist.c
-endif
-else ifeq ($(CONFIG_NETUTILS_HTTPD_MMAP),y)
-CSRCS		+= httpd_mmap.c
-else
-CSRCS		+= httpd_fs.c
-endif
-endif
-
-include $(APPDIR)/Application.mk
+include $(APPDIR)/Directory.mk

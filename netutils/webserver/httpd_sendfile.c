@@ -55,27 +55,14 @@
 #include "httpd.h"
 
 /****************************************************************************
- * Pre-processor Definitions
- ****************************************************************************/
-
-/****************************************************************************
- * Private Data
- ****************************************************************************/
-
-/****************************************************************************
- * Private Functions
- ****************************************************************************/
-
-/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
 int httpd_sendfile_open(const char *name, struct httpd_fs_file *file)
 {
-  char path[PATH_MAX];
   struct stat st;
 
-  if (sizeof path < snprintf(path, sizeof path, "%s%s",
+  if (sizeof(file->path) < snprintf(file->path, sizeof(file->path), "%s%s",
       CONFIG_NETUTILS_HTTPD_PATH, name))
     {
       errno = ENAMETOOLONG;
@@ -84,42 +71,55 @@ int httpd_sendfile_open(const char *name, struct httpd_fs_file *file)
 
   /* XXX: awaiting fstat to avoid a race */
 
-  if (-1 == stat(path, &st))
+  if (-1 == stat(file->path, &st))
     {
-       return ERROR;
+      return ERROR;
     }
 
+#ifndef CONFIG_NETUTILS_HTTPD_DIRLIST
   if (S_ISDIR(st.st_mode))
     {
-       errno = EISDIR;
-       return ERROR;
+      errno = EISDIR;
+      return ERROR;
     }
 
   if (!S_ISREG(st.st_mode))
     {
-       errno = ENOENT;
-       return ERROR;
+      errno = ENOENT;
+      return ERROR;
     }
+#endif
 
   if (st.st_size > INT_MAX || st.st_size > SIZE_MAX)
     {
-       errno = EFBIG;
-       return ERROR;
+      errno = EFBIG;
+      return ERROR;
     }
 
   file->len = (int) st.st_size;
 
-  file->fd = open(path, O_RDONLY);
+  file->fd = open(file->path, O_RDONLY);
+
+#ifndef CONFIG_NETUTILS_HTTPD_DIRLIST
   if (file->fd == -1)
     {
-       return ERROR;
+      return ERROR;
     }
+#endif
 
   return OK;
 }
 
 int httpd_sendfile_close(struct httpd_fs_file *file)
 {
+#ifdef CONFIG_NETUTILS_HTTPD_DIRLIST
+  if (-1 == file->fd)
+    {
+      /* we assume that it's a directory */
+
+      return OK;
+    }
+#endif
   if (-1 == close(file->fd))
     {
       return ERROR;
@@ -130,6 +130,20 @@ int httpd_sendfile_close(struct httpd_fs_file *file)
 
 int httpd_sendfile_send(int outfd, struct httpd_fs_file *file)
 {
+#ifdef CONFIG_NETUTILS_HTTPD_DIRLIST
+  if (-1 == file->fd)
+    {
+      /* we assume that it's a directory */
+
+      if (-1 == httpd_dirlist(outfd, file))
+        {
+          return ERROR;
+        }
+
+      return OK;
+    }
+#endif
+
   if (-1 == sendfile(outfd, file->fd, 0, file->len))
     {
       return ERROR;
