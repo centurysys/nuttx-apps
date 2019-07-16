@@ -1,8 +1,8 @@
 ############################################################################
-# apps/netutils/webserver/Makefile
+# apps/wireless/gs2200m/Makefile
 #
-#   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
-#   Author: Gregory Nutt <gnutt@nuttx.org>
+#   Copyright 2019 Sony Video & Sound Products Inc.
+#   Author: Masayuki Ishikawa <Masayuki.Ishikawa@jp.sony.com>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -35,21 +35,22 @@
 
 -include $(TOPDIR)/Make.defs
 
-# Web server library
+# gs2200m command
 
-CSRCS		=
-ifeq ($(CONFIG_NET_TCP),y)
-CSRCS		+= httpd.c httpd_cgi.c
-ifeq ($(CONFIG_NETUTILS_HTTPD_SENDFILE),y)
-CSRCS		+= httpd_sendfile.c
-ifeq ($(CONFIG_NETUTILS_HTTPD_DIRLIST),y)
-CSRCS		+= httpd_dirlist.c
-endif
-else ifeq ($(CONFIG_NETUTILS_HTTPD_MMAP),y)
-CSRCS		+= httpd_mmap.c
-else
-CSRCS		+= httpd_fs.c
-endif
-endif
+CONFIG_WIRELESS_GS2200M_PRIORITY ?= SCHED_PRIORITY_DEFAULT
+CONFIG_WIRELESS_GS2200M_STACKSIZE ?= 2048
+
+APPNAME = gs2200m
+PRIORITY = $(CONFIG_WIRELESS_GS2200M_PRIORITY)
+STACKSIZE = $(CONFIG_WIRELESS_GS2200M_STACKSIZE)
+
+CONFIG_WIRELESS_GS2200M_PROGNAME ?= gs2200m$(EXEEXT)
+PROGNAME = $(CONFIG_WIRELESS_GS2200M_PROGNAME)
+
+# Files
+
+MAINSRC = gs2200m_main.c
+
+MODULE = CONFIG_WIRELESS_GS2200M
 
 include $(APPDIR)/Application.mk

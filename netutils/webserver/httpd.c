@@ -331,7 +331,7 @@ static int handle_script(struct httpd_state *pstate)
               if (httpd_open(pstate->ht_scriptptr + 1,
                              &pstate->ht_file) != OK)
                 {
-                   return ERROR;
+                  return ERROR;
                 }
 
               status = httpd_send_datachunk(pstate->ht_sockfd,
@@ -444,7 +444,10 @@ static int send_headers(struct httpd_state *pstate, int status, int len)
 {
   const char *mime;
   const char *ptr;
-  char contentlen[HTTPD_MAX_CONTENTLEN] = { 0 };
+  char contentlen[HTTPD_MAX_CONTENTLEN] =
+  {
+    0
+  };
   char header[HTTPD_MAX_HEADERLEN];
   int hdrlen;
   int i;
@@ -456,17 +459,36 @@ static int send_headers(struct httpd_state *pstate, int status, int len)
   } a[] =
   {
 #ifndef CONFIG_NETUTILS_HTTPD_SCRIPT_DISABLE
-    { "shtml", "text/html"       },
+    {
+      "shtml", "text/html"
+    },
 #endif
-    { "html",  "text/html"       },
-    { "css",   "text/css"        },
-    { "txt",   "text/plain"      },
-    { "js",    "text/javascript" },
-
-    { "png",   "image/png"       },
-    { "gif",   "image/gif"       },
-    { "jpeg",  "image/jpeg"      },
-    { "jpg",   "image/jpeg"      }
+    {
+      "html",  "text/html"
+    },
+    {
+      "css",   "text/css"
+    },
+    {
+      "txt",   "text/plain"
+    },
+    {
+      "js",    "text/javascript"
+    },
+    {
+      "png",   "image/png"
+    },
+    {
+      "gif",   "image/gif"
+    },
+    {
+      "jpeg",  "image/jpeg"
+    },
+    {
+      "jpg",   "image/jpeg"
+    },
+    { "mp3",   "audio/mpeg"
+    }
   };
 
   ptr = strrchr(pstate->ht_filename, ISO_period);
@@ -487,6 +509,15 @@ static int send_headers(struct httpd_state *pstate, int status, int len)
             }
         }
     }
+
+#ifdef CONFIG_NETUTILS_HTTPD_DIRLIST
+  if (false == httpd_is_file(pstate->ht_filename))
+    {
+      /* we assume that it's a directory */
+
+      mime = "text/html";
+    }
+#endif
 
   if (len >= 0)
     {
@@ -641,7 +672,7 @@ static int httpd_sendfile(struct httpd_state *pstate)
 #endif
       if (send_headers(pstate, 200, -1) != OK)
         {
-           goto done;
+          goto done;
         }
 
       ret = handle_script(pstate);
@@ -649,17 +680,24 @@ static int httpd_sendfile(struct httpd_state *pstate)
     }
 #endif
 
+#ifdef CONFIG_NETUTILS_HTTPD_DIRLIST
+  if (send_headers(pstate, 200, -1) != OK)
+    {
+      goto done;
+    }
+#else
   if (send_headers(pstate, pstate->ht_file.len == 0 ? 204 : 200,
                    pstate->ht_file.len) != OK)
     {
       goto done;
     }
+#endif
 
 #ifdef CONFIG_NETUTILS_HTTPD_CLASSIC
-      ret = send_chunk(pstate, pstate->ht_file.data, pstate->ht_file.len);
+  ret = send_chunk(pstate, pstate->ht_file.data, pstate->ht_file.len);
 #else
 #ifdef CONFIG_NETUTILS_HTTPD_SENDFILE
-      ret = httpd_sendfile_send(pstate->ht_sockfd, &pstate->ht_file);
+  ret = httpd_sendfile_send(pstate->ht_sockfd, &pstate->ht_file);
 #endif
 #endif
 
