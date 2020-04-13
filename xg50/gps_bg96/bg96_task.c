@@ -1525,16 +1525,6 @@ task_state_t receive_response(task_t *task)
       return STAT_DISCONNECT;
     }
 
-  if (readlen != sizeof(uint16_t))
-    {
-      printf("! %s: TCP receive lenght missmatch (%d)\n", __FUNCTION__, readlen);
-      return STAT_DISCONNECT;
-    }
-
-  waittime = ntohs(*(uint16_t *) buffer);
-  printf("* %s: next wait time = %u\n", __FUNCTION__, waittime);
-  task->interval = waittime;
-
   return STAT_DISCONNECT;
 }
 
