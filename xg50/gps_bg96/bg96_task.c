@@ -1108,7 +1108,25 @@ static int wait_switch(struct tm *tm_deadline)
 
 static int bg96_enable_gps(serial_t *ser)
 {
-  return bg96_send_AT_command(ser, "AT+QGPS=1\r\n");
+  int res;
+
+  if ((res = bg96_send_AT_command(ser, "AT+QGPS=1\r\n")) != 0)
+    {
+      printf("! %s: AT+QGPS=1 failed.\n", __FUNCTION__);
+      return res;
+    }
+
+  if ((res = bg96_send_AT_command(ser, "AT+QGPSCFG=\"nmeasrc\",1\r\n")) != 0)
+    {
+      printf("! %s: AT+QGPSCFG=\"nmeasrc\",1 failed.\n", __FUNCTION__);
+    }
+  else
+    {
+      printf("* %s: Acquisition of NMEA via command succeeded.\n",
+             __FUNCTION__);
+    }
+
+  return res;
 }
 
 static int bg96_get_gps_location(serial_t *ser, int *lat, int *lon)
