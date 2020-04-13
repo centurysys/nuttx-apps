@@ -553,7 +553,8 @@ static int bg96_disconnect(serial_t *ser)
  * Name: [BG96] Open TCP socket
  ****************************************************************************/
 
-static int bg96_connect_tcp(serial_t *ser, const char *host, uint16_t dest_port)
+static int bg96_connect_tcp_udp(serial_t *ser, bool tcp,
+                                const char *host, uint16_t dest_port)
 {
   int i, res, stat, err = -1, idx = -1;
   const char *res_connected = "+QIOPEN:";
@@ -574,7 +575,8 @@ static int bg96_connect_tcp(serial_t *ser, const char *host, uint16_t dest_port)
       return -1;
     }
 
-  sprintf(buffer, "AT+QIOPEN=1,%d,\"TCP\",\"%s\",%d,0,0\r\n", idx, host, dest_port);
+  sprintf(buffer, "AT+QIOPEN=1,%d,\"%s\",\"%s\",%d,0,0\r\n",
+          idx, (tcp ? "TCP" : "UDP"), host, dest_port);
   //printf(" cmd: %s", buffer);
 
   if (ser_write(ser, buffer, strlen(buffer)) < 0)
@@ -595,7 +597,6 @@ static int bg96_connect_tcp(serial_t *ser, const char *host, uint16_t dest_port)
         }
 
       chop(buffer);
-      //printf("* %s: received: \"%s\"\n", __FUNCTION__, buffer);
 
       if (strstr(buffer, res_connected))
         {
@@ -627,10 +628,28 @@ static int bg96_connect_tcp(serial_t *ser, const char *host, uint16_t dest_port)
 }
 
 /****************************************************************************
+ * Name: [BG96] Open TCP socket
+ ****************************************************************************/
+
+static int bg96_connect_tcp(serial_t *ser, const char *host, uint16_t dest_port)
+{
+  return bg96_connect_tcp_udp(ser, true, host, dest_port);
+}
+
+/****************************************************************************
+ * Name: [BG96] Open UDP socket
+ ****************************************************************************/
+
+static int bg96_connect_udp(serial_t *ser, const char *host, uint16_t dest_port)
+{
+  return bg96_connect_tcp_udp(ser, false, host, dest_port);
+}
+
+/****************************************************************************
  * Name: [BG96] Close TCP socket
  ****************************************************************************/
 
-static int bg96_disconnect_tcp(serial_t *ser, int idx)
+static int bg96_disconnect_tcp_udp(serial_t *ser, int idx)
 {
   int res;
 
@@ -655,6 +674,24 @@ static int bg96_disconnect_tcp(serial_t *ser, int idx)
 }
 
 /****************************************************************************
+ * Name: [BG96] Close TCP socket
+ ****************************************************************************/
+
+static int bg96_disconnect_tcp(serial_t *ser, int idx)
+{
+  return bg96_disconnect_tcp_udp(ser, idx);
+}
+
+/****************************************************************************
+ * Name: [BG96] Close UDP socket
+ ****************************************************************************/
+
+static int bg96_disconnect_udp(serial_t *ser, int idx)
+{
+  return bg96_disconnect_tcp_udp(ser, idx);
+}
+
+/****************************************************************************
  * Name: [BG96] TCP send
  ****************************************************************************/
 
@@ -663,7 +700,6 @@ static int bg96_send_tcp(serial_t *ser, int sock, const char *wbuf, int buflen)
   int res, writelen = 0;
 
   sprintf(buffer, "AT+QISEND=%d,%d\r\n", sock, buflen);
-  //printf(" cmd: %s", buffer);
 
   if (ser_write(ser, buffer, strlen(buffer)) < 0)
     {
@@ -1213,7 +1249,6 @@ static task_state_t setup_bg96(task_t *task)
   int res;
   config_t *config;
   struct xg50_stat *bg96;
-  struct tca6507_onoff_s set;
 
   config = &task->config;
   bg96 = &task->info;
