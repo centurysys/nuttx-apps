@@ -1,0 +1,39 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config CB2XX_LIBS
+	bool "CB-2xx libraries"
+	default n
+	---help---
+		Enable the CB-2xx libraries
+
+if CB2XX_LIBS
+
+config CB2XX_LIBSERIAL
+	bool "Serial Port communication library"
+	default n
+	---help---
+		Enable Serial Port communication library
+
+config CB2XX_LIBADC
+	bool "AD Convertor library"
+	default n
+	---help---
+		Enable AD Convertor library
+
+config CB2XX_MAILBOX
+        bool "Mailbox library"
+	default n
+	---help---
+		Enable Mailbox library
+
+config CB2XX_MEMPOOL
+        bool "Mempool library"
+	default n
+	---help---
+		Enable Memory Pool library
+
+
+endif

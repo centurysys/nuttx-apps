@@ -1,0 +1,8 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config XG50_GPS_BG96
+	bool "XG-50: BG96 GPS application"
+	default n
