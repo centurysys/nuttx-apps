@@ -1349,6 +1349,7 @@ static task_state_t measurement(task_t *task)
 
   if (res != 0)
     {
+      task->interval = 10;
       return STAT_IDLE;
     }
   else
