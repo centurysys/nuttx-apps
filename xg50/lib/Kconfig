@@ -3,33 +3,33 @@
 # see the file kconfig-language.txt in the NuttX tools repository.
 #
 
-config CB2XX_LIBS
-	bool "CB-2xx libraries"
+config XG50_LIBS
+	bool "XG-50 libraries"
 	default n
 	---help---
-		Enable the CB-2xx libraries
+		Enable the XG-50 libraries
 
-if CB2XX_LIBS
+if XG50_LIBS
 
-config CB2XX_LIBSERIAL
+config XG50_LIBSERIAL
 	bool "Serial Port communication library"
 	default n
 	---help---
 		Enable Serial Port communication library
 
-config CB2XX_LIBADC
+config XG50_LIBADC
 	bool "AD Convertor library"
 	default n
 	---help---
 		Enable AD Convertor library
 
-config CB2XX_MAILBOX
+config XG50_MAILBOX
         bool "Mailbox library"
 	default n
 	---help---
 		Enable Mailbox library
 
-config CB2XX_MEMPOOL
+config XG50_MEMPOOL
         bool "Mempool library"
 	default n
 	---help---

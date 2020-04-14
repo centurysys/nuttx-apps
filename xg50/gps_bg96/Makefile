@@ -35,6 +35,8 @@
 
 -include $(TOPDIR)/Make.defs
 
+CFLAGS += -I$(APPDIR)/xg50/include
+
 CONFIG_EXAMPLES_BG96_PRIORITY ?= SCHED_PRIORITY_DEFAULT
 CONFIG_EXAMPLES_BG96_STACKSIZE ?= 4096
 
@@ -43,7 +45,7 @@ PRIORITY = $(CONFIG_EXAMPLES_BG96_PRIORITY)
 STACKSIZE = $(CONFIG_EXAMPLES_BG96_STACKSIZE)
 
 ASRCS =
-CSRCS = bg96_task.c configuration.c libserial.c misc.c
+CSRCS = bg96_task.c configuration.c misc.c
 MAINSRC = bg96_task.c
 
 CONFIG_EXAMPLES_BG96_PROGNAME ?= bg96_task$(EXEEXT)

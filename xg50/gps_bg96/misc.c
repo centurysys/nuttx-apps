@@ -40,6 +40,7 @@
  ****************************************************************************/
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -51,6 +52,7 @@
 #include <nuttx/timers/rtc.h>
 
 #include "misc.h"
+#include "libadc.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -437,4 +439,84 @@ char *isoformat(const time_t *timer, char *buf)
           tm.tm_hour, tm.tm_min, tm.tm_sec);
 
   return buf;
+}
+
+/****************************************************************************
+ * Name:
+ ****************************************************************************/
+
+static int compare_adc(const void *a, const void *b)
+{
+  uint32_t v1, v2;
+  int res;
+
+  v1 = *(uint32_t *) a;
+  v2 = *(uint32_t *) b;
+
+  if (v1 < v2)
+    {
+      res = -1;
+    }
+  else if (v1 == v2)
+    {
+      res = 0;
+    }
+  else
+    {
+      res = 1;
+    }
+
+  return res;
+}
+
+/****************************************************************************
+ * Name:
+ ****************************************************************************/
+
+#define NSAMPLES 16
+
+int get_battery_level(uint16_t *level)
+{
+  int i, count, res, nums;
+  uint32_t tmp, values[NSAMPLES], uv;
+  uint64_t sum;
+
+  sum = 0;
+  count = 0;
+
+  memset(values, 0, sizeof(values));
+
+  /* get battery level in microvolt range. */
+
+  for (i = 0; i < NSAMPLES; i++)
+    {
+      res = adc_get(&tmp, 1);
+
+      if (res == 1)
+        {
+          values[i] = tmp;
+          count++;
+        }
+    }
+
+  /* Sort and average only the intermediate values. */
+
+  qsort(values, count, sizeof(uint32_t), compare_adc);
+
+  for (nums = 0, i = 4; i < count - 4; nums++, i++)
+    {
+      sum += values[i];
+    }
+
+  if (nums >= 2)
+    {
+      uv = (uint32_t) (sum / nums);
+
+      *level = (uint16_t) ((uv * 11) / (1000 * 10));
+
+      syslog(LOG_INFO, "* %s: battery_level: %lu [mV] (nums: %d)\n",
+             __FUNCTION__, *level, nums);
+    }
+
+  return res;
 }

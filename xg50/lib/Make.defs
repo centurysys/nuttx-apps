@@ -1,5 +1,5 @@
 ############################################################################
-# apps/cb2xx/lib/Make.defs
+# apps/xg50/lib/Make.defs
 # Adds selected applications to apps/ build
 #
 #   Copyright (C) 2015 Gregory Nutt. All rights reserved.
@@ -34,6 +34,6 @@
 #
 ############################################################################
 
-ifeq ($(CONFIG_CB2XX_LIBS),y)
-CONFIGURED_APPS += cb2xx/lib
+ifeq ($(CONFIG_XG50_LIBS),y)
+CONFIGURED_APPS += xg50/lib
 endif

@@ -1,5 +1,5 @@
 ############################################################################
-# apps/cb2xx/lib/Makefile
+# apps/xg50/lib/Makefile
 #
 #   Copyright (C) 2015 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -38,28 +38,28 @@
 -include $(TOPDIR)/Make.defs
 include $(APPDIR)/Make.defs
 
-# CB-2xx Library
+# XG-50 Library
 
-CFLAGS += -I$(APPDIR)/cb2xx/include
+CFLAGS += -I$(APPDIR)/xg50/include
 
 ASRCS =
 CSRCS =
 
-ifeq ($(CONFIG_CB2XX_LIBS),y)
+ifeq ($(CONFIG_XG50_LIBS),y)
 
-ifeq ($(CONFIG_CB2XX_MAILBOX),y)
+ifeq ($(CONFIG_XG50_MAILBOX),y)
 CSRCS += mailbox.c
 endif
 
-ifeq ($(CONFIG_CB2XX_MEMPOOL),y)
+ifeq ($(CONFIG_XG50_MEMPOOL),y)
 CSRCS += mempool.c
 endif
 
-ifeq ($(CONFIG_CB2XX_LIBSERIAL),y)
+ifeq ($(CONFIG_XG50_LIBSERIAL),y)
 CSRCS += libserial.c
 endif
 
-ifeq ($(CONFIG_CB2XX_LIBADC),y)
+ifeq ($(CONFIG_XG50_LIBADC),y)
 CSRCS += libadc.c
 endif
 
@@ -90,7 +90,7 @@ all:	.built
 .PHONY: context .depend depend clean distclean preconfig
 .PRECIOUS: ../../libapps$(LIBEXT)
 
-ifeq ($(CONFIG_CB2XX_LIBS),y)
+ifeq ($(CONFIG_XG50_LIBS),y)
 $(AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
@@ -99,7 +99,7 @@ $(COBJS): %$(OBJEXT): %.c
 endif
 
 .built: $(OBJS)
-ifeq ($(CONFIG_CB2XX_LIBS),y)
+ifeq ($(CONFIG_XG50_LIBS),y)
 	$(call ARCHIVE, $(BIN), $(OBJS))
 	$(Q) touch .built
 endif
@@ -109,7 +109,7 @@ install:
 context:
 
 .depend: Makefile $(SRCS)
-ifeq ($(CONFIG_CB2XX_LIBS),y)
+ifeq ($(CONFIG_XG50_LIBS),y)
 	$(Q) $(MKDEP) $(DEPPATH) "$(CC)" -- $(CFLAGS) -- $(SRCS) >Make.dep
 	$(Q) touch $@
 endif

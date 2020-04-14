@@ -15,5 +15,6 @@ int set_signal_level(int level);
 int set_signal_level_by_LQI(uint8_t LQI);
 uint16_t rtc_sleep(char *task_name, uint16_t seconds);
 char *isoformat(const time_t *timer, char *buf);
+int get_battery_level(uint16_t *level);
 
 #endif

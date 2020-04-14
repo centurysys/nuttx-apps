@@ -1,9 +1,9 @@
 /****************************************************************************
- * apps/cb2xx/lib/libserial.c
+ * apps/xg50/lib/libserial.c
  *
  * Originally by:
  *
- *   Copyright (C) 2018-2019 Century Systems. All rights reserved.
+ *   Copyright (C) 2018 Century Systems. All rights reserved.
  *   Author: Takeyoshi Kikuchi <kikuchi@centurysys.co.jp>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,12 +43,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <termios.h>
 #include <errno.h>
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
 
 #include "libserial.h"
 
@@ -101,7 +103,7 @@ static int _wait_recv(int fd, int timeout_ms)
 }
 
 /****************************************************************************
- * Name: serial_open
+ * Name: _read
  ****************************************************************************/
 
 static int _read(int fd, char *buf, int len, int timeout_ms)
@@ -133,18 +135,22 @@ static int _read(int fd, char *buf, int len, int timeout_ms)
 
 serial_t *serial_open(char *port, int baudrate, int rtscts)
 {
+  int errno_backup;
   serial_t *ser;
   struct termios termio;
 
   if (!(ser = zalloc(sizeof(serial_t))))
     {
+      printf("! %s: zalloc() failed\n", __FUNCTION__);
       return NULL;
     }
 
   if ((ser->fd = open(port, O_RDWR)) < 0)
     {
+      errno_backup = errno;
       syslog(LOG_ERR, "! %s: open(%s) failed with %d.\n",
-             __FUNCTION__, port, errno);
+             __FUNCTION__, port, errno_backup);
+      printf("! %s: open(%s) failed with %d\n", __FUNCTION__, port, errno_backup);
       goto errret1;
     }
 
@@ -168,12 +174,15 @@ serial_t *serial_open(char *port, int baudrate, int rtscts)
 
   if (tcsetattr(ser->fd, TCSANOW, &termio) != 0)
     {
+      errno_backup = errno;
       syslog(LOG_ERR, "! %s: tcsetattr(%s) failed with %d.\n",
              __FUNCTION__, port, errno);
+      printf("! %s: tcsetattr(%s) failed with %d.\n",
+             __FUNCTION__, port, errno_backup);
       goto errret2;
     }
 
-  tcflush(ser->fd, TCIOFLUSH);
+  //tcflush(ser->fd, TCIOFLUSH);
 
   return ser;
 
@@ -205,6 +214,20 @@ int serial_close(serial_t *ser)
 }
 
 /****************************************************************************
+ * Name: ser_fileno
+ ****************************************************************************/
+
+int serial_fileno(serial_t *ser)
+{
+  if (!ser)
+    {
+      return -1;
+    }
+
+  return ser->fd;
+}
+
+/****************************************************************************
  * Name: ser_wait_recv
  ****************************************************************************/
 
@@ -219,7 +242,50 @@ int ser_wait_recv(serial_t *ser, int timeout_ms)
 }
 
 /****************************************************************************
- * Name: ser_wait_recv
+ * Name: ser_read
+ ****************************************************************************/
+
+int ser_read(serial_t *ser, char *buf, int buflen, int timeout_ms)
+{
+  char *ptr;
+  int res, rest;
+
+  if (!ser)
+    {
+      printf("! %s: serial_t is invalid.\n", __FUNCTION__);
+      return -1;
+    }
+
+  ptr = buf;
+  *ptr = '\0';
+
+  while (1)
+    {
+      rest = buflen - ((int) (ptr - buf));
+
+      if (rest < 1)
+        {
+          break;
+        }
+
+      res = _read(ser->fd, ptr, rest, timeout_ms);
+
+      if (res <= 0)
+        {
+          printf("! %s: timeouted (%d)\n", __FUNCTION__, res);
+          break;
+        }
+
+      ptr += res;
+    }
+
+  res = (int) (ptr - buf);
+
+  return res;
+}
+
+/****************************************************************************
+ * Name: ser_readline
  ****************************************************************************/
 
 int ser_readline(serial_t *ser, char *buf, int buflen, char delim, int timeout_ms)
@@ -229,6 +295,7 @@ int ser_readline(serial_t *ser, char *buf, int buflen, char delim, int timeout_m
 
   if (!ser)
     {
+      printf("! %s: serial_t is invalid.\n", __FUNCTION__);
       return -1;
     }
 
@@ -244,10 +311,11 @@ int ser_readline(serial_t *ser, char *buf, int buflen, char delim, int timeout_m
           break;
         }
 
-      res = _read(ser->fd, ptr, rest, timeout_ms);
+      res = _read(ser->fd, ptr, 1, timeout_ms);
 
       if (res <= 0)
         {
+          printf("! %s: timeouted (%d)\n", __FUNCTION__, res);
           break;
         }
 
@@ -269,12 +337,32 @@ int ser_readline(serial_t *ser, char *buf, int buflen, char delim, int timeout_m
  * Name: ser_wait_recv
  ****************************************************************************/
 
-int ser_write(serial_t *ser, char *buf, int buflen)
+int ser_write(serial_t *ser, const char *buf, int buflen)
 {
+  int res;
+
   if (!ser)
     {
+      printf("! %s: serial_t is invalid.\n", __FUNCTION__);
       return -1;
     }
 
-  return write(ser->fd, buf, buflen);
+  res = write(ser->fd, buf, buflen);
+
+  return res;
+}
+
+/****************************************************************************
+ * Name: ser_set_dtr
+ ****************************************************************************/
+
+int ser_set_dtr(serial_t *ser, bool dtr)
+{
+  int res, modem;
+
+  modem = dtr ? TIOCM_DTR : 0;
+  printf("%s: modem = 0x%08x\n", __FUNCTION__, modem);
+  res = ioctl(ser->fd, TIOCMSET, (unsigned long) &modem);
+
+  return res;
 }

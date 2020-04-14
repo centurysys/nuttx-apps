@@ -59,6 +59,7 @@
 #include <nuttx/leds/tca6507.h>
 
 #include "gpsutils/minmea.h"
+#include "libadc.h"
 #include "libserial.h"
 #include "configuration.h"
 #include "misc.h"
@@ -115,13 +116,15 @@ typedef struct xg50_stat {
   uint16_t id;
   uint16_t valid;
 
-  uint16_t battery;
-  uint32_t sensor[3]; /* 0: Pressure, 1: Temperatur, 2: Humidity */
+  int16_t rssi;
+  int16_t rsrq;
+  int16_t rsrp;
+  int16_t sinr;
 
-  struct {
-    uint16_t lac;
-    uint32_t ci;
-  } cell_info;
+  uint8_t antenna;
+  uint8_t area;
+  uint8_t attach;
+  uint16_t battery;
 
   struct tm tm;
 
@@ -149,27 +152,6 @@ typedef struct {
 
   task_state_t state;
 } task_t;
-
-struct payload_data {
-  uint16_t id;
-  uint16_t valid;
-  uint32_t temperature;
-  uint32_t humidity;
-  uint16_t voltage;
-  uint16_t lac;
-  uint32_t ci;
-} __attribute__((packed));
-
-struct calc_hash {
-  struct payload_data data;
-  char iccid[19];
-} __attribute__((packed));
-
-struct payload {
-  struct payload_data data;
-  char hash[8];
-} __attribute__((packed));
-
 
 /****************************************************************************
  * Private Data
@@ -303,6 +285,73 @@ int bg96_send_AT_command(serial_t *ser, const char *cmd)
       else if (strncmp(buffer, "ERROR", 5) == 0)
         {
           res = -1;
+          break;
+        }
+    }
+
+  return res;
+}
+
+/****************************************************************************
+ * Name: [BG96] Signal Level
+ ****************************************************************************/
+
+static int bg96_get_qcsq(serial_t *ser, int16_t *rssi, int16_t *rsrq,
+                         int16_t *rsrp, int16_t *sinr)
+{
+  int res;
+  int v[4];
+  char buf[128], buf2[16], service[10];
+
+  *rsrq = *rsrp = *sinr = 0;
+
+  sprintf(buf, "AT+QCSQ\r\n");
+  sprintf(buf2, "+QCSQ: ");
+
+  if (ser_write(ser, buf, strlen(buf)) < 0)
+    {
+      return -1;
+    }
+
+  /* wait for 'OK' */
+  while (1)
+    {
+      res = ser_readline(ser, buf, 128, '\n', 1000);
+
+      if (res <= 0)
+        {
+          res = -1;
+          break;
+        }
+
+      chop(buf);
+
+      if (strncmp(buf, buf2, strlen(buf2)) == 0)
+        {
+          res = sscanf(buf, "+QCSQ: \"%[A-Z1-]\",%d,%d,%d,%d",
+                       service, &v[0], &v[1], &v[2], &v[3]);
+          if (res != 5)
+            {
+              printf("! %s: parse +QCSQ result failed, res: %d %s (\"%s\").\n",
+                     __FUNCTION__, res, service, buf);
+
+              res = -1;
+            }
+          else
+            {
+              printf("* %s: buf: %s -->\n  Service: %s, RSSI: %d," \
+                     " RSRQ: %d, RSRP: %d, SINR: %d\n",
+                     __FUNCTION__, buf, service, v[0], v[3], v[1], v[2]);
+              *rssi = (int16_t) v[0];
+              *rsrq = (int16_t) v[3];
+              *rsrp = (int16_t) v[1];
+              *sinr = (int16_t) v[2];
+              res = 0;
+            }
+        }
+      else if (strncmp(buf, "OK", 2) == 0)
+        {
+          printf("* %s: 'OK' received.\n", __FUNCTION__);
           break;
         }
     }
@@ -788,7 +837,7 @@ static int bg96_handle_URC(serial_t *ser, struct urc_info *urc)
   /* wait for '+QIURC:' */
   while (1)
     {
-      res = ser_readline(ser, buffer, 256, '\n', 1000);
+      res = ser_readline(ser, buffer, 256, '\n', 2000);
 
       if (res <= 0)
         {
@@ -797,7 +846,10 @@ static int bg96_handle_URC(serial_t *ser, struct urc_info *urc)
         }
 
       chop(buffer);
-      printf("* %s: received: \"%s\"\n", __FUNCTION__, buffer);
+      if (strlen(buffer) > 0)
+        {
+          printf("* %s: received: \"%s\"\n", __FUNCTION__, buffer);
+        }
 
       if (strstr(buffer, "+QIURC:"))
         {
@@ -871,7 +923,10 @@ static int bg96_recv_tcp(serial_t *ser, int sock, char *rbuf, int buflen)
         }
 
       chop(buffer);
-      printf("* %s: received: \"%s\"\n", __FUNCTION__, buffer);
+      if (strlen(buffer) > 0)
+        {
+          printf("* %s: received: \"%s\"\n", __FUNCTION__, buffer);
+        }
 
       if (strstr(buffer, "+QIRD:"))
         {
@@ -1056,8 +1111,12 @@ static int gen_payload(struct xg50_stat *stat, char *buf)
   lon_sec = stat->lon % coeff;
   lon_sec /= 6;
 
-  len = sprintf(buf, "{\"lat\" : %d.%06d, \"lon\" : %d.%06d}",
-                lat_min, lat_sec, lon_min, lon_sec);
+  len = sprintf(buf, "{\"lat\" : %d.%06d, \"lon\" : %d.%06d," \
+                " \"rssi\" : %d, \"rsrq\" : %d, \"rsrp\" : %d," \
+                " \"sinr\" : %d, \"battery\" : %d}",
+                lat_min, lat_sec, lon_min, lon_sec,
+                stat->rssi, stat->rsrq, stat->rsrp, stat->sinr,
+                stat->battery);
   return len;
 }
 
@@ -1165,6 +1224,10 @@ static int bg96_enable_gps(serial_t *ser)
   return res;
 }
 
+/****************************************************************************
+ * Name: Get GPS location info
+ ****************************************************************************/
+
 static int bg96_get_gps_location(serial_t *ser, int *lat, int *lon)
 {
   int res;
@@ -1172,6 +1235,8 @@ static int bg96_get_gps_location(serial_t *ser, int *lat, int *lon)
   const char *nmearmc = "AT+QGPSGNMEA=\"RMC\"\r\n";
   char rmc_buf[128];
   struct minmea_sentence_rmc frame;
+
+  rmc_buf[0] = '\0';
 
   res = ser_write(ser, nmearmc, strlen(nmearmc));
   if (res < 0)
@@ -1378,7 +1443,11 @@ static task_state_t wait_next_measurement_time(task_t *task)
 
 static task_state_t measurement(task_t *task)
 {
+  struct xg50_stat *info = &task->info;
   int res, lat, lon;
+
+  bg96_get_qcsq(task->ser, &info->rssi, &info->rsrq,
+                &info->rsrp, &info->sinr);
 
   res = bg96_get_gps_location(task->ser, &lat, &lon);
 
@@ -1392,6 +1461,8 @@ static task_state_t measurement(task_t *task)
       task->interval = 60;
       task->info.lat = lat;
       task->info.lon = lon;
+
+      get_battery_level(&info->battery);
       return STAT_CONNECT;
     }
 }
@@ -1447,7 +1518,7 @@ task_state_t upload_data(task_t *task)
 {
   int len, res;
   struct xg50_stat *stat = &task->info;
-  char sendbuf[128];
+  char sendbuf[256];
 
   len = gen_payload(stat, sendbuf);
   printf("* %s: payload '%s' (length: %d)\n", __FUNCTION__, sendbuf, len);
