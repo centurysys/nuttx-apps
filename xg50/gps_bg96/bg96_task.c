@@ -577,7 +577,6 @@ static int bg96_connect_tcp_udp(serial_t *ser, bool tcp,
 
   sprintf(buffer, "AT+QIOPEN=1,%d,\"%s\",\"%s\",%d,0,0\r\n",
           idx, (tcp ? "TCP" : "UDP"), host, dest_port);
-  //printf(" cmd: %s", buffer);
 
   if (ser_write(ser, buffer, strlen(buffer)) < 0)
     {
@@ -609,7 +608,8 @@ static int bg96_connect_tcp_udp(serial_t *ser, bool tcp,
             }
           else if (err == 0)
             {
-              printf("* %s: connected.\n", __FUNCTION__);
+              printf("* %s: connected (%s).\n", __FUNCTION__,
+                     (tcp ? "TCP" : "UDP"));
               _bg96_state.sockets[i] = 1;
               err = idx;
             }
@@ -692,7 +692,7 @@ static int bg96_disconnect_udp(serial_t *ser, int idx)
 }
 
 /****************************************************************************
- * Name: [BG96] TCP send
+ * Name: [BG96] TCP/UDP send
  ****************************************************************************/
 
 static int bg96_send_tcp(serial_t *ser, int sock, const char *wbuf, int buflen)
@@ -1421,7 +1421,7 @@ static task_state_t connect_bg96(task_t *task)
 
   printf("* %s: try to connect to %s:%d ...\n", __FUNCTION__,
          config->host, config->port);
-  res = bg96_connect_tcp(task->ser, config->host, config->port);
+  res = bg96_connect_udp(task->ser, config->host, config->port);
 
   if (res < 0)
     {
@@ -1515,7 +1515,6 @@ task_state_t wait_response(task_t *task)
 task_state_t receive_response(task_t *task)
 {
   int readlen;
-  uint16_t waittime;
 
   readlen = bg96_recv_tcp(task->ser, task->sock_idx, buffer, BUFSIZE);
 
