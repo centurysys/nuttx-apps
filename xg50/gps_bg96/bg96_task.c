@@ -1321,6 +1321,10 @@ static task_state_t setup_bg96(task_t *task)
   bg96->id = config->id;
   bg96->valid = 0;
 
+  /* STATUS2: RED */
+  led_onoff(3, 0);
+  led_onoff(2, 1);
+
   res = bg96_echo_off(task->ser);
 
   if (res < 0)
@@ -1360,6 +1364,10 @@ static task_state_t setup_bg96(task_t *task)
 
       return STAT_SETUP;
     }
+
+  /* STATUS2: GREEN */
+  led_onoff(2, 0);
+  led_onoff(3, 1);
 
   printf("* %s: ICCID: %s\n", __FUNCTION__, bg96->iccid);
   while (1)
@@ -1683,7 +1691,7 @@ static int mainloop(task_t *task)
 static task_t *init_task(void)
 {
   task_t *task;
-  char *bg96_path = "/dev/ttyS3";
+  char *bg96_path = "/dev/ttyS2";
   char *gps_path = "/dev/ttyS1";
 
   if (!(task = zalloc(sizeof(task_t))))
