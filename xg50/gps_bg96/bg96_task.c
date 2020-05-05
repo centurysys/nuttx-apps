@@ -66,6 +66,7 @@
 
 #define BUFSIZE 1024
 static char buffer[BUFSIZE];
+static int gps_reset_count = 0;
 
 #ifndef max
 # define max(a,b) (((a) > (b)) ? (a) : (b))
@@ -1205,6 +1206,11 @@ static int bg96_enable_gps(serial_t *ser)
 {
   int res;
 
+  if ((res = bg96_send_AT_command(ser, "AT+QGPSEND\r\n")) != 0)
+    {
+      printf("! %s: AT+QGPSEND failed.\n", __FUNCTION__);
+    }
+
   if ((res = bg96_send_AT_command(ser, "AT+QGPS=1\r\n")) != 0)
     {
       printf("! %s: AT+QGPS=1 failed.\n", __FUNCTION__);
@@ -1241,7 +1247,8 @@ static int bg96_get_gps_location(serial_t *ser, int *lat, int *lon)
   res = ser_write(ser, nmearmc, strlen(nmearmc));
   if (res < 0)
     {
-      return -1;
+      printf("! write command failed.\n");
+      return -2;
     }
 
   while (1)
@@ -1269,7 +1276,14 @@ static int bg96_get_gps_location(serial_t *ser, int *lat, int *lon)
         }
     }
 
+  if (rmc_buf[0] == '\0')
+    {
+      printf("!!! GPS: no response.\n");
+      return -2;
+    }
+
   printf("RMC: \"%s\"\n", rmc_buf);
+
   result = minmea_parse_rmc(&frame, (const char *) &rmc_buf);
 
   if (result == true && frame.valid)
@@ -1280,10 +1294,11 @@ static int bg96_get_gps_location(serial_t *ser, int *lat, int *lon)
       *lat = minmea_rescale(&frame.latitude, 100000);
       *lon = minmea_rescale(&frame.longitude, 100000);
 
-      printf("Fixed-point Latitude...........: %d\n", *lat);
-      printf("Fixed-point Longitude..........: %d\n", *lon);
+      printf("Fixed-point Latitude...........: %10d\n", *lat);
+      printf("Fixed-point Longitude..........: %10d\n", *lon);
       minmea_gettime(&ts, &frame.date, &frame.time);
-      printf("timestamp......................: %d\n", ts.tv_sec);
+      printf("timestamp......................: %10d\n", ts.tv_sec);
+      printf("GPS Reset count................: %10d\n", gps_reset_count);
 
       tv.tv_sec = ts.tv_sec + 9 * 60 * 60;
       tv.tv_usec = ts.tv_nsec / NSEC_PER_USEC;
@@ -1346,7 +1361,17 @@ static task_state_t setup_bg96(task_t *task)
       return STAT_SETUP;
     }
 
-  bg96_enable_gps(task->ser);
+  while (1)
+    {
+      res = bg96_enable_gps(task->ser);
+
+      if (res == 0)
+        {
+          break;
+        }
+
+      sleep(5);
+    }
 
   bg96_send_AT_command(task->ser, "AT+CFUN=4\r\n");
   sleep(2);
@@ -1457,9 +1482,27 @@ static task_state_t measurement(task_t *task)
   bg96_get_qcsq(task->ser, &info->rssi, &info->rsrq,
                 &info->rsrp, &info->sinr);
 
+  sleep(1);
+
   res = bg96_get_gps_location(task->ser, &lat, &lon);
 
-  if (res != 0)
+  if (res == -2)
+    {
+      int idx;
+
+      task->interval = 10;
+
+      for (idx = 0; idx < 6; idx++)
+        {
+          led_onoff(idx, 0);
+        }
+
+      bg96_reset();
+      sleep(5);
+      gps_reset_count++;
+      return STAT_SETUP;
+    }
+  else if (res == -1)
     {
       task->interval = 10;
       return STAT_IDLE;
