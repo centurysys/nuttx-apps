@@ -408,7 +408,7 @@ static int bg96_setup_apn(serial_t *ser, int cid, char *apn, char *user,
 
   if (res < 0)
     {
-      syslog(LOG_ERR, "!%s: ser_write(\"%s\") failed -> RESET\n",
+      syslog(LOG_ERR, "! %s: ser_write(\"%s\") failed -> RESET\n",
              __FUNCTION__, buffer);
       sleep(2);
       bg96_reset();
@@ -1009,6 +1009,9 @@ static int bg96_sync_clock(serial_t *ser)
 
           if (now.tm_year < 140)
             {
+              syslog(LOG_INFO, "* %s: valid +CCLK response (%s)\n",
+                     __FUNCTION__, buffer);
+
               tv.tv_sec = time_now;
               tv.tv_usec = 0;
 
@@ -1017,7 +1020,7 @@ static int bg96_sync_clock(serial_t *ser)
             }
           else
             {
-              syslog(LOG_ERR, "! %s: invalid +CCLK response (%s)\n",
+              printf("! %s: invalid +CCLK response (%s)\n",
                      __FUNCTION__, buffer);
             }
         }
@@ -1278,7 +1281,8 @@ static int bg96_get_gps_location(serial_t *ser, int *lat, int *lon)
 
   if (rmc_buf[0] == '\0')
     {
-      printf("!!! GPS: no response.\n");
+      syslog(LOG_ERR, "! %s: GPS read timeouted (%d).\n",
+             __FUNCTION__, gps_reset_count);
       return -2;
     }
 
