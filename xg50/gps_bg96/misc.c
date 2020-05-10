@@ -514,7 +514,7 @@ int get_battery_level(uint16_t *level)
 
       *level = (uint16_t) ((uv * 11) / (1000 * 10));
 
-      syslog(LOG_INFO, "* %s: battery_level: %lu [mV] (nums: %d)\n",
+      printf("* %s: battery_level: %lu [mV] (nums: %d)\n",
              __FUNCTION__, *level, nums);
     }
 
