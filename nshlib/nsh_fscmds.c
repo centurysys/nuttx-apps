@@ -248,7 +248,7 @@ static int ls_handler(FAR struct nsh_vtbl_s *vtbl, FAR const char *dirpath,
 
       if ((lsflags & LSFLAGS_SIZE) != 0)
         {
-          nsh_output(vtbl, "%8" PRIdOFF, buf.st_size);
+          nsh_output(vtbl, "%12" PRIdOFF, buf.st_size);
         }
     }
 
