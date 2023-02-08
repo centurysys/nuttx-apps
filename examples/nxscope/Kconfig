@@ -34,6 +34,11 @@ config EXAMPLES_NXSCOPE_SERIAL_BAUD
 	int "nxscope serial baud"
 	default 115200
 
+config EXAMPLES_NXSCOPE_CDCACM
+	bool "nxscope CDCACM device support"
+	depends on CDCACM
+	default n
+
 endif # LOGGING_NXSCOPE_INTF_SERIAL
 
 config EXAMPLES_NXSCOPE_FORCE_ENABLE
@@ -56,5 +61,25 @@ config EXAMPLES_NXSCOPE_CRIBUF_LEN
 config EXAMPLES_NXSCOPE_RX_PADDING
 	int "nxscope RX padding"
 	default 0
+
+config EXAMPLES_NXSCOPE_TIMER
+	bool "nxscope use timer to wake up samples thread"
+	default n
+
+if EXAMPLES_NXSCOPE_TIMER
+
+config EXAMPLES_NXSCOPE_TIMER_PATH
+	string "nxscope timer path"
+	default "/dev/timer0"
+
+config EXAMPLES_NXSCOPE_TIMER_SIGNO
+	int "nxscope notification signal number"
+	default 17
+
+config EXAMPLES_NXSCOPE_TIMER_INTERVAL
+	int "nxscope timer interval (microseconds)"
+	default 100
+
+endif # EXAMPLES_NXSCOPE_TIMER
 
 endif

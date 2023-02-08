@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include <nuttx/wireless/bluetooth/bt_core.h>
 #include <nuttx/wireless/bluetooth/bt_hci.h>
@@ -145,7 +146,7 @@ void btsak_cmd_security(FAR struct btsak_s *btsak, int argc,
   /* The first argument must be an address of the form xx:xx:xx:xx:xx:xx */
 
   memset(&btreq, 0, sizeof(struct btreq_s));
-  strncpy(btreq.btr_name, btsak->ifname, IFNAMSIZ);
+  strlcpy(btreq.btr_name, btsak->ifname, IFNAMSIZ);
 
   ret = btsak_str2addr(argv[1], btreq.btr_secaddr.val);
   if (ret < 0)
