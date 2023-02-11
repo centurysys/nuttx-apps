@@ -7,13 +7,14 @@
  ****************************************************************************/
 
 /****************************************************************************
- * hello_main
+ * sqlite3_main
  ****************************************************************************/
 
 int main(int argc, FAR char *argv[])
 {
     sqlite3 *db;
-    char *err_msg = 0;
+    char *err_msg = NULL;
+    int last_id;
 
     //int rc = sqlite3_open("/tmp/hogehoge.db", &db);
     int rc = sqlite3_open(":memory:", &db);
@@ -33,7 +34,7 @@ int main(int argc, FAR char *argv[])
 
     rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
 
-    if (rc != SQLITE_OK )
+    if (rc != SQLITE_OK)
       {
         fprintf(stderr, "Failed to create table\n");
         fprintf(stderr, "SQL error: %s\n", err_msg);
@@ -42,11 +43,11 @@ int main(int argc, FAR char *argv[])
     else
       {
         fprintf(stdout, "Table Friends created successfully\n");
+
+        last_id = sqlite3_last_insert_rowid(db);
+        printf("The last Id of the inserted row is %d\n", last_id);
       }
 
-    int last_id = sqlite3_last_insert_rowid(db);
-    printf("The last Id of the inserted row is %d\n", last_id);
     sqlite3_close(db);
-
     return 0;
 }
