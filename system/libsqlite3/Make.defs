@@ -1,0 +1,9 @@
+ifneq ($(CONFIG_LIBSQLITE3),)
+CONFIGURED_APPS += $(APPDIR)/system/libsqlite3
+
+CFLAGS += ${INCDIR_PREFIX}\
+	$(APPDIR)/system/libsqlite3
+CXXFLAGS += ${INCDIR_PREFIX}\
+	$(APPDIR)/system/libsqlite3
+
+endif
