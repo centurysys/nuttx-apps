@@ -1,0 +1,11 @@
+--- lsqlite3/lsqlite3.c	2018-07-01 02:35:34.000000000 +0900
++++ ../lsqlite3/lsqlite3.c	2023-02-11 19:49:04.650922023 +0900
+@@ -2238,7 +2238,7 @@
+     {"create_function",     db_create_function      },
+     {"create_aggregate",    db_create_aggregate     },
+     {"create_collation",    db_create_collation     },
+-    {"load_extension",      db_load_extension       },
++//  {"load_extension",      db_load_extension       },
+ 
+     {"trace",               db_trace                },
+     {"progress_handler",    db_progress_handler     },
