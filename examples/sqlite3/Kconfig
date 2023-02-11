@@ -1,0 +1,26 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config EXAMPLES_SQLITE3
+	bool "SQLite3 database example"
+	default n
+	select LIBC_LOCALE
+	select LIBSQLITE3
+
+if EXAMPLES_SQLITE3
+
+config EXAMPLES_SQLITE3_PROGNAME
+	string "Program name"
+	default "sqlite3"
+
+config EXAMPLES_SQLITE3_PRIORITY
+	int "SQLite3 task priority"
+	default 100
+
+config EXAMPLES_SQLITE3_STACKSIZE
+	int "SQLite3 stack size"
+	default DEFAULT_TASK_STACKSIZE
+
+endif
