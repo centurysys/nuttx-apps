@@ -24,7 +24,7 @@
 
 #include <nuttx/config.h>
 #include <stdio.h>
-#include "fib.h"
+#include "webserver.h"
 
 /****************************************************************************
  * Public Functions
@@ -33,10 +33,18 @@
 /****************************************************************************
  * hello_main
  ****************************************************************************/
+char **cmdLine;
+int cmdCount;
 
 int main(int argc, FAR char *argv[])
 {
+  cmdCount = argc;
+  cmdLine = argv;
   NimMain();
-  printf("Hello, World!! fib(20) -> %d\n", fib(20));
+  run_http_server();
+#if 0
+  printf("Hello, Nim!!, content len = %d\n",
+      fetch("http://abehiroshi.la.coocan.jp/"));
+#endif
   return 0;
 }

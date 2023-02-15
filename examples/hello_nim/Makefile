@@ -29,21 +29,23 @@ MODULE    = $(CONFIG_EXAMPLES_HELLO_NIM)
 
 # Hello, World! Example
 
-NIMPATH = $(shell choosenim show path)
+#NIMPATH = /home/kikuchi/src_nvme/NimTest/Nim
+NIMBIN = $(shell which nim)
+NIMPATH = $(patsubst %/bin/nim, %, $(NIMBIN))
 CFLAGS += -I $(NIMPATH)/lib -I ./.nimcache
-MAINSRC = hello_nim_main.c
 CSRCS += $(wildcard .nimcache/*.c)
+MAINSRC = hello_nim_main.c
 
-.nimc: fib.nim
-	nim c --noMain --header --noLinking $<
+.nimc: webserver.nim
+	nim c --noMain --header --noLinking --compileOnly $<
 	touch .nimc
+
+$(MAINSRC): .nimc
 
 clean::
 	$(call DELDIR, .nimcache)
 	$(call DELFILE, .nimc)
 
-context:: .nimc
-
-all:: $(MAINSRC) .nimc
+all:: .nimc $(MAINSRC)
 
 include $(APPDIR)/Application.mk
