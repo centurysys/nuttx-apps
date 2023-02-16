@@ -42,9 +42,5 @@ int main(int argc, FAR char *argv[])
   cmdLine = argv;
   NimMain();
   run_http_server();
-#if 0
-  printf("Hello, Nim!!, content len = %d\n",
-      fetch("http://abehiroshi.la.coocan.jp/"));
-#endif
   return 0;
 }
