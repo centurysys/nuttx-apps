@@ -98,7 +98,7 @@ proc setup_cfg(cfg: DotConfig) =
   elif ramKilloBytes < 2048:
     switch("define", "nimPage1k")
   if ramKilloBytes < 512:
-    switch("MemAline", "4")
+    switch("MemAlign", "4")
 
 
 let topdir = getEnv("TOPDIR")
