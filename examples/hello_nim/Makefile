@@ -29,10 +29,10 @@ MODULE    = $(CONFIG_EXAMPLES_HELLO_NIM)
 
 # Hello, World! Example
 
-NIMBIN = $(shell which nim)
-NIMPATH = $(patsubst %/bin/nim, %, $(NIMBIN))
+NIMPATH = $(shell choosenim show path)
 CFLAGS += -I $(NIMPATH)/lib -I ./.nimcache
 CSRCS += $(wildcard .nimcache/*.c)
+
 MAINSRC = hello_nim_main.c
 
 .nimc: webserver.nim
