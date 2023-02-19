@@ -27,6 +27,7 @@ switch "mm", "orc"
 switch "arm.nuttx.gcc.exe", "arm-none-eabi-gcc"
 switch "arm64.nuttx.gcc.exe", "aarch64-none-elf-gcc"
 switch "riscv32.nuttx.gcc.exe", "riscv64-unknown-elf-gcc"
+switch "amd64.nuttx.gcc.exe", "x86_64-linux-gnu-gcc"
 
 switch "nimcache", ".nimcache"
 switch "d", "useStdLib"
@@ -39,7 +40,6 @@ switch "noMain", "on"
 switch "compileOnly", "on"
 switch "noLinking", "on"
 
-
 type
   OptFlag = enum
     oNone
@@ -49,6 +49,7 @@ type
     opt: OptFlag
     debugSymbols: bool
     ramSize: int
+    isSim: bool
 
 proc killoBytes(bytes: int): int =
   result = (bytes / 1024).int
@@ -68,6 +69,12 @@ proc read_config(cfg: string): DotConfig =
         result.arch = arch
       of "riscv":
         result.arch = "riscv32"
+      of "sim":
+        if defined(amd64):
+          result.arch = "amd64"
+        elif defined(aarch64):
+          result.arch = "arm64"
+        result.isSim = true
     of "DEBUG_NOOPT":
       result.opt = oNone
     of "DEBUG_FULLOPT":
@@ -76,6 +83,8 @@ proc read_config(cfg: string): DotConfig =
       result.debugSymbols = true
     of "RAM_SIZE":
       result.ramSize = keyval[1].parseInt
+  if result.isSim:
+    result.ramSize = 2 * 1024 * 1024 * 1024
   echo "* arch:    " & result.arch
   echo "* opt:     " & $result.opt
   echo "* debug:   " & $result.debugSymbols
@@ -85,7 +94,12 @@ proc setup_cfg(cfg: DotConfig) =
   switch("cpu", cfg.arch)
   if cfg.opt == oSize:
     switch("define", "release")
+    switch("define", "danger")
     switch("opt", "size")
+    switch("debugger", "off")
+    switch("lineDir", "off")
+    switch("stackTrace", "off")
+    switch("lineTrace", "off")
   if cfg.debugSymbols:
     switch("lineDir", "on")
     switch("stackTrace", "on")
@@ -98,7 +112,7 @@ proc setup_cfg(cfg: DotConfig) =
   elif ramKilloBytes < 2048:
     switch("define", "nimPage1k")
   if ramKilloBytes < 512:
-    switch("MemAlign", "4")
+    switch("define", "nimMemAlignTiny")
 
 
 let topdir = getEnv("TOPDIR")
