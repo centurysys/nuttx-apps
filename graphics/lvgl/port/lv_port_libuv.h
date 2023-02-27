@@ -1,5 +1,5 @@
 /****************************************************************************
- * apps/nshlib/nsh_system.c
+ * apps/graphics/lvgl/port/lv_port_libuv.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,88 +18,75 @@
  *
  ****************************************************************************/
 
+#ifndef __APPS_GRAPHICS_LVGL_PORT_LV_PORT_LIBUV_H
+#define __APPS_GRAPHICS_LVGL_PORT_LV_PORT_LIBUV_H
+
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 
 #include <nuttx/config.h>
 
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-
-#include "nsh.h"
-#include "nsh_console.h"
-
 /****************************************************************************
- * Static Functions
+ * Pre-processor Definitions
  ****************************************************************************/
 
-static int nsh_system_(int argc, FAR char *argv[], int isctty)
+#if defined(CONFIG_LIBUV)
+
+/****************************************************************************
+ * Type Definitions
+ ****************************************************************************/
+
+/****************************************************************************
+ * Public Data
+ ****************************************************************************/
+
+#ifdef __cplusplus
+#define EXTERN extern "C"
+extern "C"
 {
-  FAR struct console_stdio_s *pstate = nsh_newconsole(isctty);
-  int ret;
-
-  DEBUGASSERT(pstate != NULL);
-
-  /* Execute the session */
-
-  ret = nsh_session(pstate, NSH_LOGIN_NONE, argc, argv);
-
-  /* Exit upon return */
-
-  nsh_exit(&pstate->cn_vtbl, ret);
-  return ret;
-}
+#else
+#define EXTERN extern
+#endif
 
 /****************************************************************************
- * Public Functions
+ * Public Function Prototypes
  ****************************************************************************/
 
 /****************************************************************************
- * Name: nsh_system
+ * Name: lv_port_libuv_init
  *
  * Description:
- *   This is the NSH-specific implementation of the standard system()
- *   command.
- *
- *   NOTE: This assumes that other NSH instances have previously ran and so
- *   common NSH logic is already initialized.
+ *   Add the UI event loop to the uv_loop.
  *
  * Input Parameters:
- *   Standard task start-up arguments.  Expects argc == 2 with argv[1] being
- *   the command to execute
+ *   loop - Pointer to uv_loop.
  *
- * Returned Values:
- *   EXIT_SUCCESS or EXIT_FAILURE
+ * Returned Value:
+ *   Pointer to UI event context.
  *
  ****************************************************************************/
 
-int nsh_system(int argc, FAR char *argv[])
-{
-  return nsh_system_(argc, argv, false);
-}
+FAR void *lv_port_libuv_init(FAR void *loop);
 
 /****************************************************************************
- * Name: nsh_system_ctty
+ * Name: lv_port_libuv_uninit
  *
  * Description:
- *   This is the NSH-specific implementation of the standard system()
- *   command.
- *
- *   NOTE:
- *   This difference with nsh_system: newconsole set isctty true
+ *   Remove the UI event loop.
  *
  * Input Parameters:
- *   Standard task start-up arguments.  Expects argc == 2 with argv[1] being
- *   the command to execute
- *
- * Returned Values:
- *   EXIT_SUCCESS or EXIT_FAILURE
+ *   Pointer to UI event context.
  *
  ****************************************************************************/
 
-int nsh_system_ctty(int argc, FAR char *argv[])
-{
-  return nsh_system_(argc, argv, true);
+void lv_port_libuv_uninit(FAR void *ctx);
+
+#undef EXTERN
+#ifdef __cplusplus
 }
+#endif
+
+#endif /* CONFIG_LIBUV */
+
+#endif /* __APPS_GRAPHICS_LVGL_PORT_LV_PORT_LIBUV_H */

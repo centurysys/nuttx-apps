@@ -31,6 +31,8 @@
 
 #include <stdbool.h>
 #include <errno.h>
+#include <sched.h>
+#include <signal.h>
 #include <string.h>
 
 #include <nuttx/lib/builtin.h>
@@ -136,7 +138,7 @@ int nsh_builtin(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
             {
               /* Setup up to receive SIGINT if control-C entered. */
 
-              tc = ioctl(stdout->fs_fd, TIOCSCTTY, ret);
+              tc = nsh_ioctl(vtbl, TIOCSCTTY, ret);
             }
 
           /* Wait for the application to exit.  We did lock the scheduler
@@ -201,7 +203,7 @@ int nsh_builtin(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
 
           if (vtbl->isctty && tc == 0)
             {
-              ioctl(stdout->fs_fd, TIOCNOTTY);
+              nsh_ioctl(vtbl, TIOCNOTTY, 0);
             }
         }
 #  ifndef CONFIG_NSH_DISABLEBG

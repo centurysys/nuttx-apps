@@ -29,7 +29,6 @@
 
 #include <sys/types.h>
 
-#include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <unistd.h>
@@ -53,11 +52,6 @@
 #  ifndef CONFIG_NSH_DISABLEBG
 #    define CONFIG_NSH_DISABLEBG 1
 #  endif
-#endif
-
-#ifndef CONFIG_FILE_STREAM
-#  undef CONFIG_NSH_FILE_APPS
-#  undef CONFIG_NSH_CMDPARMS
 #endif
 
 /* rmdir, mkdir, rm, and mv are only available if mountpoints are enabled
@@ -687,9 +681,7 @@ struct nsh_parser_s
 #ifndef CONFIG_NSH_DISABLEBG
   bool     np_bg;       /* true: The last command executed in background */
 #endif
-#ifdef CONFIG_FILE_STREAM
   bool     np_redirect; /* true: Output from the last command was re-directed */
-#endif
   bool     np_fail;     /* true: The last command failed */
 #ifndef CONFIG_NSH_DISABLESCRIPT
   uint8_t  np_flags;    /* See nsh_npflags_e above */
@@ -699,7 +691,7 @@ struct nsh_parser_s
 #endif
 
 #ifndef CONFIG_NSH_DISABLESCRIPT
-  FILE    *np_stream;   /* Stream of current script */
+  int      np_fd;       /* Stream of current script */
 #ifndef CONFIG_NSH_DISABLE_LOOPS
   long     np_foffs;    /* File offset to the beginning of a line */
 #ifndef NSH_DISABLE_SEMICOLON
@@ -801,7 +793,7 @@ int nsh_usbconsole(void);
 #  define nsh_usbconsole() (-ENOSYS)
 #endif
 
-#if defined(CONFIG_FILE_STREAM) && !defined(CONFIG_NSH_DISABLESCRIPT)
+#ifndef CONFIG_NSH_DISABLESCRIPT
 int nsh_script(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
                FAR const char *path, bool log);
 #ifdef CONFIG_NSH_ROMFSETC
@@ -990,11 +982,9 @@ int cmd_irqinfo(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
 #if !defined(CONFIG_NSH_DISABLE_READLINK) && defined(CONFIG_PSEUDOFS_SOFTLINKS)
   int cmd_readlink(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
 #endif
-#if defined(CONFIG_FILE_STREAM) && !defined(CONFIG_NSH_DISABLESCRIPT)
-#  ifndef CONFIG_NSH_DISABLE_SOURCE
+#if !defined(CONFIG_NSH_DISABLESCRIPT) && !defined(CONFIG_NSH_DISABLE_SOURCE)
   int cmd_source(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
-#  endif
-#endif /* CONFIG_FILE_STREAM && !CONFIG_NSH_DISABLESCRIPT */
+#endif
 
 #ifdef NSH_HAVE_DIROPTS
 #  ifndef CONFIG_NSH_DISABLE_MKDIR
@@ -1017,6 +1007,9 @@ int cmd_irqinfo(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
 #  endif
 #  if defined(CONFIG_SMART_DEV_LOOP) && !defined(CONFIG_NSH_DISABLE_LOSMART)
   int cmd_losmart(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
+#  endif
+#  if defined(CONFIG_MTD_LOOP) && !defined(CONFIG_NSH_DISABLE_LOMTD)
+  int cmd_lomtd(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
 #  endif
 #  if defined(CONFIG_PIPES) && CONFIG_DEV_FIFO_SIZE > 0 && \
       !defined(CONFIG_NSH_DISABLE_MKFIFO)

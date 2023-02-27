@@ -52,6 +52,11 @@ CFLAGS += -Wno-shadow
 CFLAGS += -DDEF_THREADPOOL_SIZE=CONFIG_LIBUV_THREADPOOL_SIZE
 CFLAGS += -DDEF_THREADPOOL_STACKSIZE=CONFIG_LIBUV_THREAD_STACKSIZE
 
+GCCVER = $(shell $(CC) --version | grep gcc | sed -r 's/.* ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+ifeq ($(GCCVER),12.2.1)
+  CFLAGS += -Wno-dangling-pointer
+endif
+
 VPATH += $(LIBUV_UNPACK)/src
 VPATH += $(LIBUV_UNPACK)/src/unix
 VPATH += $(LIBUV_UNPACK)/test

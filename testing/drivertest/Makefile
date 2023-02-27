@@ -49,6 +49,13 @@ MAINSRC  += drivertest_watchdog.c
 PROGNAME += cmocka_driver_watchdog
 endif
 
+ifneq ($(CONFIG_I2C)$(CONFIG_SPI),)
+ifneq ($(CONFIG_SENSORS_BMI160),)
+MAINSRC  += drivertest_i2c_spi.c
+PROGNAME += cmocka_driver_i2c_spi
+endif
+endif
+
 ifneq ($(CONFIG_BCH),)
 PROGNAME += cmocka_driver_block
 MAINSRC  += drivertest_block.c
@@ -62,6 +69,11 @@ endif
 ifneq ($(CONFIG_RELAY),)
 MAINSRC  += drivertest_relay.c
 PROGNAME += cmocka_driver_relay
+endif
+
+ifneq ($(CONFIG_SERIAL),)
+MAINSRC  += drivertest_uart.c
+PROGNAME += cmocka_driver_uart
 endif
 
 include $(APPDIR)/Application.mk

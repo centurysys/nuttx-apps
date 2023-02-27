@@ -1,5 +1,5 @@
 /****************************************************************************
- * apps/nshlib/nsh_usbtrace.c
+ * apps/testing/drivertest/drivertest_i2c_spi.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -23,74 +23,102 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
-
+#include <assert.h>
+#include <fcntl.h>
+#include <inttypes.h>
+#include <stdio.h>
 #include <stdarg.h>
-#include <debug.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <setjmp.h>
+#include <nuttx/sensors/bmi160.h>
 
-#include <nuttx/usb/usbdev_trace.h>
-
-#ifdef CONFIG_NSH_USBDEV_TRACE
+#include <cmocka.h>
 
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
 
-/****************************************************************************
- * Private Types
- ****************************************************************************/
+#define ACC_DEVPATH      "/dev/accel0"
+#define READ_TIMES       100
 
 /****************************************************************************
- * Private Function Prototypes
+ * Private Type Declarations
  ****************************************************************************/
 
-/****************************************************************************
- * Private Data
- ****************************************************************************/
-
-/****************************************************************************
- * Public Data
- ****************************************************************************/
+struct test_state_s
+{
+  FAR const char *dev_path;
+  int fd;
+};
 
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Name: nsh_tracecallback
+ * Name: setup
  ****************************************************************************/
 
-/****************************************************************************
- * Name: nsh_tracecallback
- *
- * Description:
- *   This is part of the USB trace logic
- *
- ****************************************************************************/
-
-static int usbtrace_syslog(FAR const char *fmt, ...)
+static int setup(FAR void **state)
 {
-  va_list ap;
+  FAR struct test_state_s *test_state;
+  test_state = malloc(sizeof(struct test_state_s));
+  assert_true(test_state != NULL);
 
-  /* Let vsyslog do the real work */
+  test_state->dev_path = ACC_DEVPATH;
+  test_state->fd = open(test_state->dev_path, O_RDONLY);
+  assert_true(test_state->fd > 0);
 
-  va_start(ap, fmt);
-  vsyslog(LOG_INFO, fmt, ap);
-  va_end(ap);
-  return OK;
+  *state = test_state;
+  return 0;
 }
 
 /****************************************************************************
- * Name: nsh_tracecallback
- *
- * Description:
- *   This is part of the USB trace logic
- *
+ * Name: teardown
  ****************************************************************************/
 
-static int nsh_tracecallback(struct usbtrace_s *trace, void *arg)
+static int teardown(FAR void **state)
 {
-  usbtrace_trprintf(usbtrace_syslog, trace->event, trace->value);
+  FAR struct test_state_s *test_state;
+  test_state = (FAR struct test_state_s *)*state;
+  assert_int_equal(close(test_state->fd), 0);
+  free(test_state);
   return 0;
+}
+
+/****************************************************************************
+ * Name: read_from_device
+ ****************************************************************************/
+
+static void read_from_device(FAR void **state)
+{
+  FAR struct test_state_s *test_state;
+  struct accel_gyro_st_s data;
+  int times;
+  int fd;
+
+  test_state = (FAR struct test_state_s *)*state;
+  fd = test_state->fd;
+
+  for (times = 0; times < READ_TIMES; times++)
+    {
+      int ret;
+
+      ret = read(fd, &data, sizeof(struct accel_gyro_st_s));
+      assert_true(ret == sizeof(struct accel_gyro_st_s));
+
+      /* If sensing time has been changed, show 6 axis data. */
+
+      printf("[%" PRIu32 "] %d, %d, %d / %d, %d, %d\n",
+             data.sensor_time,
+             data.gyro.x, data.gyro.y, data.gyro.z,
+             data.accel.x, data.accel.y, data.accel.z);
+      fflush(stdout);
+    }
 }
 
 /****************************************************************************
@@ -98,23 +126,16 @@ static int nsh_tracecallback(struct usbtrace_s *trace, void *arg)
  ****************************************************************************/
 
 /****************************************************************************
- * Name: nsh_usbtrace
- *
- * Description:
- *   The function is called from the nsh_session() to dump USB data to the
- *   SYSLOG device.
- *
- * Input Parameters:
- *   None
- *
- * Returned Values:
- *   None
- *
+ * drivertest_i2c_main
  ****************************************************************************/
 
-void nsh_usbtrace(void)
+int main(int argc, FAR char *argv[])
 {
-  usbtrace_enumerate(nsh_tracecallback, NULL);
+  const struct CMUnitTest tests[] =
+    {
+      cmocka_unit_test_setup_teardown(read_from_device, setup, teardown),
+    };
+
+  return cmocka_run_group_tests(tests, NULL, NULL);
 }
 
-#endif /* CONFIG_NSH_USBDEV_TRACE */
