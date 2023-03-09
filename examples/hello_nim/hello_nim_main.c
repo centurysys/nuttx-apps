@@ -23,8 +23,7 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
-#include <stdio.h>
-#include "webserver.h"
+#include "hello_nim_async.h"
 
 /****************************************************************************
  * Public Functions
@@ -33,14 +32,10 @@
 /****************************************************************************
  * hello_main
  ****************************************************************************/
-char **cmdLine;
-int cmdCount;
 
 int main(int argc, FAR char *argv[])
 {
-  cmdCount = argc;
-  cmdLine = argv;
   NimMain();
-  run_http_server();
+  hello_nim();
   return 0;
 }

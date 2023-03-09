@@ -34,11 +34,13 @@ switch "d", "useStdLib"
 switch "d", "useMalloc"
 switch "d", "nimAllocPagesViaMalloc"
 switch "d", "noSignalHandler"
-#switch "d", "ssl"
 switch "threads", "off"
 switch "noMain", "on"
 switch "compileOnly", "on"
 switch "noLinking", "on"
+# TODO: need OpenSSL-mbedTLS wrapper library.
+#switch "d", "ssl"
+#swich "dynlibOverride", "ssl"
 
 type
   OptFlag = enum
@@ -83,12 +85,13 @@ proc read_config(cfg: string): DotConfig =
       result.debugSymbols = true
     of "RAM_SIZE":
       result.ramSize = keyval[1].parseInt
-  if result.isSim:
-    result.ramSize = 2 * 1024 * 1024 * 1024
   echo "* arch:    " & result.arch
   echo "* opt:     " & $result.opt
   echo "* debug:   " & $result.debugSymbols
   echo "* ramSize: " & $result.ramSize
+
+func bool2onoff(b: bool): string =
+  result = if b: "on" else: "off"
 
 proc setup_cfg(cfg: DotConfig) =
   switch("cpu", cfg.arch)
@@ -96,23 +99,26 @@ proc setup_cfg(cfg: DotConfig) =
     switch("define", "release")
     switch("define", "danger")
     switch("opt", "size")
-    switch("debugger", "off")
-    switch("lineDir", "off")
-    switch("stackTrace", "off")
-    switch("lineTrace", "off")
   if cfg.debugSymbols:
-    switch("lineDir", "on")
-    switch("stackTrace", "on")
-    switch("lineTrace", "on")
-  let ramKilloBytes = cfg.ramSize.killoBytes
-  if ramKilloBytes < 32:
-    switch("define", "nimPage256")
-  elif ramKilloBytes < 512:
-    switch("define", "nimPage512")
-  elif ramKilloBytes < 2048:
-    switch("define", "nimPage1k")
-  if ramKilloBytes < 512:
-    switch("define", "nimMemAlignTiny")
+    # use native debugger (gdb)
+    switch("debugger", "native")
+  let debug_onoff = cfg.debugSymbols.bool2onoff
+  switch("lineDir", debug_onoff)
+  switch("stackTrace", debug_onoff)
+  switch("lineTrace", debug_onoff)
+  if not cfg.isSim:
+    # Adjust the page size for Nim's GC allocator.
+    let ramKilloBytes = cfg.ramSize.killoBytes
+    if ramKilloBytes < 32:
+      switch("define", "nimPage256")
+    elif ramKilloBytes < 512:
+      switch("define", "nimPage512")
+    elif ramKilloBytes < 2048:
+      switch("define", "nimPage1k")
+    if ramKilloBytes < 512:
+      # Sets MemAlign to 4 bytes which reduces the memory alignment
+      # to better match some embedded devices.
+      switch("define", "nimMemAlignTiny")
 
 
 let topdir = getEnv("TOPDIR")

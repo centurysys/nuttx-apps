@@ -20,7 +20,7 @@
 
 include $(APPDIR)/Make.defs
 
-# Hello, World! built-in application info
+# Hello, World! (Nim) built-in application info
 
 PROGNAME  = $(CONFIG_EXAMPLES_HELLO_NIM_PROGNAME)
 PRIORITY  = $(CONFIG_EXAMPLES_HELLO_NIM_PRIORITY)
@@ -35,7 +35,7 @@ CSRCS += $(wildcard .nimcache/*.c)
 
 MAINSRC = hello_nim_main.c
 
-.nimc: webserver.nim
+.nimc: hello_nim_async.nim
 	nim c --header $<
 	touch .nimc
 

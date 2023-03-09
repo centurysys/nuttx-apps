@@ -87,7 +87,7 @@ MAINRUSTOBJ = $(MAINRUSTSRCS:=$(SUFFIX)$(OBJEXT))
 MAINZIGOBJ = $(MAINZIGSRCS:=$(SUFFIX)$(OBJEXT))
 
 SRCS = $(ASRCS) $(CSRCS) $(CXXSRCS) $(MAINSRC)
-OBJS = $(RAOBJS) $(CAOBJS) $(COBJS) $(CXXOBJS) $(RUSTOBJS) $(ZIGOBJS)
+OBJS = $(RAOBJS) $(CAOBJS) $(COBJS) $(CXXOBJS) $(RUSTOBJS) $(ZIGOBJS) $(EXTOBJS)
 
 ifneq ($(BUILD_MODULE),y)
   OBJS += $(MAINCOBJ) $(MAINCXXOBJ) $(MAINRUSTOBJ) $(MAINZIGOBJ)
@@ -135,7 +135,7 @@ endef
 define ELFCOMPILEZIG
 	$(ECHO_BEGIN)"ZIG: $1 "
 	# Remove target suffix here since zig compiler add .o automatically
-	$(Q) $(ZIG) build-obj $(ZIGELFFLAGS) $($(strip $1)_ZIGELFFLAGS) --name $(basename $2) $1 
+	$(Q) $(ZIG) build-obj $(ZIGELFFLAGS) $($(strip $1)_ZIGELFFLAGS) --name $(basename $2) $1
 	$(ECHO_END)
 endef
 
@@ -203,16 +203,16 @@ else
 MAINNAME := $(addsuffix _main,$(PROGNAME))
 
 $(MAINCXXOBJ): %$(CXXEXT)$(SUFFIX)$(OBJEXT): %$(CXXEXT)
-	$(eval $<_CXXFLAGS += ${shell $(DEFINE) "$(CXX)" main=$(firstword $(MAINNAME))})
-	$(eval $<_CXXELFFLAGS += ${shell $(DEFINE) "$(CXX)" main=$(firstword $(MAINNAME))})
-	$(eval MAINNAME=$(filter-out $(firstword $(MAINNAME)),$(MAINNAME)))
+	$(eval MAIN=$(word $(call GETINDEX,$<,$(MAINCXXSRCS)),$(MAINNAME)))
+	$(eval $<_CXXFLAGS += ${shell $(DEFINE) "$(CXX)" main=$(MAIN)})
+	$(eval $<_CXXELFFLAGS += ${shell $(DEFINE) "$(CXX)" main=$(MAIN)})
 	$(if $(and $(CONFIG_BUILD_LOADABLE),$(CXXELFFLAGS)), \
 		$(call ELFCOMPILEXX, $<, $@), $(call COMPILEXX, $<, $@))
 
 $(MAINCOBJ): %.c$(SUFFIX)$(OBJEXT): %.c
-	$(eval $<_CFLAGS += ${DEFINE_PREFIX}main=$(firstword $(MAINNAME)))
-	$(eval $<_CELFFLAGS += ${DEFINE_PREFIX}main=$(firstword $(MAINNAME)))
-	$(eval MAINNAME=$(filter-out $(firstword $(MAINNAME)),$(MAINNAME)))
+	$(eval MAIN=$(word $(call GETINDEX,$<,$(MAINCSRCS)),$(MAINNAME)))
+	$(eval $<_CFLAGS += ${DEFINE_PREFIX}main=$(MAIN))
+	$(eval $<_CELFFLAGS += ${DEFINE_PREFIX}main=$(MAIN))
 	$(if $(and $(CONFIG_BUILD_LOADABLE),$(CELFFLAGS)), \
 		$(call ELFCOMPILE, $<, $@), $(call COMPILE, $<, $@))
 
@@ -262,3 +262,9 @@ distclean:: clean
 	$(call DELFILE, .depend)
 
 -include Make.dep
+
+ifeq ($(WASM_BUILD),y)
+  ifneq ($(CONFIG_INTERPRETERS_WAMR)$(CONFIG_INTERPRETERS_WAMR3),)
+    include $(APPDIR)$(DELIM)interpreters$(DELIM)Wasm.mk
+  endif # CONFIG_INTERPRETERS_WAMR || CONFIG_INTERPRETERS_WAMR3
+endif # WASM_BUILD
