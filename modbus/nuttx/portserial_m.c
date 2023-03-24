@@ -46,10 +46,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <assert.h>
-
-#ifdef CONFIG_SERIAL_TERMIOS
-#  include <termios.h>
-#endif
+#include <termios.h>
 
 #include "port.h"
 
@@ -82,9 +79,7 @@ static uint8_t  ucBuffer[BUF_SIZE];
 static int      uiRxBufferPos;
 static int      uiTxBufferPos;
 
-#ifdef CONFIG_SERIAL_TERMIOS
 static struct termios xOldTIO;
-#endif
 
 /****************************************************************************
  * Private Function Prototypes
@@ -92,7 +87,8 @@ static struct termios xOldTIO;
 
 static bool prvbMBMasterPortSerialRead(uint8_t *pucBuffer, uint16_t usNBytes,
                                        uint16_t *usNBytesRead);
-static bool prvbMBMasterPortSerialWrite(uint8_t *pucBuffer, uint16_t usNBytes);
+static bool prvbMBMasterPortSerialWrite(uint8_t *pucBuffer,
+                                        uint16_t usNBytes);
 
 /****************************************************************************
  * Private Functions
@@ -147,7 +143,8 @@ static bool prvbMBMasterPortSerialRead(uint8_t *pucBuffer, uint16_t usNBytes,
   return bResult;
 }
 
-static bool prvbMBMasterPortSerialWrite(uint8_t *pucBuffer, uint16_t usNBytes)
+static bool prvbMBMasterPortSerialWrite(uint8_t *pucBuffer,
+                                        uint16_t usNBytes)
 {
   ssize_t res;
   size_t  left = (size_t) usNBytes;
@@ -186,9 +183,7 @@ void vMBMasterPortSerialEnable(bool bEnableRx, bool bEnableTx)
 
   if (bEnableRx)
     {
-#ifdef CONFIG_SERIAL_TERMIOS
       tcflush(iSerialFd, TCIFLUSH);
-#endif
       uiRxBufferPos = 0;
       bRxEnabled = true;
     }
@@ -213,10 +208,7 @@ bool xMBMasterPortSerialInit(uint8_t ucPort, speed_t ulBaudRate,
 {
   char szDevice[16];
   bool bStatus = true;
-
-#ifdef CONFIG_SERIAL_TERMIOS
   struct termios xNewTIO;
-#endif
 
   snprintf(szDevice, 16, "/dev/ttyS%d", ucPort);
 
@@ -227,8 +219,6 @@ bool xMBMasterPortSerialInit(uint8_t ucPort, speed_t ulBaudRate,
                        szDevice, errno);
       bStatus = false;
     }
-
-#ifdef CONFIG_SERIAL_TERMIOS
   else if (tcgetattr(iSerialFd, &xOldTIO) != 0)
     {
       vMBMasterPortLog(MB_LOG_ERROR, "SER-INIT",
@@ -280,12 +270,12 @@ bool xMBMasterPortSerialInit(uint8_t ucPort, speed_t ulBaudRate,
            *
            * (1) In NuttX, cfset[i|o]speed always return OK so failures will
            *     really only be reported when tcsetattr() is called.
-           * (2) NuttX does not support separate input and output speeds so it
-           *     is not necessary to call both cfsetispeed() and
+           * (2) NuttX does not support separate input and output speeds so
+           *     it is not necessary to call both cfsetispeed() and
            *     cfsetospeed(), and
            * (3) In NuttX, the input value to cfiset[i|o]speed is not
-           *     encoded, but is the absolute baud value.  The following might
-           *     not be
+           *     encoded, but is the absolute baud value.  The following
+           *     might not be
            */
 
           if (cfsetispeed(&xNewTIO, ulBaudRate) != 0 /* || cfsetospeed(&xNewTIO, ulBaudRate) != 0 */)
@@ -307,7 +297,6 @@ bool xMBMasterPortSerialInit(uint8_t ucPort, speed_t ulBaudRate,
             }
         }
     }
-#endif
 
   return bStatus;
 }
@@ -326,19 +315,17 @@ bool xMBMasterPortSerialSetTimeout(uint32_t ulNewTimeoutMs)
   return true;
 }
 
-void vMBMasterPortClose( void )
+void vMBMasterPortClose(void)
 {
   if (iSerialFd != -1)
     {
-#ifdef CONFIG_SERIAL_TERMIOS
       tcsetattr(iSerialFd, TCSANOW, &xOldTIO);
-#endif
       close(iSerialFd);
       iSerialFd = -1;
     }
 }
 
-bool xMBMasterPortSerialPoll( void )
+bool xMBMasterPortSerialPoll(void)
 {
   bool     bStatus = true;
   uint16_t usBytesRead;

@@ -28,8 +28,8 @@ CLEANSUBDIRS  += $(dir $(wildcard */.depend))
 CLEANSUBDIRS  += $(dir $(wildcard */.kconfig))
 CLEANSUBDIRS  := $(sort $(CLEANSUBDIRS))
 ifeq ($(CONFIG_WINDOWS_NATIVE),y)
-	CONFIGSUBDIRS  := $(subst /,\,$(CONFIGSUBDIRS))
-	CLEANSUBDIRS  := $(subst /,\,$(CLEANSUBDIRS))
+  CONFIGSUBDIRS := $(subst /,\,$(CONFIGSUBDIRS))
+  CLEANSUBDIRS  := $(subst /,\,$(CLEANSUBDIRS))
 endif
 
 all: nothing
@@ -47,15 +47,15 @@ install:
 preconfig: $(foreach SDIR, $(CONFIGSUBDIRS), $(SDIR)_preconfig)
 ifneq ($(MENUDESC),)
 	$(Q) $(MKKCONFIG) -m $(MENUDESC)
-	$(Q) touch .kconfig
 endif
+	$(Q) touch .kconfig
 
 clean: $(foreach SDIR, $(CLEANSUBDIRS), $(SDIR)_clean)
 
 distclean: $(foreach SDIR, $(CLEANSUBDIRS), $(SDIR)_distclean)
 ifneq ($(MENUDESC),)
 	$(call DELFILE, Kconfig)
-	$(call DELFILE, .kconfig)
 endif
+	$(call DELFILE, .kconfig)
 
 -include Make.dep

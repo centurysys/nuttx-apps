@@ -149,11 +149,9 @@ int nsh_login(FAR struct console_stdio_s *pstate)
 #ifdef CONFIG_NSH_PLATFORM_CHALLENGE
   char challenge[128];
 #endif
+  struct termios cfg;
   int ret;
   int i;
-#ifdef CONFIG_SERIAL_TERMIOS
-  struct termios cfg;
-#endif
 
 #ifdef CONFIG_NSH_PLATFORM_SKIP_LOGIN
   if (platform_skip_login() == OK)
@@ -199,16 +197,14 @@ int nsh_login(FAR struct console_stdio_s *pstate)
 
       /* Disable ECHO if its a tty device */
 
-#ifdef CONFIG_SERIAL_TERMIOS
       if (isatty(INFD(pstate)))
         {
           if (tcgetattr(INFD(pstate), &cfg) == 0)
             {
-              cfg.c_iflag &= ~ECHO;
+              cfg.c_lflag &= ~ECHO;
               tcsetattr(INFD(pstate), TCSANOW, &cfg);
             }
         }
-#endif
 
       password[0] = '\0';
       ret = readline_fd(pstate->cn_line, CONFIG_NSH_LINELEN,
@@ -216,16 +212,14 @@ int nsh_login(FAR struct console_stdio_s *pstate)
 
       /* Enable echo again after password */
 
-#ifdef CONFIG_SERIAL_TERMIOS
       if (isatty(INFD(pstate)))
         {
           if (tcgetattr(INFD(pstate), &cfg) == 0)
             {
-              cfg.c_iflag |= ECHO;
+              cfg.c_lflag |= ECHO;
               tcsetattr(INFD(pstate), TCSANOW, &cfg);
             }
         }
-#endif
 
       if (ret > 0)
         {
