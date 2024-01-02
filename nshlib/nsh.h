@@ -416,7 +416,7 @@
  */
 
 #ifndef CONFIG_NSH_NESTDEPTH
-# define CONFIG_NSH_NESTDEPTH 3
+#  define CONFIG_NSH_NESTDEPTH 3
 #endif
 
 /* Define to enable dumping of all input/output buffers */
@@ -426,7 +426,7 @@
 /* Make sure that the home directory is defined */
 
 #ifndef CONFIG_LIBC_HOMEDIR
-# define CONFIG_LIBC_HOMEDIR "/"
+#  define CONFIG_LIBC_HOMEDIR "/"
 #endif
 
 #undef NSH_HAVE_VARS
@@ -491,7 +491,7 @@
 
 #define NSH_HAVE_CPULOAD  1
 #if !defined(CONFIG_FS_PROCFS) || defined(CONFIG_FS_PROCFS_EXCLUDE_CPULOAD) || \
-    !defined(CONFIG_SCHED_CPULOAD) || defined(CONFIG_NSH_DISABLE_PS)
+    defined(CONFIG_SCHED_CPULOAD_NONE) || defined(CONFIG_NSH_DISABLE_PS)
 #  undef NSH_HAVE_CPULOAD
 #endif
 
@@ -571,9 +571,13 @@
 #  undef NSH_HAVE_READFILE
 #endif
 
-/* nsh_foreach_direntry used by the ls and ps commands */
+/* nsh_foreach_direntry used by the commands:
+ * ls, ps, fdinfo, rptun, pmconfig
+ */
 
-#if defined(CONFIG_NSH_DISABLE_LS) && defined(CONFIG_NSH_DISABLE_PS)
+#if defined(CONFIG_NSH_DISABLE_LS) && defined(CONFIG_NSH_DISABLE_PS) && \
+    defined(CONFIG_NSH_DISABLE_RPTUN) && defined(CONFIG_NSH_DISABLE_PMCONFIG) && \
+    defined(CONFIG_NSH_DISABLE_FDINFO) && defined(CONFIG_NSH_DISABLE_PIDOF)
 #  undef NSH_HAVE_FOREACH_DIRENTRY
 #endif
 
@@ -951,6 +955,12 @@ void nsh_usbtrace(void);
 #ifndef CONFIG_NSH_DISABLE_PS
   int cmd_ps(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
 #endif
+#if defined(CONFIG_FS_PROCFS) && !defined(CONFIG_NSH_DISABLE_PIDOF)
+  int cmd_pidof(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
+#endif
+#if defined(CONFIG_FS_PROCFS) && !defined(CONFIG_NSH_DISABLE_FDINFO)
+  int cmd_fdinfo(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
+#endif
 #ifndef CONFIG_NSH_DISABLE_XD
   int cmd_xd(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
 #endif
@@ -1025,7 +1035,7 @@ int cmd_irqinfo(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
 #  ifndef CONFIG_NSH_DISABLE_RMDIR
   int cmd_rmdir(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
 #  endif
-# endif /* NSH_HAVE_DIROPTS */
+#endif /* NSH_HAVE_DIROPTS */
 
 #ifndef CONFIG_DISABLE_MOUNTPOINT
 #  if defined(CONFIG_DEV_LOOP) && !defined(CONFIG_NSH_DISABLE_LOSETUP)
@@ -1147,6 +1157,14 @@ int cmd_irqinfo(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
 
 #if defined(CONFIG_PM) && !defined(CONFIG_NSH_DISABLE_PMCONFIG)
 int cmd_pmconfig(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
+#endif
+
+#if defined(CONFIG_BOARDCTL_SWITCH_BOOT) && !defined(CONFIG_NSH_DISABLE_SWITCHBOOT)
+int cmd_switchboot(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
+#endif
+
+#if defined(CONFIG_BOARDCTL_BOOT_IMAGE) && !defined(CONFIG_NSH_DISABLE_BOOT)
+  int cmd_boot(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
 #endif
 
 #if defined(CONFIG_BOARDCTL_RESET) && !defined(CONFIG_NSH_DISABLE_REBOOT)
@@ -1363,6 +1381,28 @@ int nsh_writefile(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
 int nsh_foreach_direntry(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
                          FAR const char *dirpath,
                          nsh_direntry_handler_t handler, void *pvarg);
+#endif
+
+/****************************************************************************
+ * Name: nsh_getpid
+ *
+ * Description:
+ *   Obtain pid through process name
+ *
+ * Input Parameters:
+ *   vtbl    - NSH session data
+ *   name    - the name of the process
+ *   pids    - allocated array for storing pid
+ *   count   - the maximum number of pids obtained
+ *
+ * Returned value:
+ *   the actual number of pids obtained
+ *
+ ****************************************************************************/
+
+#if defined(CONFIG_FS_PROCFS) && !defined(CONFIG_NSH_DISABLE_PIDOF)
+ssize_t nsh_getpid(FAR struct nsh_vtbl_s *vtbl, FAR const char *name,
+                   FAR pid_t *pids, size_t count);
 #endif
 
 /****************************************************************************

@@ -69,7 +69,7 @@
 /* DHCPC may be used in conjunction with any other feature (or not) */
 
 #ifdef CONFIG_EXAMPLES_WEBSERVER_DHCPC
-# include "netutils/dhcpc.h"
+#  include "netutils/dhcpc.h"
 #endif
 
 /* Include uIP webserver definitions */
@@ -110,7 +110,7 @@ int main(int argc, FAR char *argv[])
   uint8_t mac[IFHWADDRLEN];
 #endif
 #ifdef CONFIG_EXAMPLES_WEBSERVER_DHCPC
-  void *handle;
+  FAR void *handle;
 #endif
 
   /* Many embedded network interfaces must have a software assigned MAC */

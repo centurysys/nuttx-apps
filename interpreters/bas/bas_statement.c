@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <assert.h>
+#include <sys/param.h>
 
 #include "bas_statement.h"
 
@@ -1050,7 +1051,7 @@ struct Value *stmt_DOcondition(struct Value *value)
 
 struct Value *stmt_EDIT(struct Value *value)
 {
-#if defined(CONFIG_EXAMPLES_BAS_EDITOR) && defined(CONFIG_EXAMPLES_BAS_SHELL) && defined(CONFIG_ARCH_HAVE_VFORK)
+#if defined(CONFIG_EXAMPLES_BAS_EDITOR) && defined(CONFIG_EXAMPLES_BAS_SHELL) && defined(CONFIG_ARCH_HAVE_FORK)
   long int line;
   struct Pc statementpc = g_pc;
   int status;
@@ -1181,7 +1182,7 @@ struct Value *stmt_EDIT(struct Value *value)
       String_new(&cmd);
       String_appendChars(&cmd, visual);
       String_appendChar(&cmd, ' ');
-      for (i = 0; i < sizeof(gotoLine) / sizeof(gotoLine[0]); ++i)
+      for (i = 0; i < nitems(gotoLine); ++i)
         {
           if (strcmp(basename, gotoLine[i].editor) == 0)
             {
@@ -5673,7 +5674,7 @@ struct Value *stmt_SELECTCASE(struct Value *value)
 
 struct Value *stmt_SHELL(struct Value *value)
 {
-#if defined(CONFIG_EXAMPLES_BAS_SHELL) && defined(CONFIG_ARCH_HAVE_VFORK)
+#if defined(CONFIG_EXAMPLES_BAS_SHELL) && defined(CONFIG_ARCH_HAVE_FORK)
   pid_t pid;
   int status;
 

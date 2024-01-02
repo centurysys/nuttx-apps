@@ -42,6 +42,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/param.h>
 
 #include <debug.h>
 #include <errno.h>
@@ -247,9 +248,7 @@ static int ubloxmodem_help(FAR struct ubloxmodem_cxt *cxt)
 
   printf("Usage: ubloxmodem <cmd> [arguments]\n"
          "  where <cmd> is one of\n");
-  for (i = 0;
-       i < sizeof(cmdmap) / sizeof(struct cmdinfo);
-       i++)
+  for (i = 0; i < nitems(cmdmap); i++)
     {
       printf("%s\n  %s\n  %s\n",
              cmdmap[i].name,
@@ -313,8 +312,6 @@ static int ubloxmodem_status(FAR struct ubloxmodem_cxt *cxt)
   FAR struct ubxmdm_regval register_values[UBLOXMODEM_MAX_REGISTERS];
   char regname[4];   /* Null-terminated string buffer */
 
-  regname[3] = '\0'; /* Set the null string terminator */
-
   /* Set the maximum value, to be updated by driver */
 
   status.register_values_size = UBLOXMODEM_MAX_REGISTERS;
@@ -332,7 +329,7 @@ static int ubloxmodem_status(FAR struct ubloxmodem_cxt *cxt)
        i < status.register_values_size && i < UBLOXMODEM_MAX_REGISTERS;
        i++)
     {
-      strncpy(regname, status.register_values[i].name, 3);
+      strlcpy(regname, status.register_values[i].name, sizeof(regname));
       printf("%s=%d ",
              regname,
              (int) status.register_values[i].val);
@@ -377,8 +374,7 @@ static int ubloxmodem_parse(FAR struct ubloxmodem_cxt *cxt)
 {
   int i;
 
-  for (i = 0;
-       i < sizeof(cmdmap) / sizeof(struct cmdinfo) &&
+  for (i = 0; i < nitems(cmdmap) &&
          cxt->cmd == UBLOXMODEM_CMD_UNKNOWN;
        i++)
     {

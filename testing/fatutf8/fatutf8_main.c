@@ -108,7 +108,7 @@ int main(int argc, FAR char *argv[])
 
   printf("\n");
 
-  strcat(path, FILE_NAME);
+  strlcat(path, FILE_NAME, sizeof(path));
 
   printf("open(%s)\n", path);
   fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0777);
@@ -146,10 +146,10 @@ int main(int argc, FAR char *argv[])
       printf("open successful\n");
 
       len = read(fd, buf, sizeof(buf));
-      buf[len] = '\0';
 
-      if (len)
+      if (len >= 0)
         {
+          buf[len] = '\0';
           printf("read(\"%s\") successful\n", buf);
         }
       else

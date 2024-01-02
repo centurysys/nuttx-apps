@@ -43,6 +43,20 @@ config EXAMPLES_FOC_VERBOSE
 	default 1
 	range 0 2
 
+config EXAMPLES_FOC_PERF
+	bool "Enable performance meassurements"
+	default n
+
+choice
+	prompt "FOC modulation selection"
+	default EXAMPLES_FOC_MODULATION_SVM3
+
+config EXAMPLES_FOC_MODULATION_SVM3
+	bool "FOC use SVM3"
+	select INDUSTRY_FOC_MODULATION_SVM3
+
+endchoice # FOC modulation selection
+
 choice
 	prompt "FOC current controller selection"
 	default EXAMPLES_FOC_CONTROL_PI
@@ -65,12 +79,6 @@ config EXAMPLES_FOC_NOTIFIER_FREQ
 	---help---
 		Select the FOC notifier frequency
 
-config EXAMPLES_FOC_IPHASE_ADC
-	int "FOC phase current scale [x100000]"
-	default 0
-	---help---
-		This parameter is used to get real currents from ADC RAW values
-
 config EXAMPLES_FOC_STATE_PRINT_FREQ
 	int "FOC example data printer frequency"
 	default 0
@@ -91,12 +99,44 @@ choice
 
 config EXAMPLES_FOC_SENSORLESS
 	bool "FOC example sensorless configuration"
+	select EXAMPLES_FOC_ANGOBS
 
 config EXAMPLES_FOC_SENSORED
 	bool "FOC example sensored configuration"
 	select EXAMPLES_FOC_HAVE_ALIGN
 
 endchoice #
+
+menu "Motor phy"
+
+config EXAMPLES_FOC_MOTOR_POLES
+	int "FOC example motor poles pairs"
+	default 0
+
+config EXAMPLES_FOC_MOTOR_RES
+	int "FOC example motor phase resistance (x1000000)"
+	default 0
+	---help---
+		The unit is micro-ohm (1/1000000 ohm).
+
+config EXAMPLES_FOC_MOTOR_IND
+	int "FOC example motor phase inductance (x1000000)"
+	default 0
+	---help---
+		The unit is micro micro-henry (1/1000000 henry).
+
+config EXAMPLES_FOC_MOTOR_FLUXLINK
+	int "FOC example motor flux linkage (x1000000)"
+	default 0
+	---help---
+		The unit is micro-Vs (1/1000000 Vs).
+		Flux linkage can be obtained from the formula:
+		lambda_pm = (1 / sqrt(3)) * (60 / 2*PI) * (Ke / P) [Vs]
+		where:
+		Ke - motor voltage constant Ke [V/rpm]
+		P - motor pole pairs
+
+endmenu # Motor phy
 
 if EXAMPLES_FOC_SENSORED
 
@@ -114,10 +154,6 @@ config EXAMPLES_FOC_HAVE_HALL
 endchoice # FOC sensored sensor selection
 
 if EXAMPLES_FOC_HAVE_QENCO
-
-config EXAMPLES_FOC_MOTOR_POLES
-	int "FOC example motor poles pairs"
-	default 0
 
 config EXAMPLES_FOC_QENCO_POSMAX
 	int "FOC example qencoder maximum position"
@@ -148,21 +184,208 @@ endif # EXAMPLES_FOC_SENSORED
 config EXAMPLES_FOC_HAVE_OPENLOOP
 	bool "FOC example have open-loop controller"
 	select INDUSTRY_FOC_ANGLE_OPENLOOP
-	default y if EXAMPLES_FOC_SENSORLESS
-	default n
+	select EXAMPLES_FOC_HAVE_ALIGN
+	default EXAMPLES_FOC_SENSORLESS
 
 config EXAMPLES_FOC_HAVE_TORQ
 	bool "FOC example torque controller support"
 	default n
 
+if EXAMPLES_FOC_HAVE_TORQ
+
+config EXAMPLES_FOC_TORQ_MAX
+	int "FOC example torque maximum (x1000)"
+	default 1000
+	---help---
+		The unit is mini-ampere (1/1000 ampere) for current mode.
+		The unit is mini-volt (1/1000 voltage) for voltage mode.
+
+endif # EXAMPLES_FOC_HAVE_TORQ
+
 config EXAMPLES_FOC_HAVE_VEL
 	bool "FOC example velocity controller support"
-	default y if EXAMPLES_FOC_SENSORLESS
-	default n
+	default EXAMPLES_FOC_SENSORLESS
+	select EXAMPLES_FOC_HAVE_TORQ
 
 config EXAMPLES_FOC_HAVE_POS
 	bool "FOC example position controller support"
 	default n
+	select EXAMPLES_FOC_HAVE_VEL
+
+config EXAMPLES_FOC_VELOBS
+	bool "FOC example velocity observer support"
+	default n
+
+if EXAMPLES_FOC_HAVE_VEL
+
+config EXAMPLES_FOC_VELCTRL_FREQ
+	int "FOC example velocity controller frequency"
+	default 1000
+
+config EXAMPLES_FOC_VELNOW_FILTER
+	int "FOC example velocity controller (x1000)"
+	default 990
+
+config EXAMPLES_FOC_VEL_MAX
+	int "FOC example velocity maximum (x1)"
+	default 1000
+	---help---
+		The unit is rad/s
+
+choice
+	prompt "FOC velocity controller selection"
+	default EXAMPLES_FOC_VELCTRL_PI
+
+config EXAMPLES_FOC_VELCTRL_PI
+	bool "FOC velocity PI controller"
+
+endchoice # FOC velocity controller
+
+if EXAMPLES_FOC_VELCTRL_PI
+
+config EXAMPLES_FOC_VELCTRL_PI_KP
+	int "FOC velocity PI Kp (1000000x)"
+	default 0
+	---help---
+		The Kp coefficient used in controller is:
+		Kp = EXAMPLES_FOC_VELCTRL_PI_KP/1000000
+
+config EXAMPLES_FOC_VELCTRL_PI_KI
+	int "FOC velocity PI Ki (1000000x)"
+	default 0
+	---help---
+		The Ki coefficient used in controller is:
+		Ki = EXAMPLES_FOC_VELCTRL_PI_KI/1000000
+
+endif # EXAMPLES_FOC_VELCTRL_PI
+
+endif # EXAMPLES_FOC_HAVE_VEL
+
+config EXAMPLES_FOC_ANGOBS
+	bool "FOC example phase angle observer support"
+	default n
+
+choice
+	prompt "FOC angle observer selection"
+	default EXAMPLES_FOC_ANGOBS_NFO
+	depends on EXAMPLES_FOC_ANGOBS
+
+config EXAMPLES_FOC_ANGOBS_SMO
+	bool "FOC angle SMO observer"
+	select INDUSTRY_FOC_ANGLE_OSMO
+
+config EXAMPLES_FOC_ANGOBS_NFO
+	bool "FOC angle NFO observer"
+	select INDUSTRY_FOC_ANGLE_ONFO
+
+endchoice # FOC angle observer
+
+if EXAMPLES_FOC_ANGOBS
+
+config EXAMPLES_FOC_ANGOBS_HYS
+	int "FOC angle observer hysteresis [x1]"
+	default 0
+	---help---
+		Hysteresis added to the observer to open-loop transition.
+
+config EXAMPLES_FOC_ANGOBS_THR
+	int "FOC angle observer velocity threshold [x1]"
+	default 0
+	---help---
+		Once the motor reaches this speed, we switch from the open-loop angle
+		to the observer angle.
+
+config EXAMPLES_FOC_ANGOBS_MERGE_RATIO
+	int "FOC angle observer merge ratio"
+	default 50
+	range 0 50
+	---help---
+		This parameter determines how quickly we make the transition from the
+		open-loop angle to the observer angle after reaching the observer threshold
+		velocity. The smaler the value, the smoother the transition.
+		If set to 0 - smooth transition is disabled.
+
+endif # EXAMPLES_FOC_ANGOBS
+
+if EXAMPLES_FOC_ANGOBS_SMO
+
+config EXAMPLES_FOC_ANGOBS_SMO_KSLIDE
+	int "FOC angle SMO observer Kslide (x1000)"
+	default 0
+	---help---
+		The Kslide coefficient used in observer is:
+		Kslide = EXAMPLES_FOC_ANGOBS_SMO_KSLIDE/1000
+
+config EXAMPLES_FOC_ANGOBS_SMO_ERRMAX
+	int "FOC angle SMO observer err_max (x1000)"
+	default 0
+	---help---
+		The err_max coefficient used in observer is:
+		err_max = EXAMPLES_FOC_ANGOBS_SMO_ERRMAX/1000
+
+endif # EXAMPLES_FOC_ANGOBS_SMO
+
+if EXAMPLES_FOC_ANGOBS_NFO
+
+config EXAMPLES_FOC_ANGOBS_NFO_GAIN
+	int "FOC angle NFO observer gain (x1)"
+	default 0
+	---help---
+		The gain coefficient used in observer at maximum duty cycle.
+
+config EXAMPLES_FOC_ANGOBS_NFO_GAINSLOW
+	int "FOC angle NFO observer gain slow (x1)"
+	default 0
+	---help---
+		The gain coefficient used in observer at minimum duty cycle.
+
+endif # EXAMPLES_FOC_ANGOBS_NFO
+
+config EXAMPLES_FOC_VELOBS
+	bool "FOC example velocity observer support"
+	default n
+
+if EXAMPLES_FOC_VELOBS
+
+choice
+	prompt "FOC example velocity observer selection"
+	default EXAMPLES_FOC_VELOBS_DIV
+
+config EXAMPLES_FOC_VELOBS_DIV
+	bool "FOC velocity DIV observer"
+	select INDUSTRY_FOC_VELOCITY_ODIV
+
+config EXAMPLES_FOC_VELOBS_PLL
+	bool "FOC velocity PLL observer"
+	select INDUSTRY_FOC_VELOCITY_OPLL
+
+endchoice # FOC example velocity observer selection
+
+if EXAMPLES_FOC_VELOBS_DIV
+
+config EXAMPLES_FOC_VELOBS_DIV_SAMPLES
+	int "FOC velocity DIV observer samples"
+	default 10
+
+config EXAMPLES_FOC_VELOBS_DIV_FILTER
+	int "FOC velocity DIV observer filter (x1000)"
+	default 990
+
+endif # INDUSTRY_FOC_VELOCITY_ODIV
+
+if EXAMPLES_FOC_VELOBS_PLL
+
+config EXAMPLES_FOC_VELOBS_PLL_KP
+	int "FOC velocity PLL observer Kp (x1)"
+	default 0
+
+config EXAMPLES_FOC_VELOBS_PLL_KI
+	int "FOC velocity PLL observer Ki (x1)"
+	default 0
+
+endif # EXAMPLES_FOC_VELOBS_PLL
+
+endif # EXAMPLES_FOC_VELOBS
 
 menu "FOC user input"
 
@@ -323,10 +546,27 @@ config EXAMPLES_FOC_MMODE
 		4 - align only
 		5 - ident only
 
+config EXAMPLES_FOC_STOP_CURRENT
+	int "FOC stop state Q voltage/current [x1000]"
+	default 0
+	---help---
+		This current or voltage will be forced on the motor Q axis when
+		the application is in active break state.
+
 config EXAMPLES_FOC_OPENLOOP_Q
 	int "FOC open-loop Vq/Iq setting [x1000]"
 	default 200
 	depends on EXAMPLES_FOC_HAVE_OPENLOOP
+
+config EXAMPLES_FOC_FEEDFORWARD
+	bool "FOC use feedforward compensation for current controller"
+	select INDUSTRY_FOC_FEEDFORWARD
+	default n
+	---help---
+		This option enables feed-forward compensation for PI current controller
+		which can help achieve better performace of FOC. This option is not 
+		recomended for sensorless operations and for current controllers that 
+		already has high update frequency.
 
 if EXAMPLES_FOC_CONTROL_PI
 
@@ -349,15 +589,15 @@ config EXAMPLES_FOC_IDQ_KI
 endif #EXAMPLES_FOC_CONTROL_PI
 
 config EXAMPLES_FOC_RAMP_THR
-	int "FOC velocity ramp threshold [x1000]"
+	int "FOC velocity ramp threshold [x1]"
 	default 0
 
 config EXAMPLES_FOC_RAMP_ACC
-	int "FOC velocity ramp acc [x1000]"
+	int "FOC velocity ramp acc [x1]"
 	default 0
 
 config EXAMPLES_FOC_RAMP_DEC
-	int "FOC velocity ramp dec [x1000]"
+	int "FOC velocity ramp dec [x1]"
 	default 0
 
 config EXAMPLES_FOC_HAVE_ALIGN
@@ -368,11 +608,11 @@ config EXAMPLES_FOC_HAVE_ALIGN
 if EXAMPLES_FOC_HAVE_ALIGN
 
 config EXAMPLES_FOC_ALIGN_VOLT
-	int "EXAMPLES_FOC_ALIGN_VOLT (x1000)"
+	int "FOC example motor alignment voltage (x1000)"
 	default 0
 
 config EXAMPLES_FOC_ALIGN_SEC
-	int "EXAMPLES_FOC_ALIGN_SEC (x1000)"
+	int "FOC example motor alignment time (x1000)"
 	default 0
 
 endif # EXAMPLES_FOC_HAVE_ALIGN
@@ -414,12 +654,126 @@ endmenu # FOC controller parameters
 
 config EXAMPLES_FOC_HAVE_RUN
 	bool
-	default y if !EXAMPLES_FOC_RUN_DISABLE
-	default n
+	default !EXAMPLES_FOC_RUN_DISABLE
 
 config EXAMPLES_FOC_RUN_DISABLE
 	bool "FOC Disable FOC motor controller"
 	default n
 
+config EXAMPLES_FOC_NXSCOPE
+	bool "FOC nxscope support"
+	depends on LOGGING_NXSCOPE
+	select LOGGING_NXSCOPE_DISABLE_PUTLOCK
+	default n
+	---help---
+		This option enables a controller real-time data capture with
+		the NxScope library.
+
+if EXAMPLES_FOC_NXSCOPE
+
+config EXAMPLES_FOC_NXSCOPE_SERIAL
+	bool "FOC nxscope on serial port"
+	select LOGGING_NXSCOPE_INTF_SERIAL
+	default y
+
+if EXAMPLES_FOC_NXSCOPE_SERIAL
+
+config EXAMPLES_FOC_NXSCOPE_SERIAL_PATH
+	string "FOC nxscope serial path"
+	default "/dev/ttyS0"
+
+config EXAMPLES_FOC_NXSCOPE_SERIAL_BAUD
+	int "FOC nxscope serial baud"
+	default 115200
+
+endif # EXAMPLES_FOC_NXSCOPE_SERIAL
+
+config EXAMPLES_FOC_NXSCOPE_STREAMBUF_LEN
+	int "FOC nxscope stream buffer length"
+	default 512
+
+config EXAMPLES_FOC_NXSCOPE_RXBUF_LEN
+	int "FOC nxscope RX buffer length"
+	default 64
+
+config EXAMPLES_FOC_NXSCOPE_RXPADDING
+	int "FOC nxscope RX padding"
+	default 0
+
+config EXAMPLES_FOC_NXSCOPE_CHANNELS
+	int "FOC nxscope channels"
+	default 0
+
+config EXAMPLES_FOC_NXSCOPE_PRESCALER
+	int "FOC nxscope prescaler"
+	default 1
+	---help---
+		This option allows you to reduce the frequency of adding samples to
+		the NxScope buffer.
+
+config EXAMPLES_FOC_NXSCOPE_CFG
+	hex "FOC nxscope configuration"
+	default 0x00000000
+	---help---
+		Each bit defines the controller state variable that can be captured.
+		Look at foc_nxscope.h for bits definitions.
+
+config EXAMPLES_FOC_NXSCOPE_START
+	bool "FOC nxscope start frame sync"
+	default n
+	---help---
+		If this option is set, the controller will be waiting for the start
+		frame from a NxScope master device. This allows us to capture
+		controller data from the very beginning of its operation.
+
+choice
+	prompt "FOC nxscope work caller"
+	default EXAMPLES_FOC_NXSCOPE_MAIN
+
+config EXAMPLES_FOC_NXSCOPE_MAIN
+	bool "FOC nxscope uses foc_main()"
+	---help---
+		Use foc_main() for NxScope communication.
+
+config EXAMPLES_FOC_NXSCOPE_CONTROL
+	bool "FOC nxscope uses control thread"
+	---help---
+		Use control thread for NxScope communication.
+		With this option enabled you should limit the number of nxscope channels.
+		Otherwise, handling incoming nxscope data may significantly delay the control
+		loop, and consequently, the control cycle may be missed.
+
+config EXAMPLES_FOC_NXSCOPE_THREAD
+	bool "FOC nxscope uses separate thread"
+	---help---
+		Use a separate thread for NxScope communication.
+
+endchoice # FOC nxscope work caller
+
+if EXAMPLES_FOC_NXSCOPE_CONTROL
+
+config EXAMPLES_FOC_NXSCOPE_WORK_PRESCALER
+	int "FOC nxscope work prescaler"
+	default 10
+	---help---
+		This option allows you to reduce the frequency of calling nxscope worker.
+
+endif #EXAMPLES_FOC_NXSCOPE_CONTROL
+
+if EXAMPLES_FOC_NXSCOPE_THREAD
+
+config EXAMPLES_FOC_NXSCOPE_PRIO
+	int "FOC nxscope thread priority"
+	default 100
+
+config EXAMPLES_FOC_NXSCOPE_STACKSIZE
+	int "FOC nxscope thread stack size"
+	default 2048
+
+endif # EXAMPLES_FOC_NXSCOPE_THREAD
+
+endif # EXAMPLES_FOC_NXSCOPE
+
 endif # EXAMPLES_FOC
+
 

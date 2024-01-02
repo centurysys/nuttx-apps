@@ -43,15 +43,15 @@
  ****************************************************************************/
 
 #ifndef CONFIG_EXAMPLES_WGETJSON_MAXSIZE
-# define CONFIG_EXAMPLES_WGETJSON_MAXSIZE 1024
+#  define CONFIG_EXAMPLES_WGETJSON_MAXSIZE 1024
 #endif
 
 #ifndef CONFIG_EXAMPLES_WGETJSON_URL
-# define CONFIG_EXAMPLES_WGETJSON_URL "http://10.0.0.1/wgetjson/json_cmd.php"
+#  define CONFIG_EXAMPLES_WGETJSON_URL "http://10.0.0.1/wgetjson/json_cmd.php"
 #endif
 
 #ifndef CONFIG_EXAMPLES_WGETPOST_URL
-# define CONFIG_EXAMPLES_WGETPOST_URL "http://10.0.0.1/wgetjson/post_cmd.php"
+#  define CONFIG_EXAMPLES_WGETPOST_URL "http://10.0.0.1/wgetjson/post_cmd.php"
 #endif
 
 #define MULTI_POST_NDATA 3
@@ -249,8 +249,9 @@ static void wgetjson_json_item_scan(cJSON *item, const char *prefix)
   while (item)
     {
       const char *string = item->string ? item->string : "(null)";
-      newprefix = malloc(strlen(prefix) + strlen(string) + 2);
-      sprintf(newprefix, "%s/%s", prefix, string);
+      size_t len = strlen(prefix) + strlen(string) + 2;
+      newprefix = malloc(len);
+      snprintf(newprefix, len, "%s/%s", prefix, string);
 
       dorecurse = wgetjson_json_item_callback(newprefix, item->type, item);
       if (item->child && dorecurse)

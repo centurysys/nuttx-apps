@@ -87,8 +87,8 @@ static const uint8_t g_ipcplist[] =
 #if PPP_DEBUG
 void printip(struct in_addr ip2)
 {
-  FAR unt8_t *ip = (FAR uint8_t *)&ip2.s_addr;
-  DEBUG1((" %d.%d.%d.%d ", ip[0], ip[1], ip[2], ip[3]));
+  FAR uint8_t *ip = (FAR uint8_t *)&ip2.s_addr;
+  DEBUG1((" %u.%u.%u.%u ", ip[0], ip[1], ip[2], ip[3]));
 }
 #else
 #  define printip(x)

@@ -44,10 +44,12 @@ extern "C"
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define IPERF_FLAG_CLIENT (1)
+#define IPERF_FLAG_CLIENT (1 << 0)
 #define IPERF_FLAG_SERVER (1 << 1)
-#define IPERF_FLAG_TCP (1 << 2)
-#define IPERF_FLAG_UDP (1 << 3)
+#define IPERF_FLAG_TCP    (1 << 2)
+#define IPERF_FLAG_UDP    (1 << 3)
+#define IPERF_FLAG_LOCAL  (1 << 4)
+#define IPERF_FLAG_RPMSG  (1 << 5)
 
 /****************************************************************************
  * Public Types
@@ -62,6 +64,8 @@ struct iperf_cfg_t
   uint16_t sport;
   uint32_t interval;
   uint32_t time;
+  FAR const char *host; /* host name (dip) or rpmsg cpu */
+  FAR const char *path; /* local path or rpmsg name */
 };
 
 /****************************************************************************

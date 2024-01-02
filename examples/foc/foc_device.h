@@ -27,6 +27,8 @@
 
 #include <nuttx/config.h>
 
+#include "foc_perf.h"
+
 #include "industry/foc/foc_utils.h"
 
 /****************************************************************************
@@ -41,6 +43,9 @@ struct foc_device_s
   struct foc_info_s   info;    /* FOC dev info */
   struct foc_state_s  state;   /* FOC dev state */
   struct foc_params_s params;  /* FOC dev params */
+#ifdef CONFIG_EXAMPLES_FOC_PERF
+  struct foc_perf_s   perf;    /* FOC dev perf */
+#endif
 };
 
 /****************************************************************************

@@ -23,6 +23,8 @@ include $(APPDIR)/Make.defs
 CSRCS += $(wildcard cmocka/src/*.c)
 CFLAGS += -Dprint_error=nx_print_error
 CFLAGS += -DCMOCKA_PLATFORM_INCLUDE
+CFLAGS += -DHAVE_CLOCK_REALTIME=1
+CFLAGS += -DHAVE_STRUCT_TIMESPEC=1
 CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/testing/cmocka
 
 PROGNAME  = $(CONFIG_TESTING_CMOCKA_PROGNAME)
@@ -41,6 +43,8 @@ cmocka.zip:
 	$(Q) mv cmocka-$(VERSION) cmocka
 	$(Q) patch -p0 < 0001-cmocka.c-Reduce-the-call-stack-consumption-of-printf.patch
 	$(Q) patch -p0 < 0002-cmocka-feature-to-forwarding-cmocka-log-message-to-c.patch
+	$(Q) patch -p0 < 0003-cmocka-update-method-for-strmatch-to-regex-and-add-list-all-testcases-function.patch
+	$(Q) patch -p0 < 0004-cmocka-xml-report-and-generate-case-and-suite-tool.patch
 
 context:: cmocka.zip
 

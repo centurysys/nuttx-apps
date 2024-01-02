@@ -75,8 +75,10 @@ enum foc_align_run_stage_e
   FOC_ALIGN_RUN_INDEX,
 #endif
   FOC_ALIGN_RUN_OFFSET,
+#ifdef CONFIG_INDUSTRY_FOC_ALIGN_DIR
   FOC_ALIGN_RUN_DIR,
   FOC_ALIGN_RUN_IDLE,
+#endif
   FOC_ALIGN_RUN_DONE
 };
 
@@ -347,6 +349,7 @@ errout:
   return ret;
 }
 
+#ifdef CONFIG_INDUSTRY_FOC_ALIGN_DIR
 /****************************************************************************
  * Name: foc_align_dir_move_f32
  ****************************************************************************/
@@ -399,6 +402,8 @@ static void foc_align_dir_move_f32(FAR struct foc_align_f32_s *align,
 static void foc_align_dir_hold_f32(FAR struct foc_align_f32_s *align,
                                    float dir, bool last, bool diff)
 {
+  float tmp = 0.0f;
+
   DEBUGASSERT(align);
 
   /* Lock angle */
@@ -419,13 +424,16 @@ static void foc_align_dir_hold_f32(FAR struct foc_align_f32_s *align,
 
       if (diff == true)
         {
+          tmp = align->angle_now - align->angle_last;
+          angle_norm_2pi(&tmp, -M_PI_F, M_PI_F);
+
           if (dir == DIR_CW)
             {
-              align->diff_cw += (align->angle_now - align->angle_last);
+              align->diff_cw += tmp;
             }
           else if (dir == DIR_CCW)
             {
-              align->diff_ccw += (align->angle_now - align->angle_last);
+              align->diff_ccw += tmp;
             }
           else
             {
@@ -709,6 +717,7 @@ static int foc_align_idle_run_f32(FAR struct foc_align_f32_s *align,
 
   return ret;
 }
+#endif
 
 /****************************************************************************
  * Name: foc_routine_align_init_f32
@@ -910,6 +919,7 @@ int foc_routine_align_run_f32(FAR foc_routine_f32_t *r,
         break;
       }
 
+#ifdef CONFIG_INDUSTRY_FOC_ALIGN_DIR
       case FOC_ALIGN_RUN_DIR:
         {
           /* Align direction procedure */
@@ -951,6 +961,7 @@ int foc_routine_align_run_f32(FAR foc_routine_f32_t *r,
 
           break;
         }
+#endif
 
       case FOC_ALIGN_RUN_DONE:
         {
@@ -998,6 +1009,13 @@ int foc_routine_align_final_f32(FAR foc_routine_f32_t *r, FAR void *data)
   /* Get final data */
 
   memcpy(data, &a->final, sizeof(struct foc_routine_aling_final_f32_s));
+
+  /* Reset data but leave configuration */
+
+  memset(&a->final,
+         0,
+         (sizeof(struct foc_align_f32_s) -
+          sizeof(struct foc_routine_align_cfg_f32_s)));
 
   return OK;
 }

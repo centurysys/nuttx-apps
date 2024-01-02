@@ -37,6 +37,8 @@ $(MQTTC_TARBALL):
 $(MQTTC_UNPACK): $(MQTTC_TARBALL)
 	$(Q) tar zxf $(MQTTC_TARBALL)
 	$(Q) mv MQTT-C-$(MQTTC_VERSION) $(MQTTC_UNPACK)
+	$(Q) echo "Patching $(MQTTC_UNPACK)"
+	$(Q) cat 0001_add_connection_status.patch | patch -s -N -d $(MQTTC_UNPACK) -p1
 	$(Q) touch $(MQTTC_UNPACK)
 
 # Download and unpack tarball if no git repo found
@@ -46,6 +48,37 @@ context:: $(MQTTC_UNPACK)
 distclean::
 	$(call DELFILE, $(MQTTC_TARBALL))
 	$(call DELDIR, $(MQTTC_UNPACK))
+endif
+
+ifneq ($(CONFIG_NETUTILS_MQTTC_EXAMPLE),)
+CFLAGS += -Wno-return-type
+
+PRIORITY  = SCHED_PRIORITY_DEFAULT
+STACKSIZE = $(CONFIG_NETUTILS_MQTTC_EXAMPLE_STACKSIZE)
+MODULE    = $(CONFIG_NETUTILS_MQTTC_EXAMPLE)
+
+# MQTT-C mbedtls example source code
+ifneq ($(CONFIG_NETUTILS_MQTTC_WITH_MBEDTLS),)
+PROGNAME  = mqttc_mbedtls_pub
+MAINSRC   = $(MQTTC_UNPACK)$(DELIM)examples$(DELIM)mbedtls_publisher.c
+else
+PROGNAME  = mqttc_posix_pub
+MAINSRC   = $(MQTTC_UNPACK)$(DELIM)examples$(DELIM)simple_publisher.c
+$(MQTTC_UNPACK)$(DELIM)examples$(DELIM)simple_publisher.c_CFLAGS += \
+            -Dopen_nb_socket=pub_open_nb_socket \
+            -Dexit_example=pub_exit_example \
+            -Dpublish_callback=pub_publish_callback \
+            -Dclient_refresher=pub_client_refresher
+
+PROGNAME += mqttc_posix_sub
+MAINSRC  += $(MQTTC_UNPACK)$(DELIM)examples$(DELIM)simple_subscriber.c
+$(MQTTC_UNPACK)$(DELIM)examples$(DELIM)simple_subscriber.c_CFLAGS += \
+            -Dopen_nb_socket=sub_open_nb_socket \
+            -Dexit_example=sub_exit_example \
+            -Dpublish_callback=sub_publish_callback \
+            -Dclient_refresher=sub_client_refresher
+endif
+
 endif
 
 include $(APPDIR)/Application.mk

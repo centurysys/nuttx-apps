@@ -24,21 +24,21 @@
 
 #include <nuttx/config.h>
 
-#include <sys/param.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
-
-#include <stdint.h>
+#include <assert.h>
+#include <debug.h>
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <sched.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <assert.h>
-#include <errno.h>
-#include <dirent.h>
-#include <debug.h>
+#include <sys/ioctl.h>
+#include <sys/param.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <nuttx/audio/audio.h>
@@ -993,6 +993,8 @@ int nxlooper_loopback(FAR struct nxlooper_s *plooper, int format,
   pthread_attr_t           tattr;
   struct audio_caps_desc_s cap_desc;
   struct ap_buffer_info_s  buf_info;
+  struct audio_caps_s      caps;
+  int                      min_channels;
   int                      ret;
 
   DEBUGASSERT(plooper != NULL);
@@ -1049,6 +1051,23 @@ int nxlooper_loopback(FAR struct nxlooper_s *plooper, int format,
       auderr("ERROR: Failed to reserve play device: %d\n", ret);
       ret = -errno;
       goto err_out_record;
+    }
+
+  memset(&caps, 0, sizeof(struct audio_caps_s));
+  caps.ac_len = sizeof(caps);
+  caps.ac_type = AUDIO_TYPE_INPUT;
+  caps.ac_subtype = AUDIO_TYPE_QUERY;
+
+  if (ioctl(plooper->recorddev_fd, AUDIOIOC_GETCAPS,
+      (unsigned long)&caps) == caps.ac_len)
+    {
+      min_channels = caps.ac_channels >> 4;
+
+      if (min_channels != 0 && nchannels < min_channels)
+        {
+          ret = -EINVAL;
+          goto err_out;
+        }
     }
 
 #ifdef CONFIG_AUDIO_MULTI_SESSION

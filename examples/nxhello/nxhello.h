@@ -60,7 +60,7 @@
 #    define CONFIG_EXAMPLES_NXHELLO_BGCOLOR 0x00
 #  else
 #    define CONFIG_EXAMPLES_NXHELLO_BGCOLOR ' '
-# endif
+#  endif
 #endif
 
 #ifndef CONFIG_EXAMPLES_NXHELLO_FONTID
@@ -101,9 +101,6 @@
 #endif
 #ifndef CONFIG_EXAMPLES_NXHELLO_SERVERPRIO
 #  define CONFIG_EXAMPLES_NXHELLO_SERVERPRIO 120
-#endif
-#ifndef CONFIG_EXAMPLES_NXHELLO_NOTIFYSIGNO
-#  define CONFIG_EXAMPLES_NXHELLO_NOTIFYSIGNO 4
 #endif
 
 /****************************************************************************

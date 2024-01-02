@@ -25,11 +25,15 @@
 #include <nuttx/config.h>
 
 #include <assert.h>
-
-#include "foc_motor_b16.h"
+#include <string.h>
+#include <dspb16.h>
 
 #include "foc_cfg.h"
 #include "foc_debug.h"
+#include "foc_motor_b16.h"
+#ifdef CONFIG_EXAMPLES_FOC_FEEDFORWARD
+#  include "industry/foc/float/foc_feedforward.h"
+#endif
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -118,7 +122,9 @@ static int foc_motor_align(FAR struct foc_motor_b16_s *motor, FAR bool *done)
         }
 
       PRINTF("Aling results:\n");
+#ifdef CONFIG_INDUSTRY_FOC_ALIGN_DIR
       PRINTF("  dir    = %.2f\n", b16tof(final.dir));
+#endif
       PRINTF("  offset = %.2f\n", b16tof(final.offset));
 
       *done = true;
@@ -264,7 +270,7 @@ static int foc_runmode_init(FAR struct foc_motor_b16_s *motor)
 
 #ifdef CONFIG_EXAMPLES_FOC_SENSORLESS
 #  ifdef CONFIG_EXAMPLES_FOC_HAVE_OPENLOOP
-  motor->openloop_now = true;
+  motor->openloop_now = FOC_OPENLOOP_ENABLED;
 #  else
 #    error
 #  endif
@@ -286,7 +292,7 @@ static int foc_motor_configure(FAR struct foc_motor_b16_s *motor)
 #ifdef CONFIG_EXAMPLES_FOC_CONTROL_PI
   struct foc_initdata_b16_s ctrl_cfg;
 #endif
-#ifdef CONFIG_INDUSTRY_FOC_MODULATION_SVM3
+#ifdef CONFIG_EXAMPLES_FOC_MODULATION_SVM3
   struct foc_mod_cfg_b16_s mod_cfg;
 #endif
 #ifdef CONFIG_EXAMPLES_FOC_STATE_USE_MODEL_PMSM
@@ -302,8 +308,8 @@ static int foc_motor_configure(FAR struct foc_motor_b16_s *motor)
   ret = foc_ramp_init_b16(&motor->ramp,
                           motor->per,
                           ftob16(RAMP_CFG_THR),
-                          ftob16(RAMP_CFG_ACC),
-                          ftob16(RAMP_CFG_ACC));
+                          ftob16((motor->envp->cfg->acc / 1.0f)),
+                          ftob16((motor->envp->cfg->dec / 1.0f)));
   if (ret < 0)
     {
       PRINTF("ERROR: foc_ramp_init failed %d\n", ret);
@@ -321,7 +327,7 @@ static int foc_motor_configure(FAR struct foc_motor_b16_s *motor)
 
   /* Get FOC modulation */
 
-#ifdef CONFIG_INDUSTRY_FOC_MODULATION_SVM3
+#ifdef CONFIG_EXAMPLES_FOC_MODULATION_SVM3
   foc_mod = &g_foc_mod_svm3_b16;
 #else
 #  error FOC modulation not selected
@@ -352,7 +358,7 @@ static int foc_motor_configure(FAR struct foc_motor_b16_s *motor)
   ctrl_cfg.iq_ki = ftob16(motor->envp->cfg->foc_pi_ki / 1000.0f);
 #endif
 
-#ifdef CONFIG_INDUSTRY_FOC_MODULATION_SVM3
+#ifdef CONFIG_EXAMPLES_FOC_MODULATION_SVM3
   /* Get SVM3 modulation configuration */
 
   mod_cfg.pwm_duty_max = motor->pwm_duty_max;
@@ -362,11 +368,13 @@ static int foc_motor_configure(FAR struct foc_motor_b16_s *motor)
 
   foc_handler_cfg_b16(&motor->handler, &ctrl_cfg, &mod_cfg);
 
-#ifdef CONFIG_EXAMPLES_FOC_MOTOR_POLES
-  /* Configure motor poles */
+  /* Configure motor phy */
 
-  motor->poles = CONFIG_EXAMPLES_FOC_MOTOR_POLES;
-#endif
+  motor_phy_params_init_b16(&motor->phy,
+                   CONFIG_EXAMPLES_FOC_MOTOR_POLES,
+                   ftob16(CONFIG_EXAMPLES_FOC_MOTOR_RES / 1000000.0f),
+                   ftob16(CONFIG_EXAMPLES_FOC_MOTOR_IND / 1000000.0f),
+                   ftob16(CONFIG_EXAMPLES_FOC_MOTOR_FLUXLINK / 1000000.0f));
 
 #ifdef CONFIG_EXAMPLES_FOC_STATE_USE_MODEL_PMSM
   /* Initialize PMSM model */
@@ -432,9 +440,9 @@ static int foc_motor_torq(FAR struct foc_motor_b16_s *motor, uint32_t torq)
    */
 
   tmp1 = itob16(motor->envp->cfg->torqmax / 1000);
-  tmp2 = b16mulb16(ftob16(SETPOINT_ADC_SCALE), tmp1);
+  tmp2 = b16mulb16(ftob16(SETPOINT_INTF_SCALE), tmp1);
 
-  motor->torq.des = b16muli(tmp2, torq);
+  motor->torq.des = b16mulb16(motor->dir, b16muli(tmp2, torq));
 
   return OK;
 }
@@ -457,9 +465,9 @@ static int foc_motor_vel(FAR struct foc_motor_b16_s *motor, uint32_t vel)
    */
 
   tmp1 = itob16(motor->envp->cfg->velmax / 1000);
-  tmp2 = b16mulb16(ftob16(SETPOINT_ADC_SCALE), tmp1);
+  tmp2 = b16mulb16(ftob16(SETPOINT_INTF_SCALE), tmp1);
 
-  motor->vel.des = b16muli(tmp2, vel);
+  motor->vel.des = b16mulb16(motor->dir, b16muli(tmp2, vel));
 
   return OK;
 }
@@ -482,9 +490,9 @@ static int foc_motor_pos(FAR struct foc_motor_b16_s *motor, uint32_t pos)
    */
 
   tmp1 = itob16(motor->envp->cfg->posmax / 1000);
-  tmp2 = b16mulb16(ftob16(SETPOINT_ADC_SCALE), tmp1);
+  tmp2 = b16mulb16(ftob16(SETPOINT_INTF_SCALE), tmp1);
 
-  motor->pos.des = b16muli(tmp2, pos);
+  motor->pos.des = b16mulb16(motor->dir, b16muli(tmp2, pos));
 
   return OK;
 }
@@ -574,6 +582,40 @@ errout:
 }
 
 /****************************************************************************
+ * Name: foc_motor_vel_reset
+ ****************************************************************************/
+
+static int foc_motor_vel_reset(FAR struct foc_motor_b16_s *motor)
+{
+  int ret = OK;
+
+  /* Reset velocity observer */
+
+#ifdef CONFIG_EXAMPLES_FOC_VELOBS_DIV
+  ret = foc_velocity_zero_b16(&motor->vel_div);
+  if (ret < 0)
+    {
+      PRINTF("ERROR: foc_velocity_zero failed %d\n", ret);
+      goto errout;
+    }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_VELOBS_PLL
+  ret = foc_velocity_zero_b16(&motor->vel_pll);
+  if (ret < 0)
+    {
+      PRINTF("ERROR: foc_velocity_zero failed %d\n", ret);
+      goto errout;
+    }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_VELOBS
+  errout:
+#endif
+  return ret;
+}
+
+/****************************************************************************
  * Name: foc_motor_state
  ****************************************************************************/
 
@@ -583,7 +625,7 @@ static int foc_motor_state(FAR struct foc_motor_b16_s *motor, int state)
 
   DEBUGASSERT(motor);
 
-  /* Update motor state */
+  /* Update motor state - this function is called every controller cycle */
 
   switch (state)
     {
@@ -601,9 +643,25 @@ static int foc_motor_state(FAR struct foc_motor_b16_s *motor, int state)
 
       case FOC_EXAMPLE_STATE_STOP:
         {
+#ifdef CONFIG_EXAMPLES_FOC_SENSORLESS
+          /* For sensorless we can just set Q reference to lock the motor */
+
           motor->dir = DIR_NONE_B16;
 
           /* DQ vector not zero - active brake */
+
+          motor->dq_ref.q = ftob16(CONFIG_EXAMPLES_FOC_STOP_CURRENT /
+                                   1000.0f);
+          motor->dq_ref.d = 0;
+#else
+          /* For sensored mode we set requested velocity to 0 */
+
+#  ifdef CONFIG_EXAMPLES_FOC_HAVE_VEL
+          motor->vel.des = 0;
+#  else
+#    error STOP state for sensored mode requires velocity support
+#  endif
+#endif
 
           break;
         }
@@ -628,6 +686,27 @@ static int foc_motor_state(FAR struct foc_motor_b16_s *motor, int state)
           goto errout;
         }
     }
+
+#ifdef CONFIG_EXAMPLES_FOC_HAVE_OPENLOOP
+  /* Re-align motor if we change mode from FREE/STOP to CW/CCW otherwise,
+   * the open-loop may fail because the rotor position at the start is
+   * random.
+   */
+
+  if ((motor->mq.app_state == FOC_EXAMPLE_STATE_FREE ||
+       motor->mq.app_state == FOC_EXAMPLE_STATE_STOP) &&
+      (state == FOC_EXAMPLE_STATE_CW ||
+       state == FOC_EXAMPLE_STATE_CCW))
+    {
+      motor->ctrl_state = FOC_CTRL_STATE_ALIGN;
+      motor->align_done = false;
+      motor->angle_now  = 0;
+
+      /* Reset velocity observer */
+
+      foc_motor_vel_reset(motor);
+    }
+#endif
 
   /* Reset current setpoint */
 
@@ -696,10 +775,97 @@ errout:
 
 static int foc_motor_run_init(FAR struct foc_motor_b16_s *motor)
 {
-  /* Empty for now */
+  int ret = OK;
 
-  return OK;
+#ifdef CONFIG_EXAMPLES_FOC_VELOBS
+  ret = foc_motor_vel_reset(motor);
+#endif
+
+  return ret;
 }
+
+#ifdef CONFIG_EXAMPLES_FOC_ANGOBS
+/****************************************************************************
+ * Name: foc_motor_openloop_trans
+ ****************************************************************************/
+
+static void foc_motor_openloop_trans(FAR struct foc_motor_b16_s *motor)
+{
+#ifdef CONFIG_EXAMPLES_FOC_VELCTRL_PI
+  /* Set the intergral part of the velocity PI controller equal to the
+   * open-loop Q current value.
+   *
+   * REVISIT: this may casue a velocity overshoot when going from open-loop
+   *          to closed-loop. We can either use part of the open-loop Q
+   *          current here or gradually reduce the Q current during
+   *          transition.
+   */
+
+  motor->vel_pi.part[1] = b16mulb16(motor->dir, motor->openloop_q);
+  motor->vel_pi.part[0] = 0;
+#endif
+}
+
+/****************************************************************************
+ * Name: foc_motor_openloop_angobs
+ ****************************************************************************/
+
+static void foc_motor_openloop_angobs(FAR struct foc_motor_b16_s *motor)
+{
+  b16_t vel_abs = 0;
+
+  vel_abs = b16abs(motor->vel_el);
+
+  /* Disable open-loop if velocity above threshold */
+
+  if (motor->openloop_now == FOC_OPENLOOP_ENABLED)
+    {
+      if (vel_abs >= motor->ol_thr)
+        {
+          /* Store angle error between the forced open-loop angle and
+           * observer output. The error will be gradually eliminated over
+           * the next controller cycles.
+           */
+
+#ifdef ANGLE_MERGE_FACTOR
+          motor->angle_step = b16mulb16(motor->angle_err,
+                                        ftob16(ANGLE_MERGE_FACTOR));
+          motor->angle_err = motor->angle_ol - motor->angle_obs;
+#endif
+
+          motor->openloop_now = FOC_OPENLOOP_TRANSITION;
+        }
+    }
+
+  /* Handle transition end */
+
+  else if (motor->openloop_now == FOC_OPENLOOP_TRANSITION)
+    {
+      if (motor->angle_err == 0)
+        {
+          /* Call open-open loop transition handler */
+
+          foc_motor_openloop_trans(motor);
+
+          motor->openloop_now = FOC_OPENLOOP_DISABLED;
+        }
+    }
+
+  /* Enable open-loop if velocity below threshold with hysteresis  */
+
+  else if (motor->openloop_now == FOC_OPENLOOP_DISABLED)
+    {
+      /* For better stability we add hysteresis from transition
+       * from closed-loop to open-loop.
+       */
+
+      if (vel_abs < (motor->ol_thr - motor->ol_hys))
+        {
+          motor->openloop_now = FOC_OPENLOOP_ENABLED;
+        }
+    }
+}
+#endif
 
 /****************************************************************************
  * Name: foc_motor_run
@@ -707,11 +873,23 @@ static int foc_motor_run_init(FAR struct foc_motor_b16_s *motor)
 
 static int foc_motor_run(FAR struct foc_motor_b16_s *motor)
 {
+#ifdef CONFIG_EXAMPLES_FOC_HAVE_VEL
+  b16_t vel_err = 0.0f;
+#endif
   b16_t q_ref = 0;
   b16_t d_ref = 0;
   int   ret   = OK;
 
   DEBUGASSERT(motor);
+
+#ifdef CONFIG_EXAMPLES_FOC_ANGOBS
+  if (motor->envp->cfg->ol_force == false)
+    {
+      /* Handle open-loop to observer transition */
+
+      foc_motor_openloop_angobs(motor);
+    }
+#endif
 
 #ifdef CONFIG_EXAMPLES_FOC_HAVE_OPENLOOP
   /* Open-loop works only in velocity control mode */
@@ -734,34 +912,94 @@ static int foc_motor_run(FAR struct foc_motor_b16_s *motor)
   q_ref = motor->dq_ref.q;
   d_ref = motor->dq_ref.d;
 
-  /* Controller */
+  /* Ignore controller if motor is free (sensorless and sensored mode)
+   * or stopped (only sensorless mode)
+   */
+
+  if (motor->mq.app_state == FOC_EXAMPLE_STATE_FREE
+#ifdef CONFIG_EXAMPLES_FOC_SENSORLESS
+      || motor->mq.app_state == FOC_EXAMPLE_STATE_STOP
+#endif
+    )
+    {
+      goto no_controller;
+    }
+
+  /* Controller.
+   *
+   * The FOC motor controller is a cascade controller:
+   *
+   *   1. Position controller sets requested velocity,
+   *   2. Velocity controller sets requested torque,
+   *   3. Torque controller sets requested motor phase voltages.
+   *
+   *      NOTE: the motor torque is directly proportional to the motor
+   *            current which is proportional to the motor set voltage
+   */
 
   switch (motor->envp->cfg->mmode)
     {
-#ifdef CONFIG_EXAMPLES_FOC_HAVE_TORQ
-      case FOC_MMODE_TORQ:
-        {
-          motor->torq.set = b16mulb16(motor->dir, motor->torq.des);
-
-          q_ref = motor->torq.set;
-          d_ref = 0;
-
-          break;
-        }
-#endif
-
 #ifdef CONFIG_EXAMPLES_FOC_HAVE_VEL
       case FOC_MMODE_VEL:
         {
-          /* Run velocity ramp controller */
+          /* Saturate velocity */
 
-          ret = foc_ramp_run_b16(&motor->ramp, motor->vel.des,
-                                 motor->vel.now, &motor->vel.set);
-          if (ret < 0)
+          f_saturate_b16(&motor->vel.des, -motor->vel_sat,
+                         motor->vel_sat);
+
+          /* Velocity controller */
+
+          if (motor->time % VEL_CONTROL_PRESCALER == 0)
             {
-              PRINTF("ERROR: foc_ramp_run failed %d\n", ret);
-              goto errout;
+              /* Run velocity ramp controller */
+
+              ret = foc_ramp_run_b16(&motor->ramp,
+                                     motor->vel.des,
+                                     motor->vel.now,
+                                     &motor->vel.set);
+              if (ret < 0)
+                {
+                  PRINTF("ERROR: foc_ramp_run failed %d\n", ret);
+                  goto errout;
+                }
+
+              /* Run velocity controller if no in open-loop */
+
+#ifdef CONFIG_EXAMPLES_FOC_HAVE_OPENLOOP
+              if (motor->openloop_now == false)
+#endif
+                {
+                  /* Get velocity error */
+
+                  vel_err = motor->vel.set - motor->vel.now;
+
+#ifdef CONFIG_EXAMPLES_FOC_VELCTRL_PI
+                  /* PI velocit controller */
+
+                  motor->torq.des = pi_controller_b16(&motor->vel_pi,
+                                                      vel_err);
+#else
+#  error Missing velocity controller
+#endif
+                }
             }
+
+          /* Don't break here! pass to torque controller */
+        }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_HAVE_TORQ
+      case FOC_MMODE_TORQ:
+        {
+          /* Saturate torque */
+
+          f_saturate_b16(&motor->torq.des, -motor->torq_sat,
+                         motor->torq_sat);
+
+          /* Torque setpoint */
+
+          motor->torq.set = motor->torq.des;
+          motor->torq.now = motor->foc_state.idq.q;
 
           break;
         }
@@ -774,19 +1012,27 @@ static int foc_motor_run(FAR struct foc_motor_b16_s *motor)
         }
     }
 
+  /* Get dq ref */
+
+  q_ref = motor->torq.set;
+  d_ref = 0;
+
 #ifdef CONFIG_EXAMPLES_FOC_HAVE_OPENLOOP
   /* Force open-loop current */
 
-  if (motor->openloop_now == true)
+  if (motor->openloop_now == FOC_OPENLOOP_ENABLED ||
+      motor->openloop_now == FOC_OPENLOOP_TRANSITION)
     {
-      /* Get open-loop currents
-       * NOTE: Id always set to 0
+      /* Get open-loop currents. Positive for CW direction, negative for
+       * CCW direction. Id always set to 0.
        */
 
-      q_ref = b16idiv(motor->envp->cfg->qparam, 1000);
+      q_ref = b16mulb16(motor->dir, motor->openloop_q);
       d_ref = 0;
     }
 #endif
+
+no_controller:
 
   /* Set DQ reference frame */
 
@@ -795,13 +1041,256 @@ static int foc_motor_run(FAR struct foc_motor_b16_s *motor)
 
   /* DQ compensation */
 
+#ifdef CONFIG_EXAMPLES_FOC_FEEDFORWARD
+  foc_feedforward_pmsm_b16(&motor->phy, &motor->foc_state.idq,
+                           motor->vel.now, &motor->vdq_comp);
+#else
   motor->vdq_comp.q = 0;
   motor->vdq_comp.d = 0;
+#endif
 
 errout:
   return ret;
 }
 #endif
+
+/****************************************************************************
+ * Name: foc_motor_ang_get
+ ****************************************************************************/
+
+static int foc_motor_ang_get(FAR struct foc_motor_b16_s *motor)
+{
+  struct foc_angle_in_b16_s  ain;
+  struct foc_angle_out_b16_s aout;
+  int                        ret = OK;
+
+  DEBUGASSERT(motor);
+
+  /* Update open-loop angle handler */
+
+#ifdef CONFIG_EXAMPLES_FOC_HAVE_VEL
+  ain.vel   = motor->vel.set;
+#endif
+  ain.angle = motor->angle_now;
+  ain.dir   = motor->dir;
+
+#ifdef CONFIG_EXAMPLES_FOC_HAVE_OPENLOOP
+  if (motor->openloop_now != FOC_OPENLOOP_DISABLED)
+    {
+      foc_angle_run_b16(&motor->openloop, &ain, &aout);
+
+      /* Store open-loop angle */
+
+      motor->angle_ol = aout.angle;
+    }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_HAVE_QENCO
+  ret = foc_angle_run_b16(&motor->qenco, &ain, &aout);
+  if (ret < 0)
+    {
+      PRINTF("ERROR: foc_angle_run failed %d\n", ret);
+      goto errout;
+    }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_HAVE_HALL
+  ret = foc_angle_run_b16(&motor->hall, &ain, &aout);
+  if (ret < 0)
+    {
+      PRINTF("ERROR: foc_angle_run failed %d\n", ret);
+      goto errout;
+    }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_ANGOBS_SMO
+  ret = foc_angle_run_b16(&motor->ang_smo, &ain, &aout);
+  if (ret < 0)
+    {
+      PRINTF("ERROR: foc_angle_run failed %d\n", ret);
+      goto errout;
+    }
+
+  motor->angle_obs = aout.angle;
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_ANGOBS_NFO
+  ret = foc_angle_run_b16(&motor->ang_nfo, &ain, &aout);
+  if (ret < 0)
+    {
+      PRINTF("ERROR: foc_angle_run failed %d\n", ret);
+      goto errout;
+    }
+
+  motor->angle_obs = aout.angle;
+#endif
+
+  /* Store electrical angle from sensor or observer */
+
+  if (aout.type == FOC_ANGLE_TYPE_ELE)
+    {
+      /* Store electrical angle */
+
+      motor->angle_el = aout.angle;
+    }
+
+  else if (aout.type == FOC_ANGLE_TYPE_MECH)
+    {
+      /* Store mechanical angle */
+
+      motor->angle_m = aout.angle;
+
+      /* Convert mechanical angle to electrical angle */
+
+      motor->angle_el = (b16muli(motor->angle_m,
+                                 motor->phy.p) %
+                         MOTOR_ANGLE_E_MAX_B16);
+    }
+
+  else
+    {
+      ASSERT(0);
+    }
+
+#ifdef CONFIG_EXAMPLES_FOC_HAVE_OPENLOOP
+  /* Get open-loop phase angle */
+
+  if (motor->openloop_now == FOC_OPENLOOP_ENABLED)
+    {
+      motor->angle_now = motor->angle_ol;
+      motor->angle_el = motor->angle_ol;
+    }
+  else
+#endif
+#ifdef CONFIG_EXAMPLES_FOC_SENSORLESS
+  /* Handle smooth open-loop to closed-loop transition */
+
+  if (motor->openloop_now == FOC_OPENLOOP_TRANSITION)
+    {
+#ifdef ANGLE_MERGE_FACTOR
+      if (b16abs(motor->angle_err) > b16abs(motor->angle_step))
+        {
+          motor->angle_now = motor->angle_obs + motor->angle_err;
+
+          /* Update error */
+
+          motor->angle_err -= motor->angle_step;
+        }
+      else
+#endif
+        {
+          motor->angle_now = motor->angle_obs;
+          motor->angle_err = 0;
+        }
+    }
+
+  /* Get angle from observer if closed-loop now */
+
+  else
+    {
+      motor->angle_now = motor->angle_obs;
+    }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_SENSORED
+  /* Get phase angle from sensor */
+
+  motor->angle_now = motor->angle_el;
+#endif
+
+#if defined(CONFIG_EXAMPLES_FOC_SENSORED) || defined(CONFIG_EXAMPLES_FOC_ANGOBS)
+  errout:
+#endif
+  return ret;
+}
+
+#ifdef CONFIG_EXAMPLES_FOC_HAVE_VEL
+/****************************************************************************
+ * Name: foc_motor_vel_get
+ ****************************************************************************/
+
+static int foc_motor_vel_get(FAR struct foc_motor_b16_s *motor)
+{
+  struct foc_velocity_in_b16_s  vin;
+  struct foc_velocity_out_b16_s vout;
+  int                           ret = OK;
+
+  DEBUGASSERT(motor);
+
+  /* Update velocity handler input data */
+
+  vin.state = &motor->foc_state;
+  vin.angle = motor->angle_now;
+  vin.vel   = motor->vel.now;
+  vin.dir   = motor->dir;
+
+  /* Get velocity from observer */
+
+#ifdef CONFIG_EXAMPLES_FOC_VELOBS_DIV
+  ret = foc_velocity_run_b16(&motor->vel_div, &vin, &vout);
+  if (ret < 0)
+    {
+      PRINTF("ERROR: foc_velocity_run failed %d\n", ret);
+      goto errout;
+    }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_VELOBS_PLL
+  ret = foc_velocity_run_b16(&motor->vel_pll, &vin, &vout);
+  if (ret < 0)
+    {
+      PRINTF("ERROR: foc_velocity_run failed %d\n", ret);
+      goto errout;
+    }
+#endif
+
+  /* Get motor electrical velocity now */
+
+#if defined(CONFIG_EXAMPLES_FOC_HAVE_OPENLOOP) && \
+    !defined(CONFIG_EXAMPLES_FOC_VELOBS)
+  /* No velocity feedback - assume that electical velocity is velocity set
+   * in a open-loop contorller.
+   */
+
+  UNUSED(vin);
+  UNUSED(vout);
+
+  motor->vel_el = motor->vel.set;
+#elif defined(CONFIG_EXAMPLES_FOC_VELOBS) && defined(CONFIG_EXAMPLES_FOC_SENSORLESS)
+  if (motor->openloop_now == FOC_OPENLOOP_DISABLED)
+    {
+      /* Get electrical velocity from observer if we are in closed-loop */
+
+      motor->vel_el = motor->vel_obs;
+    }
+  else
+    {
+      /* Otherwise use open-loop velocity */
+
+      motor->vel_el = motor->vel.set;
+    }
+#elif defined(CONFIG_EXAMPLES_FOC_VELOBS) && defined(CONFIG_EXAMPLES_FOC_SENSORED)
+  /* Get electrical velocity from observer in sensored mode */
+
+  motor->vel_el = motor->vel_obs;
+#else
+  /* Need electrical velocity source here - raise assertion */
+
+  ASSERT(0);
+#endif
+
+  LP_FILTER_B16(motor->vel.now, motor->vel_el, motor->vel_filter);
+
+  /* Get mechanical velocity (rad/s) */
+
+  motor->vel_mech = b16mulb16(motor->vel_el, motor->phy.one_by_p);
+
+#ifdef CONFIG_EXAMPLES_FOC_VELOBS
+errout:
+#endif
+  return ret;
+}
+#endif  /* CONFIG_EXAMPLES_FOC_HAVE_VEL */
 
 /****************************************************************************
  * Public Functions
@@ -822,6 +1311,18 @@ int foc_motor_init(FAR struct foc_motor_b16_s *motor,
 #endif
 #ifdef CONFIG_EXAMPLES_FOC_HAVE_HALL
   struct foc_hall_cfg_b16_s          hl_cfg;
+#endif
+#ifdef CONFIG_EXAMPLES_FOC_ANGOBS_SMO
+  struct foc_angle_osmo_cfg_b16_s    smo_cfg;
+#endif
+#ifdef CONFIG_EXAMPLES_FOC_ANGOBS_NFO
+  struct foc_angle_onfo_cfg_b16_s    nfo_cfg;
+#endif
+#ifdef CONFIG_EXAMPLES_FOC_VELOBS_DIV
+  struct foc_vel_div_b16_cfg_s       odiv_cfg;
+#endif
+#ifdef CONFIG_EXAMPLES_FOC_VELOBS_PLL
+  struct foc_vel_pll_b16_cfg_s       opll_cfg;
 #endif
 #ifdef CONFIG_EXAMPLES_FOC_HAVE_ALIGN
   struct foc_routine_align_cfg_b16_s align_cfg;
@@ -845,7 +1346,16 @@ int foc_motor_init(FAR struct foc_motor_b16_s *motor,
   /* Initialize motor data */
 
   motor->per        = b16divi(b16ONE, CONFIG_EXAMPLES_FOC_NOTIFIER_FREQ);
-  motor->iphase_adc = ftob16((CONFIG_EXAMPLES_FOC_IPHASE_ADC) / 100000.0f);
+#ifdef CONFIG_EXAMPLES_FOC_ANGOBS
+  motor->ol_thr     = ftob16(motor->envp->cfg->ol_thr / 1.0f);
+  motor->ol_hys     = ftob16(motor->envp->cfg->ol_hys / 1.0f);
+#endif
+#ifdef CONFIG_EXAMPLES_FOC_HAVE_TORQ
+  motor->torq_sat   = ftob16(CONFIG_EXAMPLES_FOC_TORQ_MAX / 1000.0f);
+#endif
+#ifdef CONFIG_EXAMPLES_FOC_HAVE_VEL
+  motor->vel_sat    = ftob16(CONFIG_EXAMPLES_FOC_VEL_MAX / 1.0f);
+#endif
 
 #ifdef CONFIG_EXAMPLES_FOC_HAVE_RUN
   /* Initialize controller run mode */
@@ -872,6 +1382,10 @@ int foc_motor_init(FAR struct foc_motor_b16_s *motor,
 
   ol_cfg.per = motor->per;
   foc_angle_cfg_b16(&motor->openloop, &ol_cfg);
+
+  /* Store open-loop Q-param */
+
+  motor->openloop_q = ftob16(motor->envp->cfg->qparam / 1000.0f);
 #endif
 
 #ifdef CONFIG_EXAMPLES_FOC_HAVE_QENCO
@@ -887,10 +1401,10 @@ int foc_motor_init(FAR struct foc_motor_b16_s *motor,
 
   /* Get qenco devpath */
 
-  sprintf(motor->qedpath,
-          "%s%d",
-          CONFIG_EXAMPLES_FOC_QENCO_DEVPATH,
-          motor->envp->id);
+  snprintf(motor->qedpath, sizeof(motor->qedpath),
+           "%s%d",
+           CONFIG_EXAMPLES_FOC_QENCO_DEVPATH,
+           motor->envp->id);
 
   /* Configure qenco angle handler */
 
@@ -918,10 +1432,10 @@ int foc_motor_init(FAR struct foc_motor_b16_s *motor,
 
   /* Get hall devpath */
 
-  sprintf(motor->hldpath,
-          "%s%d",
-          CONFIG_EXAMPLES_FOC_HALL_DEVPATH,
-          motor->envp->id);
+  snprintf(motor->hldpath, sizeof(motor->hldpath),
+           "%s%d",
+           CONFIG_EXAMPLES_FOC_HALL_DEVPATH,
+           motor->envp->id);
 
   /* Configure hall angle handler */
 
@@ -934,6 +1448,120 @@ int foc_motor_init(FAR struct foc_motor_b16_s *motor,
       PRINTFV("ERROR: foc_angle_cfg_b16 failed %d!\n", ret);
       goto errout;
     }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_ANGOBS_SMO
+  /* Initialzie SMO angle observer handler */
+
+  ret = foc_angle_init_b16(&motor->ang_smo,
+                           &g_foc_angle_osmo_b16);
+  if (ret < 0)
+    {
+      PRINTFV("ERROR: foc_angle_init_b16 failed %d!\n", ret);
+      goto errout;
+    }
+
+  /* Configure SMO angle handler */
+
+  smo_cfg.per     = motor->per;
+  smo_cfg.k_slide = ftob16(CONFIG_EXAMPLES_FOC_ANGOBS_SMO_KSLIDE / 1000.0f);
+  smo_cfg.err_max = ftob16(CONFIG_EXAMPLES_FOC_ANGOBS_SMO_ERRMAX / 1000.0f);
+  memcpy(&smo_cfg.phy, &motor->phy, sizeof(struct motor_phy_params_b16_s));
+
+  ret = foc_angle_cfg_b16(&motor->ang_smo, &smo_cfg);
+  if (ret < 0)
+    {
+      PRINTFV("ERROR: foc_angle_cfg_b16 failed %d!\n", ret);
+      goto errout;
+    }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_ANGOBS_NFO
+  /* Initialzie NFO angle observer handler */
+
+  ret = foc_angle_init_b16(&motor->ang_nfo,
+                           &g_foc_angle_onfo_b16);
+  if (ret < 0)
+    {
+      PRINTFV("ERROR: foc_angle_init_b16 failed %d!\n", ret);
+      goto errout;
+    }
+
+  /* Configure NFO angle handler */
+
+  nfo_cfg.per       = motor->per;
+  nfo_cfg.gain      = ftob16(motor->envp->cfg->ang_nfo_gain / 1.0f);
+  nfo_cfg.gain_slow = ftob16(motor->envp->cfg->ang_nfo_slow / 1.0f);
+  memcpy(&nfo_cfg.phy, &motor->phy, sizeof(struct motor_phy_params_b16_s));
+
+  ret = foc_angle_cfg_b16(&motor->ang_nfo, &nfo_cfg);
+  if (ret < 0)
+    {
+      PRINTFV("ERROR: foc_angle_cfg_b16 failed %d!\n", ret);
+      goto errout;
+    }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_VELOBS_DIV
+  /* Initialize velocity observer */
+
+  ret = foc_velocity_init_b16(&motor->vel_div,
+                              &g_foc_velocity_odiv_b16);
+  if (ret < 0)
+    {
+      PRINTFV("ERROR: foc_angle_init_b16 failed %d!\n", ret);
+      goto errout;
+    }
+
+  /* Configure velocity observer */
+
+  odiv_cfg.samples = (motor->envp->cfg->vel_div_samples);
+  odiv_cfg.filter  = ftob16(motor->envp->cfg->vel_div_samples / 1000.0f);
+  odiv_cfg.per     = motor->per;
+
+  ret = foc_velocity_cfg_b16(&motor->vel_div, &odiv_cfg);
+  if (ret < 0)
+    {
+      PRINTFV("ERROR: foc_velocity_cfg_b16 failed %d!\n", ret);
+      goto errout;
+    }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_VELOBS_PLL
+  /* Initialize velocity observer */
+
+  ret = foc_velocity_init_b16(&motor->vel_pll,
+                              &g_foc_velocity_opll_b16);
+  if (ret < 0)
+    {
+      PRINTFV("ERROR: foc_angle_init_b16 failed %d!\n", ret);
+      goto errout;
+    }
+
+  /* Configure velocity observer */
+
+  opll_cfg.kp  = ftob16(motor->envp->cfg->vel_pll_kp / 1.0f);
+  opll_cfg.ki  = ftob16(motor->envp->cfg->vel_pll_ki / 1.0f);
+  opll_cfg.per = motor->per;
+
+  ret = foc_velocity_cfg_b16(&motor->vel_pll, &opll_cfg);
+  if (ret < 0)
+    {
+      PRINTFV("ERROR: foc_velocity_cfg_b16 failed %d!\n", ret);
+      goto errout;
+    }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_VELCTRL_PI
+  /* Initialize velocity controller */
+
+  pi_controller_init_b16(&motor->vel_pi,
+                   ftob16(motor->envp->cfg->vel_pi_kp / 1000000.0f),
+                   ftob16(motor->envp->cfg->vel_pi_ki / 1000000.0f));
+
+  pi_saturation_set_b16(&motor->vel_pi,  -motor->torq_sat, motor->torq_sat);
+
+  pi_antiwindup_enable_b16(&motor->vel_pi, ftob16(0.99f), true);
 #endif
 
 #ifdef CONFIG_EXAMPLES_FOC_HAVE_ALIGN
@@ -959,6 +1587,9 @@ int foc_motor_init(FAR struct foc_motor_b16_s *motor,
 
   /* Connect align callbacks private data */
 
+#  ifdef CONFIG_EXAMPLES_FOC_SENSORLESS
+  align_cfg.cb.priv = &motor->openloop;
+#  endif
 #  ifdef CONFIG_EXAMPLES_FOC_HAVE_QENCO
   align_cfg.cb.priv = &motor->qenco;
 #  endif
@@ -1008,6 +1639,12 @@ int foc_motor_init(FAR struct foc_motor_b16_s *motor,
     }
 #endif
 
+#ifdef CONFIG_EXAMPLES_FOC_HAVE_VEL
+  /* Store velocity filter value */
+
+  motor->vel_filter = ftob16(motor->envp->cfg->vel_filter / 1000.0f);
+#endif
+
   /* Initialize controller state */
 
 #ifdef CONFIG_EXAMPLES_FOC_HAVE_ALIGN
@@ -1046,6 +1683,83 @@ int foc_motor_deinit(FAR struct foc_motor_b16_s *motor)
 
   DEBUGASSERT(motor);
 
+  #ifdef CONFIG_EXAMPLES_FOC_HAVE_OPENLOOP
+  /* Deinitialzie open-loop handler */
+
+  ret = foc_angle_deinit_b16(&motor->openloop);
+  if (ret < 0)
+    {
+      PRINTFV("ERROR: foc_angle_deinit_b16 failed %d!\n", ret);
+      goto errout;
+    }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_HAVE_QENCO
+  /* Deinitialzie qenco handler */
+
+  ret = foc_angle_deinit_b16(&motor->qenco);
+  if (ret < 0)
+    {
+      PRINTFV("ERROR: foc_angle_deinit_b16 failed %d!\n", ret);
+      goto errout;
+    }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_HAVE_HALL
+  /* Deinitialzie hall handler */
+
+  ret = foc_angle_deinit_b16(&motor->hall);
+  if (ret < 0)
+    {
+      PRINTFV("ERROR: foc_angle_deinit_b16 failed %d!\n", ret);
+      goto errout;
+    }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_ANGOBS_SMO
+  /* Deinitialize SMO observer handler */
+
+  ret = foc_angle_deinit_b16(&motor->ang_smo);
+  if (ret < 0)
+    {
+      PRINTFV("ERROR: foc_angle_deinit_b16 failed %d!\n", ret);
+      goto errout;
+    }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_ANGOBS_NFO
+  /* Deinitialize NFO observer handler */
+
+  ret = foc_angle_deinit_b16(&motor->ang_nfo);
+  if (ret < 0)
+    {
+      PRINTFV("ERROR: foc_angle_deinit_b16 failed %d!\n", ret);
+      goto errout;
+    }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_VELOBS_DIV
+  /* Deinitialize DIV observer handler */
+
+  ret = foc_velocity_deinit_b16(&motor->vel_div);
+  if (ret < 0)
+    {
+      PRINTFV("ERROR: foc_velocity_deinit_b16 failed %d!\n", ret);
+      goto errout;
+    }
+#endif
+
+#ifdef CONFIG_EXAMPLES_FOC_VELOBS_PLL
+  /* Deinitialize PLL observer handler */
+
+  ret = foc_velocity_deinit_b16(&motor->vel_pll);
+  if (ret < 0)
+    {
+      PRINTFV("ERROR: foc_velocity_deinit_b16 failed %d!\n", ret);
+      goto errout;
+    }
+#endif
+
 #ifdef CONFIG_EXAMPLES_FOC_HAVE_ALIGN
   /* Deinitialize motor alignment routine */
 
@@ -1058,7 +1772,7 @@ int foc_motor_deinit(FAR struct foc_motor_b16_s *motor)
 #endif
 
 #ifdef CONFIG_EXAMPLES_FOC_HAVE_IDENT
-  /* Deinitialize motor identment routine */
+  /* Deinitialize motor identification routine */
 
   ret = foc_routine_deinit_b16(&motor->ident);
   if (ret < 0)
@@ -1102,105 +1816,29 @@ errout:
 
 int foc_motor_get(FAR struct foc_motor_b16_s *motor)
 {
-  struct foc_angle_in_b16_s  ain;
-  struct foc_angle_out_b16_s aout;
-  int                        ret = OK;
+  int ret = OK;
 
   DEBUGASSERT(motor);
 
-  /* Update open-loop angle handler */
+  /* Get motor angle */
+
+  ret = foc_motor_ang_get(motor);
+  if (ret < 0)
+    {
+      goto errout;
+    }
 
 #ifdef CONFIG_EXAMPLES_FOC_HAVE_VEL
-  ain.vel   = motor->vel.set;
-#endif
-  ain.angle = motor->angle_now;
-  ain.dir   = motor->dir;
+  /* Get motor velocity */
 
-#ifdef CONFIG_EXAMPLES_FOC_HAVE_OPENLOOP
-  foc_angle_run_b16(&motor->openloop, &ain, &aout);
-
-  /* Store open-loop angle */
-
-  motor->angle_ol = aout.angle;
-#endif
-
-#ifdef CONFIG_EXAMPLES_FOC_HAVE_QENCO
-  ret = foc_angle_run_b16(&motor->qenco, &ain, &aout);
+  ret = foc_motor_vel_get(motor);
   if (ret < 0)
     {
-      PRINTF("ERROR: foc_angle_run failed %d\n", ret);
       goto errout;
     }
 #endif
 
-#ifdef CONFIG_EXAMPLES_FOC_HAVE_HALL
-  ret = foc_angle_run_b16(&motor->hall, &ain, &aout);
-  if (ret < 0)
-    {
-      PRINTF("ERROR: foc_angle_run failed %d\n", ret);
-      goto errout;
-    }
-#endif
-
-#ifdef CONFIG_EXAMPLES_FOC_SENSORED
-  /* Handle angle from sensor */
-
-  if (aout.type == FOC_ANGLE_TYPE_ELE)
-    {
-      /* Store electrical angle */
-
-      motor->angle_el = aout.angle;
-    }
-
-  else if (aout.type == FOC_ANGLE_TYPE_MECH)
-    {
-      /* Store mechanical angle */
-
-      motor->angle_m = aout.angle;
-
-      /* Convert mechanical angle to electrical angle */
-
-      motor->angle_el = (b16muli(motor->angle_m,
-                                 motor->poles) % MOTOR_ANGLE_E_MAX_B16);
-    }
-
-  else
-    {
-      ASSERT(0);
-    }
-#endif  /* CONFIG_EXAMPLES_FOC_SENSORED */
-
-#ifdef CONFIG_EXAMPLES_FOC_HAVE_OPENLOOP
-  /* Get phase angle now */
-
-  if (motor->openloop_now == true)
-    {
-      motor->angle_now = motor->angle_ol;
-    }
-  else
-#endif
-    {
-      /* Get phase angle from observer or sensor */
-
-      motor->angle_now = motor->angle_el;
-    }
-
-#ifdef CONFIG_EXAMPLES_FOC_HAVE_OPENLOOP
-  if (motor->openloop_now == true)
-    {
-      /* No velocity feedback - assume that velocity now is velocity set */
-
-      motor->vel.now = motor->vel.set;
-    }
-  else
-#endif
-    {
-      /* TODO: velocity observer or sensor */
-    }
-
-#ifdef CONFIG_EXAMPLES_FOC_SENSORED
 errout:
-#endif
   return ret;
 }
 

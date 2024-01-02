@@ -50,7 +50,8 @@ int foc_device_init(FAR struct foc_device_s *dev, int id)
 
   /* Get FOC devpath */
 
-  sprintf(devpath, "%s%d", CONFIG_EXAMPLES_FOC_DEVPATH, id);
+  snprintf(devpath, sizeof(devpath), "%s%d",
+           CONFIG_EXAMPLES_FOC_DEVPATH, id);
 
   /* Open FOC device */
 
@@ -88,6 +89,12 @@ int foc_device_init(FAR struct foc_device_s *dev, int id)
       PRINTFV("ERROR: foc_dev_setcfg %d!\n", ret);
       goto errout;
     }
+
+#ifdef CONFIG_EXAMPLES_FOC_PERF
+  /* Initialize perf */
+
+  foc_perf_init(&dev->perf);
+#endif
 
 errout:
   return ret;
@@ -171,6 +178,10 @@ int foc_dev_state_get(FAR struct foc_device_s *dev)
       goto errout;
     }
 
+#ifdef CONFIG_EXAMPLES_FOC_PERF
+  foc_perf_start(&dev->perf);
+#endif
+
 errout:
   return ret;
 }
@@ -193,6 +204,10 @@ int foc_dev_params_set(FAR struct foc_device_s *dev)
       PRINTFV("ERROR: foc_dev_setparams failed %d!\n", ret);
       goto errout;
     }
+
+#ifdef CONFIG_EXAMPLES_FOC_PERF
+  foc_perf_end(&dev->perf);
+#endif
 
 errout:
   return ret;

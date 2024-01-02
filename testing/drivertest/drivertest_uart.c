@@ -39,19 +39,19 @@
  ****************************************************************************/
 
 #ifndef CONFIG_TESTING_DRIVER_TEST_UART_DEVICE
-  #define CONFIG_TESTING_DRIVER_TEST_UART_DEVICE "/dev/console"
+#  define CONFIG_TESTING_DRIVER_TEST_UART_DEVICE "/dev/console"
 #endif
 
 #ifndef CONFIG_TESTING_DRIVER_TEST_UART_DEFAULT_CONTENT
-  #define CONFIG_TESTING_DRIVER_TEST_UART_DEFAULT_CONTENT "0123456789abcdefg"\
+#  define CONFIG_TESTING_DRIVER_TEST_UART_DEFAULT_CONTENT "0123456789abcdefg"\
       "hijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ,./<>?;':\"[]{}\\|!@#$%^"\
       "&*()-+_="
-  #define DEFAULT_CONTENT CONFIG_TESTING_DRIVER_TEST_UART_DEFAULT_CONTENT
+#  define DEFAULT_CONTENT CONFIG_TESTING_DRIVER_TEST_UART_DEFAULT_CONTENT
 #endif
 
 #ifndef CONFIG_TESTING_DRIVER_TEST_UART_BUFFER_SIZE
-  #define CONFIG_TESTING_DRIVER_TEST_UART_BUFFER_SIZE 1024
-  #define BUFFER_SIZE CONFIG_TESTING_DRIVER_TEST_UART_BUFFER_SIZE
+#  define CONFIG_TESTING_DRIVER_TEST_UART_BUFFER_SIZE 1024
+#  define BUFFER_SIZE CONFIG_TESTING_DRIVER_TEST_UART_BUFFER_SIZE
 #endif
 
 /****************************************************************************
@@ -216,7 +216,7 @@ static void write_default(FAR void **state)
 static void read_default(FAR void **state)
 {
   FAR struct test_state_s *test_state = (FAR struct test_state_s *)*state;
-  sigset_t buffer_size = sizeof(DEFAULT_CONTENT);
+  size_t buffer_size = sizeof(DEFAULT_CONTENT);
   int cnt = 0;
   FAR char *buffer = test_state->buffer;
   assert_true(buffer != NULL);

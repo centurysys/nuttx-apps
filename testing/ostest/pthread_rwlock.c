@@ -43,6 +43,7 @@ struct race_cond_s
  ****************************************************************************/
 
 static int g_race_cond_thread_pos;
+static sem_t g_sem_thread_started;
 
 /****************************************************************************
  * Private Functions
@@ -308,6 +309,7 @@ static FAR void *timeout_thread1(FAR void *data)
       ASSERT(false);
     }
 
+  sem_post(&g_sem_thread_started);
   sem_wait(rc->sem1);
 
   status = pthread_rwlock_unlock(rc->rw_lock);
@@ -326,6 +328,8 @@ static FAR void *timeout_thread2(FAR void *data)
   FAR struct race_cond_s *rc = (FAR struct race_cond_s *)data;
   struct timespec time;
   int status;
+
+  pthread_yield();
 
   status = clock_gettime(CLOCK_REALTIME, &time);
   time.tv_sec += 2;
@@ -406,6 +410,9 @@ static void test_timeout(void)
   rc.rw_lock = &rw_lock;
 
   status = pthread_create(&thread1, NULL, timeout_thread1, &rc);
+
+  status = sem_wait(&g_sem_thread_started);
+
   status = pthread_create(&thread2, NULL, timeout_thread2, &rc);
 
   pthread_join(thread1, NULL);
@@ -422,6 +429,8 @@ void pthread_rwlock_test(void)
   int status;
 
   printf("pthread_rwlock: Initializing rwlock\n");
+
+  sem_init(&g_sem_thread_started, 0, 0);
 
   status = pthread_rwlock_init(&rw_lock, NULL);
   if (status != 0)
@@ -487,4 +496,6 @@ void pthread_rwlock_test(void)
   test_two_threads();
 
   test_timeout();
+
+  sem_destroy(&g_sem_thread_started);
 }

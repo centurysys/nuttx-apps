@@ -27,7 +27,8 @@
 #include <stdio.h>
 #include <syslog.h>
 
-#if defined(CONFIG_ADBD_BOARD_INIT) || defined (CONFIG_BOARDCTL_RESET)
+#if defined(CONFIG_ADBD_BOARD_INIT) || defined (CONFIG_BOARDCTL_RESET) || \
+    defined(CONFIG_ADBD_USB_BOARDCTL)
 #  include <sys/boardctl.h>
 #endif
 
@@ -39,7 +40,8 @@
  * Public Functions
  ****************************************************************************/
 
-void adb_log_impl(FAR const char *func, int line, FAR const char *fmt, ...)
+void adb_log_impl(int priority, FAR const char *func, int line,
+                  FAR const char *fmt, ...)
 {
   struct va_format vaf;
   va_list ap;
@@ -47,7 +49,24 @@ void adb_log_impl(FAR const char *func, int line, FAR const char *fmt, ...)
   va_start(ap, fmt);
   vaf.fmt = fmt;
   vaf.va  = &ap;
-  syslog(LOG_ERR, "%s (%d): %pV", func, line, &vaf);
+
+  switch (priority)
+    {
+      case ADB_INFO:
+        priority = LOG_INFO;
+        break;
+      case ADB_ERR:
+        priority = LOG_ERR;
+        break;
+      case ADB_WARN:
+        priority = LOG_WARNING;
+        break;
+      default:
+        priority = LOG_INFO;
+        break;
+    }
+
+  syslog(priority, "%s (%d): %pV", func, line, &vaf);
   va_end(ap);
 }
 
@@ -56,15 +75,15 @@ void adb_reboot_impl(const char *target)
 #ifdef CONFIG_BOARDCTL_RESET
   if (strcmp(target, "recovery") == 0)
     {
-      boardctl(BOARDIOC_RESET, CONFIG_ADBD_RESET_RECOVERY);
+      boardctl(BOARDIOC_RESET, BOARDIOC_SOFTRESETCAUSE_ENTER_RECOVERY);
     }
   else if (strcmp(target, "bootloader") == 0)
     {
-      boardctl(BOARDIOC_RESET, CONFIG_ADBD_RESET_BOOTLOADER);
+      boardctl(BOARDIOC_RESET, BOARDIOC_SOFTRESETCAUSE_ENTER_BOOTLOADER);
     }
   else
     {
-      boardctl(BOARDIOC_RESET, 0);
+      boardctl(BOARDIOC_RESET, BOARDIOC_SOFTRESETCAUSE_USER_REBOOT);
     }
 #else
   adb_log("reboot not implemented\n");
@@ -77,20 +96,24 @@ int main(int argc, FAR char **argv)
 
 #ifdef CONFIG_ADBD_BOARD_INIT
   boardctl(BOARDIOC_INIT, 0);
+#endif /* CONFIG_ADBD_BOARD_INIT */
 
-#if defined(CONFIG_ADBD_USB_SERVER) && \
-    defined(CONFIG_USBDEV_COMPOSITE) && \
-    defined (CONFIG_BOARDCTL_USBDEVCTRL)
+#ifdef CONFIG_ADBD_USB_BOARDCTL
 
-  /* Setup composite USB device */
+  /* Setup USBADB device */
 
   struct boardioc_usbdev_ctrl_s ctrl;
-  int ret;
+#ifdef CONFIG_USBDEV_COMPOSITE
+  uint8_t usbdev = BOARDIOC_USBDEV_COMPOSITE;
+#else
+  uint8_t usbdev = BOARDIOC_USBDEV_ADB;
+#endif
   FAR void *handle;
+  int ret;
 
   /* Perform architecture-specific initialization */
 
-  ctrl.usbdev   = BOARDIOC_USBDEV_COMPOSITE;
+  ctrl.usbdev   = usbdev;
   ctrl.action   = BOARDIOC_USBDEV_INITIALIZE;
   ctrl.instance = 0;
   ctrl.config   = 0;
@@ -103,9 +126,9 @@ int main(int argc, FAR char **argv)
       return 1;
     }
 
-  /* Initialize the USB composite device device */
+  /* Connect the USB composite device device */
 
-  ctrl.usbdev   = BOARDIOC_USBDEV_COMPOSITE;
+  ctrl.usbdev   = usbdev;
   ctrl.action   = BOARDIOC_USBDEV_CONNECT;
   ctrl.instance = 0;
   ctrl.config   = 0;
@@ -117,8 +140,7 @@ int main(int argc, FAR char **argv)
       printf("boardctl(BOARDIOC_USBDEV_CONTROL) failed: %d\n", ret);
       return 1;
     }
-#endif /* ADBD_USB_SERVER && USBDEV_COMPOSITE && BOARDCTL_USBDEVCTRL */
-#endif /* CONFIG_ADBD_BOARD_INIT */
+#endif /* ADBD_USB_BOARDCTL */
 
 #ifdef CONFIG_ADBD_NET_INIT
   /* Bring up the network */

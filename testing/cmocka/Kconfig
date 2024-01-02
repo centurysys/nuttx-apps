@@ -5,6 +5,7 @@
 
 config TESTING_CMOCKA
 	tristate "Enable libcmocka"
+	depends on LIBC_REGEX
 	default n
 	---help---
 		Enable libcmocka and run all testcases
@@ -24,6 +25,10 @@ config TESTING_CMOCKA_PRIORITY
 
 config TESTING_CMOCKA_STACKSIZE
 	int "cmocka test stack size"
-	default  DEFAULT_TASK_STACKSIZE
+	default DEFAULT_TASK_STACKSIZE
+
+config TESTING_CMOCKA_LEAKDETECT
+	bool "Memory leaks can be checked using cmocka, please use in local environment"
+	default n
 
 endif

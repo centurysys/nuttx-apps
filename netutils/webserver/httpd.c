@@ -50,6 +50,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <sys/param.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -204,7 +205,7 @@ static void httpd_dumpbuffer(FAR const char *msg, FAR const char *buffer,
   ninfodumpbuffer(msg, (FAR const uint8_t *)buffer, nbytes);
 }
 #else
-# define httpd_dumpbuffer(msg,buffer,nbytes)
+#  define httpd_dumpbuffer(msg,buffer,nbytes)
 #endif
 
 #ifdef CONFIG_NETUTILS_HTTPD_DUMPPSTATE
@@ -223,7 +224,7 @@ static void httpd_dumppstate(struct httpd_state *pstate, const char *msg)
 #endif
 }
 #else
-# define httpd_dumppstate(pstate, msg)
+#  define httpd_dumppstate(pstate, msg)
 #endif
 
 #ifndef CONFIG_NETUTILS_HTTPD_SCRIPT_DISABLE
@@ -809,7 +810,7 @@ static void single_server(uint16_t portno, pthread_startroutine_t handler,
 
       /* Handle the request. This blocks until complete. */
 
-      httpd_handler((FAR void *)acceptsd);
+      handler((FAR void *)acceptsd);
     }
 
   /* Close the sockets */
@@ -988,7 +989,7 @@ int httpd_send_headers(struct httpd_state *pstate, int status, int len)
     {
       mime = "text/plain";
 
-      for (i = 0; i < sizeof a / sizeof *a; i++)
+      for (i = 0; i < nitems(a); i++)
         {
           if (strncmp(a[i].ext, ptr + 1, strlen(a[i].ext)) == 0)
             {

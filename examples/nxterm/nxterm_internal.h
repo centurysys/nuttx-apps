@@ -110,7 +110,7 @@
 #    define CONFIG_EXAMPLES_NXTERM_BGCOLOR RGBTO16(39, 64, 139)
 #  else
 #    define CONFIG_EXAMPLES_NXTERM_BGCOLOR RGBTO8(39, 64, 139)
-# endif
+#  endif
 #endif
 
 /* Window color (lighter steel blue) */
@@ -122,7 +122,7 @@
 #    define CONFIG_EXAMPLES_NXTERM_WCOLOR RGBTO16(202, 225, 255)
 #  else
 #    define CONFIG_EXAMPLES_NXTERM_WCOLOR RGBTO8(202, 225, 255)
-# endif
+#  endif
 #endif
 
 /* Toolbar color (medium grey) */
@@ -183,9 +183,6 @@
 #endif
 #ifndef CONFIG_EXAMPLES_NXTERM_SERVERPRIO
 #  define CONFIG_EXAMPLES_NXTERM_SERVERPRIO 120
-#endif
-#ifndef CONFIG_EXAMPLES_NXTERM_NOTIFYSIGNO
-#  define CONFIG_EXAMPLES_NXTERM_NOTIFYSIGNO 4
 #endif
 
 /* NX Console Device */

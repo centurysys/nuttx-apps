@@ -89,7 +89,7 @@
 #    define CONFIG_EXAMPLES_PWFB_BGCOLOR 0x7b5d
 #  else
 #    define CONFIG_EXAMPLES_PWFB_BGCOLOR ' '
-# endif
+#  endif
 #endif
 
 #ifndef CONFIG_EXAMPLES_PWFB_COLOR1
@@ -99,7 +99,7 @@
 #    define CONFIG_EXAMPLES_PWFB_COLOR1 0xe73f
 #  else
 #    define CONFIG_EXAMPLES_PWFB_COLOR1 '1'
-# endif
+#  endif
 #endif
 
 #ifndef CONFIG_EXAMPLES_PWFB_COLOR2
@@ -109,16 +109,16 @@
 #    define CONFIG_EXAMPLES_PWFB_COLOR2 0xdefb
 #  else
 #    define CONFIG_EXAMPLES_PWFB_COLOR2 '2'
-# endif
+#  endif
 #endif
 
 #ifndef CONFIG_EXAMPLES_PWFB_COLOR3
 #  if CONFIG_EXAMPLES_PWFB_BPP == 24 || CONFIG_EXAMPLES_PWFB_BPP == 32
-#    define CONFIG_EXAMPLES_PWFB_COLOR2 0x00ffecb3
+#    define CONFIG_EXAMPLES_PWFB_COLOR3 0x00ffecb3
 #  elif CONFIG_EXAMPLES_PWFB_BPP == 16
-#    define CONFIG_EXAMPLES_PWFB_COLOR2 0xff76
+#    define CONFIG_EXAMPLES_PWFB_COLOR3 0xff76
 #  else
-#    define CONFIG_EXAMPLES_PWFB_COLOR2 '3'
+#    define CONFIG_EXAMPLES_PWFB_COLOR3 '3'
 # endif
 #endif
 
@@ -140,6 +140,10 @@
 #  else
 #    define CONFIG_EXAMPLES_PWFB_FONTCOLOR 'F'
 #  endif
+#endif
+
+#ifdef CONFIG_EXAMPLES_PWFB_DEFAULT_FONT
+#  define CONFIG_EXAMPLES_PWFB_FONTID FONTID_DEFAULT
 #endif
 
 /* Cursor timing */

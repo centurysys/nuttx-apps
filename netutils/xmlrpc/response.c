@@ -164,7 +164,7 @@ int xmlrpc_getstring(struct xmlrpc_s *xmlcall, char *arg)
 int xmlrpc_buildresponse(struct xmlrpc_s *xmlcall, char *args, ...)
 {
   va_list argp;
-  int ret = 0;
+  int next = 0;
   int index = 0;
   int close = 0;
   int isstruct = 0;
@@ -187,14 +187,16 @@ int xmlrpc_buildresponse(struct xmlrpc_s *xmlcall, char *args, ...)
 
   if (xmlcall->error)
     {
-      strcat(&xmlcall->response[strlen(xmlcall->response)], "  <fault>\n");
+      strlcat(xmlcall->response, "  <fault>\n",
+              sizeof(xmlcall->response));
     }
   else
     {
-      strcat(&xmlcall->response[strlen(xmlcall->response)],
-             "  <params><param>\n");
+      strlcat(xmlcall->response, "  <params><param>\n",
+              sizeof(xmlcall->response));
     }
 
+  next = strlen(xmlcall->response);
   va_start(argp, args);
 
   while (args[index])
@@ -203,10 +205,15 @@ int xmlrpc_buildresponse(struct xmlrpc_s *xmlcall, char *args, ...)
         {
           if ((args[index] != '{') && (args[index] != '}'))
             {
-              sprintf(&xmlcall->response[strlen(xmlcall->response)],
-                      "  <member>\n");
-              sprintf(&xmlcall->response[strlen(xmlcall->response)],
-                      "    <name>%s</name>\n", va_arg(argp, char *));
+              snprintf(&xmlcall->response[next],
+                       sizeof(xmlcall->response) - next,
+                       "  <member>\n");
+              next += strlen(&xmlcall->response[next]);
+              snprintf(&xmlcall->response[next],
+                       sizeof(xmlcall->response) - next,
+                       "    <name>%s</name>\n",
+                       va_arg(argp, char *));
+              next += strlen(&xmlcall->response[next]);
               close = 1;
             }
         }
@@ -214,39 +221,45 @@ int xmlrpc_buildresponse(struct xmlrpc_s *xmlcall, char *args, ...)
       switch (args[index])
         {
         case '{':
-          sprintf(&xmlcall->response[strlen(xmlcall->response)],
-                  "  <value><struct>\n");
+          snprintf(&xmlcall->response[next],
+                   sizeof(xmlcall->response) - next,
+                   "  <value><struct>\n");
           isstruct = 1;
           break;
 
         case '}':
-          sprintf(&xmlcall->response[strlen(xmlcall->response)],
-                  "  </struct></value>\n");
+          snprintf(&xmlcall->response[next],
+                   sizeof(xmlcall->response) - next,
+                   "  </struct></value>\n");
           isstruct = 0;
           break;
 
         case 'i':
           i = va_arg(argp, int);
-          sprintf(&xmlcall->response[strlen(xmlcall->response)],
-                  "    <value><int>%d</int></value>\r\n", i);
+          snprintf(&xmlcall->response[next],
+                   sizeof(xmlcall->response) - next,
+                   "    <value><int>%d</int></value>\r\n", i);
           break;
 
         case 'b':
           i = va_arg(argp, int);
-          sprintf(&xmlcall->response[strlen(xmlcall->response)],
+          snprintf(&xmlcall->response[next],
+                  sizeof(xmlcall->response) - next,
                   "    <value><boolean>%d</boolean></value>\r\n", i);
           break;
 
         case 'd':
           d = va_arg(argp, double);
-          sprintf(&xmlcall->response[strlen(xmlcall->response)],
-                  "    <value><double>%f</double></value>\r\n", d);
+          snprintf(&xmlcall->response[next],
+                   sizeof(xmlcall->response) - next,
+                   "    <value><double>%f</double></value>\r\n", d);
           break;
 
         case 's':
           s = va_arg(argp, char *);
-          sprintf(&xmlcall->response[strlen(xmlcall->response)],
-                  "    <value><string>%s</string></value>\r\n", s);
+          snprintf(&xmlcall->response[next],
+                   sizeof(xmlcall->response) - next,
+                   "    <value><string>%s</string></value>\r\n", s);
           break;
 
         default:
@@ -254,10 +267,13 @@ int xmlrpc_buildresponse(struct xmlrpc_s *xmlcall, char *args, ...)
           break;
         }
 
+      next += strlen(&xmlcall->response[next]);
       if (close)
         {
-          sprintf(&xmlcall->response[strlen(xmlcall->response)],
-                  "  </member>\n");
+          snprintf(&xmlcall->response[next],
+                   sizeof(xmlcall->response) - next,
+                   "  </member>\n");
+          next += strlen(&xmlcall->response[next]);
           close = 0;
         }
 
@@ -268,26 +284,18 @@ int xmlrpc_buildresponse(struct xmlrpc_s *xmlcall, char *args, ...)
 
   if (xmlcall->error)
     {
-      strcat(&xmlcall->response[strlen(xmlcall->response)],
-             "  </fault>\r\n");
+      strlcat(xmlcall->response, "  </fault>\r\n",
+              sizeof(xmlcall->response));
     }
   else
     {
-      strcat(&xmlcall->response[strlen(xmlcall->response)],
-             "  </param></params>\r\n");
+      strlcat(xmlcall->response, "  </param></params>\r\n",
+              sizeof(xmlcall->response));
     }
 
-  if (ret == 0)
-    {
-      strcat(&xmlcall->response[strlen(xmlcall->response)],
-             "</methodResponse>\r\n");
+  strlcat(xmlcall->response, "</methodResponse>\r\n",
+          sizeof(xmlcall->response));
 
-      xmlrpc_insertlength(xmlcall);
-    }
-  else
-    {
-      xmlcall->response[0] = 0;
-    }
-
-  return ret;
+  xmlrpc_insertlength(xmlcall);
+  return 0;
 }

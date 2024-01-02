@@ -31,14 +31,11 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#ifdef CONFIG_TESTING_MONKEY_LOG_ENABLE
-
 /****************************************************************************
  * Private Data
  ****************************************************************************/
 
-static enum monkey_log_level_type_e g_log_level =
-                               CONFIG_TESTING_MONKEY_LOG_LEVEL_DEFAULT;
+static enum monkey_log_level_type_e g_log_level = MONKEY_LOG_LEVEL_NOTICE;
 
 /****************************************************************************
  * Public Functions
@@ -56,7 +53,7 @@ void monkey_log_printf(enum monkey_log_level_type_e level,
   struct va_format vaf;
   va_list ap;
 
-  static const int priority[_MONKEY_LOG_LEVEL_LAST] =
+  static const int priority[MONKEY_LOG_LEVEL_LAST] =
     {
       LOG_INFO, LOG_NOTICE, LOG_WARNING, LOG_ERR
     };
@@ -79,7 +76,7 @@ void monkey_log_printf(enum monkey_log_level_type_e level,
 
 void monkey_log_set_level(enum monkey_log_level_type_e level)
 {
-  if (level >= _MONKEY_LOG_LEVEL_LAST)
+  if (level >= MONKEY_LOG_LEVEL_LAST)
     {
       MONKEY_LOG_WARN("error level: %d", level);
       return;
@@ -96,5 +93,3 @@ enum monkey_log_level_type_e monkey_log_get_level(void)
 {
   return g_log_level;
 }
-
-#endif /* CONFIG_TESTING_MONKEY_LOG_ENABLE */

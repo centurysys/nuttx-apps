@@ -35,15 +35,9 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define SIGN(x)	((x > 0) ? b16ONE : -b16ONE)
-
 #define LINEAR_MAP(x, in_min, in_max, out_min, out_max)     \
   (b16divb16(b16mulb16((x - in_min), (out_max - out_min)),  \
              (in_max - in_min)) + out_min)
-
-#ifndef ABS
-#  define ABS(a)   (a < 0 ? -a : a)
-#endif
 
 /****************************************************************************
  * Private Data Types
@@ -285,6 +279,15 @@ static int foc_angle_onfo_run_b16(FAR foc_angle_b16_t *h,
   DEBUGASSERT(h->data);
   ob = h->data;
 
+  if (in->vel == 0)
+    {
+      /* Do nothing if motor stopped */
+
+      out->type  = FOC_ANGLE_TYPE_ELE;
+      out->angle = 0;
+      return OK;
+    }
+
   /* Normalize the d-q voltage to get the d-q modulation
    * voltage
    */
@@ -294,12 +297,12 @@ static int foc_angle_onfo_run_b16(FAR foc_angle_b16_t *h,
 
   /* Update duty cycle now */
 
-  duty_now = b16mulb16(SIGN(in->state->vdq.q),
+  duty_now = b16mulb16(b16sign(in->state->vdq.q),
                        vector2d_mag_b16(v_dq_mod.d, v_dq_mod.q));
 
   /* Update and the observer gain. */
 
-  dyn_gain = b16mulb16(LINEAR_MAP(ABS(duty_now),
+  dyn_gain = b16mulb16(LINEAR_MAP(b16abs(duty_now),
                                   0,
                                   b16ONE,
                                   b16mulb16(ob->cfg.gain, ob->cfg.gain_slow),

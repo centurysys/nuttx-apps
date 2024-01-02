@@ -61,7 +61,7 @@
 #    define CONFIG_EXAMPLES_NXDEMO_BGCOLOR 0x00
 #  else
 #    define CONFIG_EXAMPLES_NXDEMO_BGCOLOR ' '
-# endif
+#  endif
 #endif
 
 #ifndef CONFIG_EXAMPLES_NXDEMO_DRAWCOLOR
@@ -98,9 +98,6 @@
 #endif
 #ifndef CONFIG_EXAMPLES_NXDEMO_SERVERPRIO
 #  define CONFIG_EXAMPLES_NXDEMO_SERVERPRIO 120
-#endif
-#ifndef CONFIG_EXAMPLES_NXDEMO_NOTIFYSIGNO
-#  define CONFIG_EXAMPLES_NXDEMO_NOTIFYSIGNO 4
 #endif
 
 /* Image Information ********************************************************/

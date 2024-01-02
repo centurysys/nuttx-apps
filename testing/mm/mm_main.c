@@ -158,7 +158,7 @@ static void do_mallocs(FAR void **mem, FAR const int *size,
 
           if (mem[j] == NULL)
             {
-              int allocsize = MM_ALIGN_UP(size[j] + SIZEOF_MM_ALLOCNODE);
+              int allocsize = MM_ALIGN_UP(size[j] + MM_SIZEOF_ALLOCNODE);
 
               fprintf(stderr, "(%d)malloc failed for allocsize=%d\n",
                       i, allocsize);
@@ -213,7 +213,7 @@ static void do_reallocs(FAR void **mem, FAR const int *oldsize,
 
       if (ptr == NULL)
         {
-          int allocsize = MM_ALIGN_UP(newsize[j] + SIZEOF_MM_ALLOCNODE);
+          int allocsize = MM_ALIGN_UP(newsize[j] + MM_SIZEOF_ALLOCNODE);
 
           fprintf(stderr,
                   "(%d)realloc failed for allocsize=%d\n", i, allocsize);
@@ -257,7 +257,7 @@ static void do_memaligns(FAR void **mem,
 
       if (mem[j] == NULL)
         {
-          int allocsize = MM_ALIGN_UP(size[j] + SIZEOF_MM_ALLOCNODE) +
+          int allocsize = MM_ALIGN_UP(size[j] + MM_SIZEOF_ALLOCNODE) +
                                       2 * align[i];
 
           fprintf(stderr,
@@ -318,8 +318,9 @@ static int mm_stress_test(int argc, FAR char *argv[])
   int prio = 0;
   int size;
   int i;
+  int maxsize = 1024;
 
-  while ((i = getopt(argc, argv, "d:p:")) != ERROR)
+  while ((i = getopt(argc, argv, "d:p:s:")) != ERROR)
     {
       if (i == 'd')
         {
@@ -328,6 +329,10 @@ static int mm_stress_test(int argc, FAR char *argv[])
       else if (i == 'p')
         {
           prio = atoi(optarg);
+        }
+      else if (i == 's')
+        {
+          maxsize = atoi(optarg);
         }
       else
         {
@@ -347,7 +352,7 @@ static int mm_stress_test(int argc, FAR char *argv[])
 
   while (1)
     {
-      size = random() % 1024 + 1;
+      size = random() % maxsize + 1;
       tmp = malloc(size);
       assert(tmp);
 

@@ -179,14 +179,15 @@ int main(int argc, char *argv[])
   path_info = getenv("PATH_INFO");
   if (path_info)
     {
-      cp = (char *)malloc(strlen(script_name) + strlen(path_info) + 1);
+      size_t len = strlen(script_name) + strlen(path_info) + 1;
+      cp = (char *)malloc(len);
       if (!cp)
         {
           internal_error("Out of memory.");
           return 2;
         }
 
-      sprintf(cp, "%s%s", script_name, path_info);
+      snprintf(cp, len, "%s%s", script_name, path_info);
       script_name = cp;
     }
 
@@ -236,7 +237,8 @@ int main(int argc, char *argv[])
                     {
                       /* Got it; put together the full name. */
 
-                      strcat(g_url, script_name + (star - g_file));
+                      strlcat(g_url, script_name + (star - g_file),
+                              sizeof(g_url));
 
                       /* XXX Whack the script_name, too? */
 

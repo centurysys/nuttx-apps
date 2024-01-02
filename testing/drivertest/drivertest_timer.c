@@ -38,7 +38,7 @@
 #include <setjmp.h>
 #include <stdint.h>
 #include <cmocka.h>
-
+#include <syslog.h>
 #include <nuttx/timers/timer.h>
 
 /****************************************************************************
@@ -48,8 +48,8 @@
 #define TIMER_DEFAULT_DEVPATH "/dev/timer0"
 #define TIMER_DEFAULT_INTERVAL 1000000
 #define TIMER_DEFAULT_NSAMPLES 20
-#define TIMER_DEFAULT_SIGNO 17
-#define TIMER_DEFAULT_RANGE 1
+#define TIMER_DEFAULT_SIGNO 31
+#define TIMER_DEFAULT_RANGE 1000
 
 #define OPTARG_TO_VALUE(value, type, base)                            \
   do                                                                  \
@@ -142,9 +142,8 @@ static void parse_commandline(FAR struct timer_state_s *timer_state,
       switch (ch)
         {
           case 'd':
-            strncpy(timer_state->devpath, optarg,
+            strlcpy(timer_state->devpath, optarg,
                     sizeof(timer_state->devpath));
-            timer_state->devpath[sizeof(timer_state->devpath) - 1] = '\0';
             break;
 
           case 'i':
@@ -210,8 +209,10 @@ static void test_case_timer(FAR void **state)
   int ret;
   uint32_t range;
   uint32_t tim;
+  uint32_t max_timeout;
   struct sigaction act;
   struct timer_notify_s notify;
+  struct timer_status_s timer_status;
   FAR struct timer_state_s *timer_state;
 
   timer_state = (FAR struct timer_state_s *)*state;
@@ -252,6 +253,20 @@ static void test_case_timer(FAR void **state)
   ret = ioctl(fd, TCIOC_START, 0);
   assert_return_code(ret, OK);
 
+  /* Get status */
+
+  ret = ioctl(fd, TCIOC_GETSTATUS, &timer_status);
+  assert_return_code(ret, OK);
+  assert_int_equal(timer_state->interval, timer_status.timeout);
+  assert_in_range(timer_status.timeleft,
+                  0, timer_state->interval);
+
+  /* Get max timeout */
+
+  ret = ioctl(fd, TCIOC_MAXTIMEOUT, &max_timeout);
+  assert_return_code(ret, OK);
+  syslog(LOG_DEBUG, "max timeout:%ld\n", max_timeout);
+
   /* Set the timer interval */
 
   for (i = 0; i < timer_state->nsamples; i++)
@@ -259,7 +274,7 @@ static void test_case_timer(FAR void **state)
       tim = get_timestamp();
       usleep(2 * timer_state->interval);
       tim = get_timestamp() - tim;
-      range = timer_state->interval / 1000 - tim;
+      range = abs(timer_state->interval / 1000 - tim);
       assert_in_range(range, 0, timer_state->range);
     }
 

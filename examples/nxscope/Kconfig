@@ -33,6 +33,8 @@ config EXAMPLES_NXSCOPE_SERIAL_PATH
 config EXAMPLES_NXSCOPE_SERIAL_BAUD
 	int "nxscope serial baud"
 	default 115200
+	---help---
+		Ignored if set to 0 (for example for RTT interface)
 
 config EXAMPLES_NXSCOPE_CDCACM
 	bool "nxscope CDCACM device support"
@@ -53,6 +55,10 @@ config EXAMPLES_NXSCOPE_RXBUF_LEN
 	int "nxscope RX buffer length"
 	default 32
 
+config EXAMPLES_NXSCOPE_CHARLOG
+	bool "nxscope send text message over channel 19"
+	default n
+
 config EXAMPLES_NXSCOPE_CRIBUF_LEN
 	int "nxscope critical channels buffer length"
 	default 32
@@ -66,6 +72,13 @@ config EXAMPLES_NXSCOPE_TIMER
 	bool "nxscope use timer to wake up samples thread"
 	default n
 
+config EXAMPLES_NXSCOPE_MAIN_INTERVAL
+	int "nxscope main interval (microseconds)"
+	default 100000
+	---help---
+		This value is responsible for the frequency at which stream
+		frames will be sent and incoming frames will be received.
+
 if EXAMPLES_NXSCOPE_TIMER
 
 config EXAMPLES_NXSCOPE_TIMER_PATH
@@ -74,7 +87,7 @@ config EXAMPLES_NXSCOPE_TIMER_PATH
 
 config EXAMPLES_NXSCOPE_TIMER_SIGNO
 	int "nxscope notification signal number"
-	default 17
+	default 32
 
 config EXAMPLES_NXSCOPE_TIMER_INTERVAL
 	int "nxscope timer interval (microseconds)"

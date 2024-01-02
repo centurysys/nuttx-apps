@@ -49,14 +49,10 @@
  ****************************************************************************/
 
 #ifndef dbg
-  #define dbg _warn
+#  define dbg _warn
 #endif
 
 #define usrsocktest_dbg(...) ((void)0)
-
-#ifndef ARRAY_SIZE
-#  define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-#endif
 
 /****************************************************************************
  * Private Data

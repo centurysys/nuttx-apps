@@ -124,8 +124,7 @@ comment "Background Image"
 
 config NXWM_DISABLE_BACKGROUND_IMAGE
 	bool "Disable Background Image"
-	default n if !NXWM_DISABLE_MINIMIZE
-	default y if NXWM_DISABLE_MINIMIZE
+	default NXWM_DISABLE_MINIMIZE
 	---help---
 		Disable support for the "Desktop" background image.
 
@@ -465,8 +464,7 @@ menu "NxWM Touchscreen Configuration"
 
 config NXWM_TOUCHSCREEN
 	bool "Touchscreen Support"
-	default y if INPUT
-	default n if !INPUT
+	default INPUT
 	---help---
 		Define to build in touchscreen support.
 
@@ -489,10 +487,10 @@ config NXWM_TOUCHSCREEN_DEVPATH
 
 config NXWM_TOUCHSCREEN_SIGNO
 	int "Touchscreen Signal Number"
-	default 5
+	default 32
 	---help---
 		The realtime signal used to wake up the touchscreen listener
-		thread.  Default: 5
+		thread.  Default: 32
 
 config NXWM_TOUCHSCREEN_LISTENERPRIO
 	int "Touchscreen Listener Task Priority"
@@ -552,10 +550,10 @@ config NXWM_KEYBOARD_USBHOST
 
 config NXWM_KEYBOARD_SIGNO
 	int "Keyboard Task Signal Number"
-	default 6
+	default 33
 	---help---
 		The realtime signal used to wake up the keyboard listener thread.
-		Default: 6
+		Default: 33
 
 config NXWM_KEYBOARD_BUFSIZE
 	int "Keyboard Buffer Size"
@@ -729,10 +727,10 @@ endif # NXWM_CUSTOM_CALIBRATION_ICON
 
 config NXWM_CALIBRATION_SIGNO
 	int "Calibration Signal Number"
-	default 5
+	default 32
 	---help---
 		The realtime signal used to wake up the touchscreen calibration
-		thread.  Default: 5
+		thread.  Default: 32
 
 config NXWM_CALIBRATION_LISTENERPRIO
 	int "Calibration Task Priority"
@@ -922,7 +920,7 @@ config NXWM_MEDIAPLAYER_CUSTOM_COLORS
 
 if NXWM_MEDIAPLAYER_CUSTOM_COLORS
 
-	config NXWM_MEDIAPLAYER_VOLUMECOLOR
+config NXWM_MEDIAPLAYER_VOLUMECOLOR
 	hex "Media Volume Slide Color"
 	default 0x0
 

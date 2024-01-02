@@ -12,6 +12,18 @@ config INDUSTRY_FOC
 
 if INDUSTRY_FOC
 
+config INDUSTRY_FOC_DEBUG
+	bool "Enable FOCLIB debug log"
+	default n
+
+config INDUSTRY_FOC_ERROR
+	bool "Enable FOCLIB error log"
+	default n
+
+config INDUSTRY_FOC_WARN
+	bool "Enable FOCLIB warn log"
+	default n
+
 config INDUSTRY_FOC_CORDIC
 	bool "Enable CORDIC support"
 	default n
@@ -116,6 +128,12 @@ config INDUSTRY_FOC_MODULATION_SVM3
 	---help---
 		Enable support for FOC 3-phase space vector modulation
 
+config INDUSTRY_FOC_FEEDFORWARD
+	bool "FOC current controller feedforward compensation"
+	default n
+	---help---
+		Enable support for current controller feed forward compensation
+
 config INDUSTRY_FOC_MODEL_PMSM
 	bool "FOC PMSM model support"
 	select INDUSTRY_FOC_HAVE_MODEL
@@ -134,6 +152,12 @@ config INDUSTRY_FOC_ALIGN
 		Enable support for angle sensor alignment routine (zero offset + direction)
 
 if INDUSTRY_FOC_ALIGN
+
+config INDUSTRY_FOC_ALIGN_DIR
+	bool "FOC alignment direction support"
+	default n
+	---help---
+		Enable support for sensor direction alignment
 
 config INDUSTRY_FOC_ALIGN_INDEX
 	bool "FOC alignment index search support"

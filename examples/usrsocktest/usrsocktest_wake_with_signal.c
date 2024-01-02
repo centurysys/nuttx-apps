@@ -38,10 +38,6 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#ifndef ARRAY_SIZE
-#  define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-#endif
-
 #define TEST_FLAG_PAUSE_USRSOCK_HANDLING (1 << 0)
 #define TEST_FLAG_DAEMON_ABORT           (1 << 1)
 #define TEST_FLAG_MULTI_THREAD           (1 << 2)
@@ -562,7 +558,7 @@ static void do_wake_test(enum e_test_type type, int flags)
 
       for (tidx = 0; tidx < nthreads; tidx++)
         {
-          pthread_kill(tid[tidx], 1);
+          pthread_kill(tid[tidx], SIGUSR1);
 
           /* Wait threads to complete work. */
 

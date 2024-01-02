@@ -28,14 +28,14 @@ jobs:
 
     steps:
       - name: Checkout nuttx repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: apache/nuttx
           path: nuttx
           fetch-depth: 0
 
       - name: Checkout apps repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: apache/nuttx-apps
           path: apps
@@ -44,6 +44,7 @@ jobs:
       - name: Check Pull Request
         run: |
           echo "::add-matcher::nuttx/.github/nxstyle.json"
+          pip install cmake-format
           cd apps
           commits="${{ github.event.pull_request.base.sha }}..HEAD"
           git log --oneline $commits

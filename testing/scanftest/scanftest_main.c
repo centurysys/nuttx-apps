@@ -61,6 +61,7 @@
 #include <nuttx/config.h>
 
 #include <sys/types.h>
+#include <sys/param.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -77,8 +78,6 @@
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
-
-#define ARRAYSIZE(a) (sizeof (a) / sizeof (a)[0])
 
 /****************************************************************************
  * Private Types
@@ -1084,8 +1083,11 @@ int main(int argc, FAR char *argv[])
   double d2;
   FAR FILE *fp;
 
+  int tests_ok = 0;
+  int tests_err = 0;
+
   FAR const char *teststring = "teststring a";
-  FAR const char *fname = "/mnt/fs/test.txt";
+  FAR const char *fname = CONFIG_TESTING_SCANFTEST_FNAME;
 
   /* Test that scanf() can recognize percent-signs in the input. ** Test that
    * integer converters skip white-space. ** Test that "%i" can scan a single
@@ -1126,24 +1128,28 @@ int main(int argc, FAR char *argv[])
                 {
                   fscanf(fp, "%s", s2);
                   fscanf(fp, "%2c", s3);
-                  sprintf(s1, "%s%s", s2, s3);
+                  snprintf(s1, sizeof(s1), "%s%s", s2, s3);
 
                   if (strcmp(s1, teststring) != 0)
                     {
+                      tests_err += 1;
                       printf("Error %s != %s.\n", teststring, s1);
                     }
                   else
                     {
+                      tests_ok += 1;
                       printf("Test PASSED.\n");
                     }
                 }
               else
                 {
+                  tests_err += 1;
                   printf("Error opening %s for read.\n", fname);
                 }
             }
           else
             {
+              tests_err += 1;
               printf("Error opening %s for write.\n", fname);
             }
         }
@@ -1152,7 +1158,7 @@ int main(int argc, FAR char *argv[])
              "assignments...\n",
              i ? 'f' : 's');
 
-      for (t = 0; t < ARRAYSIZE(test_data); ++t)
+      for (t = 0; t < nitems(test_data); ++t)
         {
           /* Prefill the arguments with zeroes. */
 
@@ -1172,6 +1178,7 @@ int main(int argc, FAR char *argv[])
                 }
               else
                 {
+                  tests_err += 1;
                   printf("Error opening %s for write.\n", fname);
                   break;
                 }
@@ -1321,7 +1328,12 @@ int main(int argc, FAR char *argv[])
 
           if (ok)
             {
+              tests_ok += 1;
               printf("Test #%u PASSED.\n", t + 1);
+            }
+          else
+            {
+              tests_err += 1;
             }
         }
     }
@@ -1329,7 +1341,7 @@ int main(int argc, FAR char *argv[])
   /* Test the char, short, and long specification-modifiers. */
 
   printf("\nTesting scanf()'s type-modifiers...\n");
-  for (t = 0; t < ARRAYSIZE(type_data); ++t)
+  for (t = 0; t < nitems(type_data); ++t)
     {
       unsigned char hhu;
       unsigned short hu;
@@ -1458,9 +1470,16 @@ int main(int argc, FAR char *argv[])
 
       if (ok)
         {
+          tests_ok += 1;
           printf("Test #%u PASSED.\n", t + 1);
         }
+      else
+        {
+          tests_err += 1;
+        }
     }
+
+  printf("Scanf tests done... OK: %d, FAILED: %d\n", tests_ok, tests_err);
 
   return OK;
 }

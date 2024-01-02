@@ -64,6 +64,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <fcntl.h>
 
 #include "netutils/md5.h"
 
@@ -85,6 +86,10 @@
 
 #  define MD5STEP(f, w, x, y, z, data, s) \
         (w += f(x, y, z) + data,  w = w<<s | w>>(32-s),  w += x)
+
+/* Encoding Memory Block Size */
+
+#define MD5_BUFSIZE 1024
 
 /****************************************************************************
  * Private Functions
@@ -399,11 +404,66 @@ char *md5_hash(const uint8_t * addr, const size_t len)
   md5_sum(addr, len, digest);
   for (i = 0; i < 16; i++)
     {
-      sprintf(&hash[i * 2], "%02x", digest[i]);
+      snprintf(&hash[i * 2], 33 - i * 2, "%02x", digest[i]);
     }
 
   hash[32] = 0;
   return hash;
+}
+
+/****************************************************************************
+ * Name: md5_file
+ *
+ * Description:
+ *   MD5 hash for a file
+ *
+ * Input Parameters:
+ *   path: File Path
+ *   mac : Buffer for the hash
+ *
+ ****************************************************************************/
+
+int md5_file(const char *path, uint8_t *mac)
+{
+  int fd;
+  int ret;
+  unsigned char *buf;
+  MD5_CTX ctx;
+
+  fd = open(path, O_RDONLY);
+  if (fd < 0)
+    {
+      return -errno;
+    }
+
+  buf = malloc(MD5_BUFSIZE);
+  if (buf == NULL)
+    {
+      ret = -ENOMEM;
+      goto out;
+    }
+
+  md5_init(&ctx);
+
+  while (1)
+    {
+      /* Block calculation md5 */
+
+      ret = read(fd, buf, MD5_BUFSIZE);
+      if (ret <= 0)
+        {
+          ret = ret < 0 ? -errno : 0;
+          break;
+        }
+
+      md5_update(&ctx, buf, ret);
+    }
+
+  md5_final(mac, &ctx);
+  free(buf);
+out:
+  close(fd);
+  return ret;
 }
 
 #endif /* CONFIG_CODECS_HASH_MD5 */

@@ -119,9 +119,9 @@ static int critmon_process_directory(FAR struct dirent *entryp)
   FAR char *maxpreemp;
   FAR char *maxcrit;
   FAR char *maxrun;
+  FAR char *runtime;
   FAR char *endptr;
   FILE *stream;
-  int errcode;
   int len;
   int ret;
 
@@ -134,13 +134,11 @@ static int critmon_process_directory(FAR struct dirent *entryp)
   ret = asprintf(&filepath,
                  CONFIG_SYSTEM_CRITMONITOR_MOUNTPOINT "/%s/status",
                  entryp->d_name);
-  if (ret < 0 || filepath == NULL)
+  if (ret < 0)
     {
-      errcode = errno;
       fprintf(stderr,
-              "Csection Monitor: Failed to create path to status file: %d\n",
-              errcode);
-      return -errcode;
+              "Csection Monitor: Failed to create path to status file\n");
+      return -ENOMEM;
     }
 
   /* Open the status file */
@@ -187,12 +185,10 @@ static int critmon_process_directory(FAR struct dirent *entryp)
   ret = asprintf(&filepath,
                  CONFIG_SYSTEM_CRITMONITOR_MOUNTPOINT "/%s/critmon",
                  entryp->d_name);
-  if (ret < 0 || filepath == NULL)
+  if (ret < 0)
     {
-      errcode = errno;
       fprintf(stderr, "Csection Monitor: "
-              "Failed to create path to Csection file: %d\n",
-              errcode);
+              "Failed to create path to Csection file\n");
       ret = -EINVAL;
       goto errout_with_name;
     }
@@ -234,31 +230,42 @@ static int critmon_process_directory(FAR struct dirent *entryp)
         {
           *maxrun++ = '\0';
 
-          endptr = strchr(maxrun, '\n');
-          if (endptr != NULL)
+          runtime = strchr(maxrun, ',');
+          if (runtime != NULL)
             {
-              *endptr = '\0';
+              *runtime++ = '\0';
+              endptr = strchr(runtime, '\n');
+              if (endptr != NULL)
+                {
+                  *endptr = '\0';
+                }
+            }
+          else
+            {
+              runtime = "None";
             }
         }
       else
         {
           maxrun = "None";
+          runtime = "None";
         }
     }
   else
     {
       maxcrit = "None";
       maxrun  = "None";
+      runtime = "None";
     }
 
   /* Finally, output the stack info that we gleaned from the procfs */
 
 #if CONFIG_TASK_NAME_SIZE > 0
-  printf("%11s %11s %11s %5s %s\n",
-         maxpreemp, maxcrit, maxrun, entryp->d_name, name);
+  printf("%11s %11s %11s %-16s %-5s %s\n",
+         maxpreemp, maxcrit, maxrun, runtime, entryp->d_name, name);
 #else
-  printf("%11s %11s %5s\n",
-         maxpreemp, maxcrit, entryp->d_name);
+  printf("%11s %11s %11s %16s %5s\n",
+         maxpreemp, maxcrit, maxrun, runtime, entryp->d_name);
 #endif
 
   ret = OK;
@@ -324,12 +331,10 @@ static void critmon_global_crit(void)
 
   ret = asprintf(&filepath,
                  CONFIG_SYSTEM_CRITMONITOR_MOUNTPOINT "/critmon");
-  if (ret < 0 || filepath == NULL)
+  if (ret < 0)
     {
-      errcode = errno;
       fprintf(stderr, "Csection Monitor: "
-              "Failed to create path to Csection file: %d\n",
-              errcode);
+              "Failed to create path to Csection file\n");
       return;
     }
 
@@ -381,7 +386,7 @@ static void critmon_global_crit(void)
 
       /* Finally, output the stack info that we gleaned from the procfs */
 
-      printf("%11s %11s ----------- ----- CPU %s\n",
+      printf("%11s %11s ----------- ---------------- ----  CPU %s\n",
               maxpreemp, maxcrit, cpu);
     }
 
@@ -405,9 +410,10 @@ static int critmon_list_once(void)
   /* Output a Header */
 
 #if CONFIG_TASK_NAME_SIZE > 0
-  printf("PRE-EMPTION CSECTION    RUN         PID   DESCRIPTION\n");
+  printf("PRE-EMPTION CSECTION    RUN         TIME             "
+         "PID   DESCRIPTION\n");
 #else
-  printf("PRE-EMPTION CSECTION    RUN         PID\n");
+  printf("PRE-EMPTION CSECTION    RUN         TIME             PID\n");
 #endif
 
   /* Should global usage first */

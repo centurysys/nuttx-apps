@@ -24,6 +24,7 @@
 
 #include <nuttx/config.h>
 
+#include <ctype.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
@@ -36,6 +37,7 @@
 #include <sensor/co2.h>
 #include <sensor/dust.h>
 #include <sensor/ecg.h>
+#include <sensor/force.h>
 #include <sensor/gps.h>
 #include <sensor/gyro.h>
 #include <sensor/gesture.h>
@@ -77,6 +79,7 @@ static FAR const struct orb_metadata *g_sensor_list[] =
   ORB_ID(sensor_co2),
   ORB_ID(sensor_dust),
   ORB_ID(sensor_ecg),
+  ORB_ID(sensor_force),
   ORB_ID(sensor_gps),
   ORB_ID(sensor_gps_satellite),
   ORB_ID(sensor_gyro),
@@ -127,14 +130,12 @@ FAR const struct orb_metadata *orb_get_meta(FAR const char *name)
 
   for (i = 0; g_sensor_list[i]; i++)
     {
-      if (!strncmp(g_sensor_list[i]->o_name, name,
-          strlen(g_sensor_list[i]->o_name)))
+      size_t len = strlen(g_sensor_list[i]->o_name);
+      if ((!strncmp(g_sensor_list[i]->o_name, name, len))
+          && (name[len] == '\0' || isdigit(name[len])))
         {
-          if (idx == -1 || strlen(g_sensor_list[idx]->o_name) <
-                           strlen(g_sensor_list[i]->o_name))
-            {
-              idx = i;
-            }
+          idx = i;
+          break;
         }
     }
 

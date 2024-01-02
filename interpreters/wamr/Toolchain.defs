@@ -18,93 +18,11 @@
 #
 ############################################################################
 
-# Wasm32 toolchain setting
-# Target: wasm32-unknown-wasi
+# Wamrc toolchain flags
 
-WCC ?= $(WASI_SDK_PATH)/bin/clang
-WAR ?= $(WASI_SDK_PATH)/bin/llvm-ar rcs
 WRC ?= wamrc
-WSYSROOT ?= $(TOPDIR)
 
-CFLAGS_STRIP = -fsanitize=kernel-address -fsanitize=address -fsanitize=undefined
-CFLAGS_STRIP += $(ARCHCPUFLAGS) $(ARCHCFLAGS) $(ARCHINCLUDES) $(ARCHDEFINES) $(ARCHOPTIMIZATION) $(EXTRAFLAGS)
-
-WCFLAGS += $(filter-out $(CFLAGS_STRIP),$(CFLAGS))
-WCFLAGS += --sysroot=$(WSYSROOT) -nostdlib -D__NuttX__
-
-WLDFLAGS = -z stack-size=$(STACKSIZE) -Wl,--initial-memory=$(INITIAL_MEMORY)
-WLDFLAGS += -Wl,--export=main -Wl,--export=__main_argc_argv
-WLDFLAGS += -Wl,--export=__heap_base -Wl,--export=__data_end
-WLDFLAGS += -Wl,--no-entry -Wl,--strip-all -Wl,--allow-undefined
-
-ifeq ($(CONFIG_ARCH_ARM),y)
-  ifeq ($(CONFIG_ARM_THUMB),y)
-    WTARGET = thumb
-  else
-    WTARGET = arm
-  endif
-
-  ifeq ($(CONFIG_ARCH_CORTEXM85),y)
-    WTARGET := $(WTARGET)v8.1m.main
-    WCPU     = --cpu=cortex-m85
-  else ifeq ($(CONFIG_ARCH_CORTEXM55),y)
-    WTARGET := $(WTARGET)v8.1m.main
-    WCPU     = --cpu=cortex-m55
-  else ifeq ($(CONFIG_ARCH_CORTEXM35P),y)
-    WTARGET := $(WTARGET)v8m.main
-    WCPU     = --cpu=cortex-m35p
-  else ifeq ($(CONFIG_ARCH_CORTEXM33),y)
-    WTARGET := $(WTARGET)v8m.main
-    WCPU     = --cpu=cortex-m33
-  else ifeq ($(CONFIG_ARCH_CORTEXM23),y)
-    WTARGET := $(WTARGET)v8m.main
-    WCPU     = --cpu=cortex-m23
-  else ifeq ($(CONFIG_ARCH_CORTEXM7),y)
-    WTARGET := $(WTARGET)v7em
-    WCPU     = --cpu=cortex-m7
-  else ifeq ($(CONFIG_ARCH_CORTEXM4),y)
-    WTARGET := $(WTARGET)v7em
-    WCPU     = --cpu=cortex-m4
-  else ifeq ($(CONFIG_ARCH_CORTEXM3),y)
-    WTARGET := $(WTARGET)v7em
-    WCPU     = --cpu=cortex-m3
-  else ifeq ($(CONFIG_ARCH_CORTEXM0),y)
-    WTARGET := $(WTARGET)v6m
-    WCPU     = --cpu=cortex-m0
-  endif
-
-  ifeq ($(CONFIG_ARCH_CORTEXA5),y)
-    WTARGET := $(WTARGET)armv7
-    WCPU     = --cpu=cortex-a5
-  else ifeq ($(CONFIG_ARCH_CORTEXA7),y)
-    WTARGET := $(WTARGET)armv7
-    WCPU     = --cpu=cortex-a7
-  else ifeq ($(CONFIG_ARCH_CORTEXA8),y)
-    WTARGET := $(WTARGET)armv8a
-    WCPU     = --cpu=cortex-a8
-  else ifeq ($(CONFIG_ARCH_CORTEXA9),y)
-    WTARGET := $(WTARGET)armv7
-    WCPU     = --cpu=cortex-a9
-  endif
-
-  ifeq ($(CONFIG_ARCH_CORTEXR4),y)
-    WTARGET := $(WTARGET)armv7
-    WCPU     = --cpu=cortex-r4
-  else ifeq ($(CONFIG_ARCH_CORTEXR5),y)
-    WTARGET := $(WTARGET)armv7
-    WCPU     = --cpu=cortex-r5
-  else ifeq ($(CONFIG_ARCH_CORTEXR7),y)
-    WTARGET := $(WTARGET)armv7
-    WCPU     = --cpu=cortex-r7
-  endif
-
-else ifeq ($(CONFIG_ARCH_RISCV),y)
-  ifeq ($(CONFIG_ARCH_RV64),y)
-    WTARGET = riscv64
-  else
-    WTARGET = riscv32
-  endif
-else ifeq ($(CONFIG_ARCH_XTENSA),y)
+ifeq ($(CONFIG_ARCH_XTENSA),y)
   WTARGET = xtensa
 else ifeq ($(CONFIG_ARCH_X86_64),y)
   WTARGET = x86_64
@@ -119,28 +37,51 @@ else ifeq ($(CONFIG_ARCH_SIM),y)
   else
     WTARGET = x86_64
   endif
+else ifeq ($(findstring thumb,$(LLVM_ARCHTYPE)),thumb)
+
+  # target triple of thumb may very complex, such as thumbv8m.main+dsp+mve.fp+fp.dp
+  # so we just use the target name before the first plus sign
+
+  WTARGET = $(shell echo $(LLVM_ARCHTYPE) | cut -d'+' -f1)
 endif
 
-RCFLAGS += --target=$(WTARGET) $(WCPU)
+# If WTARGET is not defined, then use the same as LLVM_ARCHTYPE
 
-define LINK_WAMR
+ifeq ($(WTARGET),)
+  WTARGET = $(LLVM_ARCHTYPE)
+endif
+
+# If WCPU is not defined, then use the same as LLVM_CPU
+
+ifeq ($(WCPU),)
+  WCPU = $(LLVM_CPUTYPE)
+endif
+
+# If LLVM_ABITYPE is eabihf, then convert it to gnueabihf which is used by wamrc
+
+ifeq ($(LLVM_ABITYPE),eabihf)
+  WABITYPE = gnueabihf
+else
+  WABITYPE = $(LLVM_ABITYPE)
+endif
+
+RCFLAGS += --target=$(WTARGET) --target-abi=$(WABITYPE) --cpu=$(WCPU)
+
+define WAMR_AOT_COMPILE
 	$(if $(wildcard $(APPDIR)$(DELIM)wasm$(DELIM)*.wo), \
 	  $(foreach bin,$(wildcard $(APPDIR)$(DELIM)wasm$(DELIM)*.wo), \
-	    $(eval INITIAL_MEMORY=$(shell echo $(notdir $(bin)) | cut -d'#' -f2)) \
-	    $(eval STACKSIZE=$(shell echo $(notdir $(bin)) | cut -d'#' -f3)) \
 	    $(eval PROGNAME=$(shell echo $(notdir $(bin)) | cut -d'#' -f1)) \
 	    $(eval WAMRMODE=$(shell echo $(notdir $(bin)) | cut -d'#' -f5)) \
-	    $(shell $(WCC) $(bin) $(WBIN) $(WCFLAGS) $(WLDFLAGS) -o $(APPDIR)$(DELIM)wasm$(DELIM)$(PROGNAME).wasm) \
 	    $(if $(CONFIG_INTERPRETERS_WAMR_AOT), \
 	      $(if $(filter AOT,$(WAMRMODE)), \
-	        $(info Wamrc Generate AoT: $(APPDIR)$(DELIM)wasm$(DELIM)$(PROGNAME).aot) \
-	        $(shell $(WRC) $(RCFLAGS) -o $(APPDIR)$(DELIM)wasm$(DELIM)$(PROGNAME).aot \
-	                          $(APPDIR)$(DELIM)wasm$(DELIM)$(PROGNAME).wasm > /dev/null), \
+	        $(info Wamrc Generate AoT: $(BINDIR)$(DELIM)wasm$(DELIM)$(PROGNAME).aot) \
+	        $(shell $(WRC) $(RCFLAGS) -o $(BINDIR)$(DELIM)wasm$(DELIM)$(PROGNAME).aot \
+	                          $(BINDIR)$(DELIM)wasm$(DELIM)$(PROGNAME).wasm > /dev/null), \
 	        $(if $(filter XIP,$(WAMRMODE)), \
-	          $(info Wamrc Generate XiP: $(APPDIR)$(DELIM)wasm$(DELIM)$(PROGNAME).xip) \
+	          $(info Wamrc Generate XiP: $(BINDIR)$(DELIM)wasm$(DELIM)$(PROGNAME).xip) \
 	          $(shell $(WRC) $(RCFLAGS) --enable-indirect-mode --disable-llvm-intrinsics \
-	                         -o $(APPDIR)$(DELIM)wasm$(DELIM)$(PROGNAME).xip \
-	                            $(APPDIR)$(DELIM)wasm$(DELIM)$(PROGNAME).wasm > /dev/null) \
+	                         -o $(BINDIR)$(DELIM)wasm$(DELIM)$(PROGNAME).xip \
+	                            $(BINDIR)$(DELIM)wasm$(DELIM)$(PROGNAME).wasm > /dev/null) \
 	         ) \
 	       ) \
 	     ) \

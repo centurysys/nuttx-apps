@@ -70,8 +70,8 @@ static int listener_generate_object_list(FAR struct list_node *objlist,
                                          FAR const char *filter);
 static int listener_print(FAR const struct orb_metadata *meta, int fd);
 static void listener_monitor(FAR struct list_node *objlist, int nb_objects,
-                             int topic_rate, int topic_latency, int nb_msgs,
-                             int timeout);
+                             float topic_rate, int topic_latency,
+                             int nb_msgs, int timeout);
 static int listener_update(FAR struct list_node *objlist,
                            FAR struct orb_object *object);
 static void listener_top(FAR struct list_node *objlist,
@@ -492,12 +492,12 @@ static int listener_print(FAR const struct orb_metadata *meta, int fd)
  ****************************************************************************/
 
 static void listener_monitor(FAR struct list_node *objlist, int nb_objects,
-                             int topic_rate, int topic_latency, int nb_msgs,
-                             int timeout)
+                             float topic_rate, int topic_latency,
+                             int nb_msgs, int timeout)
 {
   FAR struct pollfd *fds;
   FAR int *recv_msgs;
-  int interval = topic_rate ? 1000000 / topic_rate : 0;
+  float interval = topic_rate ? (1000000 / topic_rate) : 0;
   int nb_recv_msgs = 0;
   int i = 0;
 
@@ -542,7 +542,7 @@ static void listener_monitor(FAR struct list_node *objlist, int nb_objects,
         }
       else if (interval != 0)
         {
-          orb_set_interval(fd, interval);
+          orb_set_interval(fd, (unsigned)interval);
 
           if (topic_latency != 0)
             {
@@ -675,7 +675,7 @@ static void listener_top(FAR struct list_node *objlist,
           uorbinfo_raw("\033[H"); /* move cursor to top left corner */
         }
 
-      uorbinfo_raw("\033[K" "current objects: %i", list_length(objlist));
+      uorbinfo_raw("\033[K" "current objects: %zu", list_length(objlist));
       uorbinfo_raw("\033[K" "%-*s INST #SUB RATE #Q SIZE",
                    ORB_MAX_PRINT_NAME - 2, "NAME");
 
@@ -706,7 +706,7 @@ int main(int argc, FAR char *argv[])
 {
   struct list_node objlist;
   FAR struct listen_object_s *tmp;
-  int topic_rate    = 0;
+  float topic_rate = 0;
   int topic_latency = 0;
   int nb_msgs       = 0;
   int timeout       = 5;
@@ -729,7 +729,7 @@ int main(int argc, FAR char *argv[])
       switch (ch)
       {
         case 'r':
-          topic_rate = strtol(optarg, NULL, 0);
+          topic_rate = atof(optarg);
           if (topic_rate < 0)
             {
               goto error;

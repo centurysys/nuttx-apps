@@ -27,6 +27,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 
@@ -99,10 +100,6 @@
 #define NTP_VERSION          NTP_VERSION_V4
 
 #define MAX_SERVER_SELECTION_RETRIES 3
-
-#ifndef ARRAY_SIZE
-#  define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-#endif
 
 #ifndef STR
 #  define STR2(x) #x
@@ -875,8 +872,8 @@ static int ntpc_create_dgram_socket(int domain)
 
   /* Setup a send timeout on the socket */
 
-  tv.tv_sec  = 5;
-  tv.tv_usec = 0;
+  tv.tv_sec  = CONFIG_NETUTILS_NTPCLIENT_TIMEOUT_MS / 1000;
+  tv.tv_usec = CONFIG_NETUTILS_NTPCLIENT_TIMEOUT_MS % 1000;
 
   ret = setsockopt(sd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(struct timeval));
   if (ret < 0)
@@ -887,9 +884,6 @@ static int ntpc_create_dgram_socket(int domain)
     }
 
   /* Setup a receive timeout on the socket */
-
-  tv.tv_sec  = 5;
-  tv.tv_usec = 0;
 
   ret = setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(struct timeval));
   if (ret < 0)
@@ -1006,7 +1000,7 @@ static int ntp_get_next_hostip(FAR struct ntp_servers_s *srvs,
       /* Refresh DNS for new IP-addresses. */
 
       ret = ntp_gethostip_multi(hostname, srvs->list,
-                                ARRAY_SIZE(srvs->list));
+                                nitems(srvs->list));
       if (ret <= 0)
         {
           return ERROR;

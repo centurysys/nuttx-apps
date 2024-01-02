@@ -35,7 +35,7 @@ static ssize_t prompt(const char *p, char *buf, size_t len)
 {
   fputs(p, stdout);
   fflush(stdout);
-  return readline(buf, len, stdin, stdout);
+  return readline_stream(buf, len, stdin, stdout);
 }
 
 /****************************************************************************

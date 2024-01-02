@@ -24,10 +24,11 @@
 
 #include <nuttx/config.h>
 
+#include <errno.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <errno.h>
 
 /****************************************************************************
  * Public Functions
@@ -166,7 +167,8 @@ int main(int argc, FAR char *argv[])
 
       if (errcode == ECHILD)
         {
-          printf("The shell has already exited (and exit status is not available)\n");
+          printf("The shell has already exited "
+                 "(and exit status is not available)\n");
         }
       else
         {

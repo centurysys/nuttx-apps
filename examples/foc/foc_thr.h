@@ -27,12 +27,17 @@
 
 #include <nuttx/config.h>
 
+#include <stdint.h>
 #include <pthread.h>
 #include <mqueue.h>
 
 #include <nuttx/motor/foc/foc.h>
 
 #include "foc_device.h"
+
+#ifdef CONFIG_EXAMPLES_FOC_NXSCOPE
+#  include "foc_nxscope.h"
+#endif
 
 /****************************************************************************
  * Public Type Definition
@@ -79,6 +84,7 @@ enum foc_motor_mode_e
 #ifdef CONFIG_EXAMPLES_FOC_HAVE_IDENT
   FOC_MMODE_IDENT_ONLY = 5,  /* Motor identification only */
 #endif
+  FOC_MMODE_IDLE       = 6,  /* IDLE state */
 };
 
 /* Controller state */
@@ -105,11 +111,14 @@ enum foc_controller_state_e
 
 struct foc_ctrl_env_s
 {
-  mqd_t                mqd;     /* Control msg queue */
-  int                  id;      /* FOC device id */
-  int                  inst;    /* Type specific instance counter */
-  int                  type;    /* Controller type */
-  struct foc_thr_cfg_s *cfg;    /* Control thread configuration */
+  mqd_t                     mqd;   /* Control msg queue */
+  int                       id;    /* FOC device id */
+  int                       inst;  /* Type specific instance counter */
+  int                       type;  /* Controller type */
+  FAR struct foc_thr_cfg_s *cfg;   /* Control thread configuration */
+#ifdef CONFIG_EXAMPLES_FOC_NXSCOPE
+  FAR struct foc_nxscope_s *nxs;   /* nxscope handler */
+#endif
 };
 
 /****************************************************************************
@@ -123,6 +132,8 @@ struct foc_ctrl_env_s
 int foc_threads_init(void);
 void foc_threads_deinit(void);
 bool foc_threads_terminated(void);
+uint32_t foc_threads_get(void);
+int foc_thread_type(int id);
 int foc_ctrlthr_init(FAR struct foc_ctrl_env_s *foc, int i, FAR mqd_t *mqd,
                      FAR pthread_t *thread);
 

@@ -54,9 +54,9 @@
 /* #define GS2200M_TRACE */
 
 #ifdef GS2200M_TRACE
-# define gs2200m_printf(v, ...) printf(v, ##__VA_ARGS__)
+#  define gs2200m_printf(v, ...) printf(v, ##__VA_ARGS__)
 #else
-# define gs2200m_printf(v, ...)
+#  define gs2200m_printf(v, ...)
 #endif
 
 #define SOCKET_BASE  10000
@@ -90,6 +90,7 @@ struct gs2200m_s
   uint8_t mode;
   uint8_t ch;
   int     gsfd;
+  int     usock_enable;
   struct usock_s sockets[SOCKET_COUNT];
 };
 
@@ -490,6 +491,16 @@ static int socket_request(int fd, FAR struct gs2200m_s *priv,
   if (req->domain != AF_INET)
     {
       usockid = -EAFNOSUPPORT;
+    }
+  else if (!priv->usock_enable && req->domain == AF_INET &&
+           req->type != SOCK_CTRL)
+    {
+      /* If domain is AF_INET while usock_enable is false,
+       * set usockid to -ENOTSUP to fallback kernel
+       * network stack.
+       */
+
+      usockid = -ENOTSUP;
     }
   else
     {
@@ -1550,7 +1561,9 @@ static int ioctl_request(int fd, FAR struct gs2200m_s *priv,
   struct usrsock_message_req_ack_s resp;
   struct usrsock_message_datareq_ack_s resp2;
   struct gs2200m_ifreq_msg imsg;
+  uint8_t sock_type;
   bool getreq = false;
+  bool drvreq = true;
   int ret = -EINVAL;
 
   memset(&imsg.ifr, 0, sizeof(imsg.ifr));
@@ -1563,22 +1576,63 @@ static int ioctl_request(int fd, FAR struct gs2200m_s *priv,
       case SIOCGIWNWID:
       case SIOCGIWFREQ:
       case SIOCGIWSENS:
-        getreq = true;
+        if (priv->usock_enable)
+          {
+            getreq = true;
+          }
+        else
+          {
+            ret = -ENOTTY;
+            drvreq = false;
+          }
         break;
 
       case SIOCSIFADDR:
       case SIOCSIFDSTADDR:
       case SIOCSIFNETMASK:
+        if (priv->usock_enable)
+          {
+            read(fd, &imsg.ifr, sizeof(imsg.ifr));
+          }
+        else
+          {
+            ret = -ENOTTY;
+            drvreq = false;
+          }
+        break;
 
-        read(fd, &imsg.ifr, sizeof(imsg.ifr));
+      case SIOCDENYINETSOCK:
+
+        read(fd, &sock_type, sizeof(uint8_t));
+
+        if (sock_type == DENY_INET_SOCK_ENABLE)
+          {
+            /* Block to create INET socket */
+
+            priv->usock_enable = FALSE;
+          }
+        else
+          {
+            /* Allow to create INET socket */
+
+            priv->usock_enable = TRUE;
+          }
         break;
 
       default:
+        if (!priv->usock_enable)
+          {
+            ret = -ENOTTY;
+            drvreq = false;
+          }
         break;
     }
 
-  imsg.cmd = req->cmd;
-  ret = ioctl(priv->gsfd, GS2200M_IOC_IFREQ, (unsigned long)&imsg);
+  if (drvreq)
+    {
+      imsg.cmd = req->cmd;
+      ret = ioctl(priv->gsfd, GS2200M_IOC_IFREQ, (unsigned long)&imsg);
+    }
 
   if (!getreq)
     {
@@ -1778,6 +1832,8 @@ int main(int argc, FAR char *argv[])
             break;
         }
     }
+
+  _daemon->usock_enable = TRUE;
 
   if ((ap_mode && (4 != argc) && (5 != argc))
       || (!ap_mode && 3 != argc))

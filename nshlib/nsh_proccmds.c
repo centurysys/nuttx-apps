@@ -34,6 +34,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <sys/sysinfo.h>
+#include <sys/param.h>
 #include <time.h>
 
 #include "nsh.h"
@@ -48,9 +49,9 @@
 #endif
 
 #ifndef CONFIG_NSH_DISABLE_UPTIME
-  #ifndef FSHIFT
-    #  define FSHIFT SI_LOAD_SHIFT
-  #endif
+#  ifndef FSHIFT
+#    define FSHIFT SI_LOAD_SHIFT
+#  endif
 #  define FIXED_1      (1 << FSHIFT)     /* 1.0 as fixed-point */
 #  define LOAD_INT(x)  ((x) >> FSHIFT)
 #  define LOAD_FRAC(x) (LOAD_INT(((x) & (FIXED_1 - 1)) * 100))
@@ -627,7 +628,7 @@ int cmd_ps(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
                    "%3s "
 #endif
                    "%3s %-8s %-7s %3s %-8s %-9s "
-                   "%-8s "
+                   "%-16s "
 #if CONFIG_MM_BACKTRACE >= 0 && !defined(CONFIG_NSH_DISABLE_PSHEAPUSAGE)
                    "%8s "
 #endif
@@ -666,6 +667,34 @@ int cmd_ps(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
 
   return nsh_foreach_direntry(vtbl, "ps", CONFIG_NSH_PROC_MOUNTPOINT,
                               ps_callback, NULL);
+}
+#endif
+
+/****************************************************************************
+ * Name: cmd_pidof
+ ****************************************************************************/
+
+#if defined(CONFIG_FS_PROCFS) && !defined(CONFIG_NSH_DISABLE_PIDOF)
+int cmd_pidof(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
+{
+  FAR const char *name = argv[argc - 1];
+  pid_t pids[8];
+  ssize_t ret;
+  int i;
+
+  ret = nsh_getpid(vtbl, name, pids, nitems(pids));
+  if (ret <= 0)
+    {
+      nsh_error(vtbl, g_fmtnosuch, argv[0], "task",  name);
+      return ERROR;
+    }
+
+  for (i = 0; i < ret; i++)
+    {
+      nsh_output(vtbl, "%d ", pids[i]);
+    }
+
+  return OK;
 }
 #endif
 

@@ -31,7 +31,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#ifdef CONFIG_ARCH_SIM
+#ifdef CONFIG_SIM_WALLTIME_SLEEP
 #  include <nuttx/arch.h>
 #endif
 
@@ -66,11 +66,7 @@
 #define PRIORIY_SPREED                  10
 
 /****************************************************************************
- * Private Data
- ****************************************************************************/
-
-/****************************************************************************
- * Private Functions
+ * Private Types
  ****************************************************************************/
 
 enum thstate_e
@@ -81,6 +77,10 @@ enum thstate_e
   DONE
 };
 
+/****************************************************************************
+ * Private Data
+ ****************************************************************************/
+
 static sem_t g_sem;
 static volatile enum thstate_e g_middlestate;
 static volatile enum thstate_e g_highstate[NHIGHPRI_THREADS];
@@ -89,6 +89,10 @@ static volatile int g_priority_tracking[NUMBER_OF_COMPETING_THREADS];
 static int g_highpri;
 static int g_medpri;
 static int g_lowpri;
+
+/****************************************************************************
+ * Private Functions
+ ****************************************************************************/
 
 /****************************************************************************
  * Name: sleep_and_display
@@ -247,7 +251,7 @@ static FAR void *highpri_thread(FAR void *parameter)
 
 static inline void hog_cpu(void)
 {
-#ifdef CONFIG_ARCH_SIM
+#ifdef CONFIG_SIM_WALLTIME_SLEEP
   /* The simulator doesn't have any mechanism to do asynchronous pre-emption
    * (basically because it doesn't have any interrupts/asynchronous events).
    * The simulator does "fake" a timer interrupt in up_idle() -- the idle

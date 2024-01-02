@@ -82,12 +82,31 @@ BUILTIN_REGISTRY = $(APPDIR)$(DELIM)builtin$(DELIM)registry
 DEPCONFIG = $(TOPDIR)$(DELIM).config
 
 ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+ifeq ($(CONFIG_SCHED_USER_IDENTITY),y)
+define REGISTER
+	$(Q) echo Register: $1
+	$(Q) echo { "$(subst ",,$(1))", $2, $3, $(patsubst ,0,$(subst ",,$(4))), $(patsubst ,0,$(5)), $(patsubst ,0,$(6)), $(patsubst ,0555,$(7))}, > "$(BUILTIN_REGISTRY)$(DELIM)$1.bdat"
+	$(Q) echo int $(subst ",,$(4))(int argc, char *argv[]); > "$(BUILTIN_REGISTRY)$(DELIM)$1.pdat"
+
+	$(Q) touch $(BUILTIN_REGISTRY)$(DELIM).updated"
+endef
+else
 define REGISTER
 	$(Q) echo Register: $1
 	$(Q) echo { "$(subst ",,$(1))", $2, $3, $(subst ",,$(4)) }, > "$(BUILTIN_REGISTRY)$(DELIM)$1.bdat"
 	$(Q) echo int $(subst ",,$(4))(int argc, char *argv[]); > "$(BUILTIN_REGISTRY)$(DELIM)$1.pdat"
 
 	$(Q) touch $(BUILTIN_REGISTRY)$(DELIM).updated"
+endef
+endif
+else
+ifeq ($(CONFIG_SCHED_USER_IDENTITY),y)
+define REGISTER
+	$(Q) echo "{ \"$1\", $2, $3, $(patsubst ,0,$(4)), $(patsubst ,0,$(5)), $(patsubst ,0,$(6)), $(patsubst ,0555,$(7)) }," > "$(BUILTIN_REGISTRY)$(DELIM)$1.bdat"
+	$(Q) if [ ! -z $4 ]; then \
+	        echo "int $4(int argc, char *argv[]);" > "$(BUILTIN_REGISTRY)$(DELIM)$1.pdat"; \
+	     fi;
+	$(Q) touch "$(BUILTIN_REGISTRY)$(DELIM).updated"
 endef
 else
 define REGISTER
@@ -99,6 +118,7 @@ define REGISTER
 	$(Q) touch "$(BUILTIN_REGISTRY)$(DELIM).updated"
 endef
 endif
+endif
 
 # Standard include path
 
@@ -107,18 +127,51 @@ CXXFLAGS += ${INCDIR_PREFIX}"$(APPDIR)$(DELIM)include"
 
 NUTTXLIB ?= $(call CONVERT_PATH,$(TOPDIR)$(DELIM)staging)
 
-# Function to get entry index
+# SPLITVARIABLE - Split long variables into specified batches
+# Usage: $(call SPLITVARIABLE, variable-def, variable-ref, batch-size)
+#
+#	Example: VAR:= a b c x y z foo bar
+#			 $(call SPLITVARIABLE, VAR, $(VAR), 3)
+#			 $(foreach, num, $(VAR_TOTAL), $(shell echo $(VAR_$(num))))
+#	Return new variable definition:
+#		$(variable-def)_TOTAL : total split sequence , start with 1.
+#		$(variable-def)_$(num) : newly defined variable , ended with batch num.
+#	In the case above:
+#			$(VAR_TOTAL) = 1 2 3
+#			$(VAR_1) = a b c
+#			$(VAR_2) = x y z
+#			$(VAR_3) = foo bar
 
-define GETINDEX
-	$(eval i=1)
-	$(eval entry=)
-	$(foreach e,$(2), \
-	  $(if $(filter $(notdir $(1)),$(notdir $(e))), \
-	    $(eval entry=$(1)), \
-	    $(if $(entry), \
-	      ,$(eval i=$(shell expr $(i) + 1)) \
-	    ) \
-	  ) \
+define SPLITVARIABLE
+	$(eval PREFIX = $(1))
+	$(eval BATCH_SIZE = $(3))
+	$(eval TOTAL_BATCH = $(shell expr $(words $(2)) / $(BATCH_SIZE) + 1))
+	$(eval $(PREFIX)_TOTAL = $(shell seq 1 $(TOTAL_BATCH)))
+	$(foreach idx, $($(PREFIX)_TOTAL), \
+		$(eval FROMINDEX=$(shell expr 1 + $(idx) \* $(BATCH_SIZE) - $(BATCH_SIZE))) \
+		$(eval $(PREFIX)_$(idx)=$(wordlist $(FROMINDEX), $(shell expr $(FROMINDEX) + $(BATCH_SIZE) - 1), $(2))) \
 	)
-	$(i)
 endef
+
+define ARLOCK
+	flock $1.lock $(call ARCHIVE, $1, $(2))
+endef
+
+# dynamic AR target
+
+define AROBJSRULES
+$(1) : $(2)
+	cp $(2) $(1)
+endef
+
+# CLEANAROBJS - del AR target files exclusively
+
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+define CLEANAROBJS
+	$(call DELFILE,$(subst /,\,$(AROBJS)))
+endef
+else
+define CLEANAROBJS
+	$(Q) rm -f $(AROBJS)
+endef
+endif

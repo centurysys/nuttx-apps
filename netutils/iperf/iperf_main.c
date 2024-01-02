@@ -56,6 +56,8 @@ struct wifi_iperf_t
   FAR struct arg_str *ip;
   FAR struct arg_lit *server;
   FAR struct arg_lit *udp;
+  FAR struct arg_str *local;
+  FAR struct arg_str *rpmsg;
   FAR struct arg_int *port;
   FAR struct arg_int *interval;
   FAR struct arg_int *time;
@@ -75,23 +77,54 @@ struct wifi_iperf_t
  *
  ****************************************************************************/
 
-static void iperf_showusage(FAR const char *progname, int exitcode)
+static void iperf_showusage(FAR const char *progname,
+                            FAR struct wifi_iperf_t *args, int exitcode)
 {
-  printf("USAGE: %s [-sua] [-c <ip>] [-p <port>]\
-         [-i <interval>] [-t <time>]\n", progname);
+  printf("USAGE: %s [-sua] [-c <ip|cpu>] [-p <port>] [-i <interval>] "
+         "[-t <time>] [--local <path>] [--rpmsg <name>]\n", progname);
   printf("iperf command:\n");
-  printf("  -c, --client=<ip>  run in client mode,\
-         connecting to <host>\n");
-  printf("  -s, --server  run in server mode\n");
-  printf("  -u, --udp  use UDP rather than TCP\n");
-  printf("  -p, --port=<port>  server port to listen on/connect to\n");
-  printf("  -i, --interval=<interval>\
-         seconds between periodic bandwidth reports\n");
-  printf("  -t, --time=<time>\
-         time in seconds to transmit for (default 10 secs)\n");
-  printf("  -a, --abort  abort running iperf\n");
-  printf("\n");
+  arg_print_glossary(stdout, (FAR void **)args, NULL);
+
+  arg_freetable((FAR void **)args, 1);
   exit(exitcode);
+}
+
+/****************************************************************************
+ * Name: iperf_printcfg
+ *
+ * Description:
+ *   Print config line before start
+ *
+ ****************************************************************************/
+
+static void iperf_printcfg(FAR struct iperf_cfg_t *cfg)
+{
+  printf("\n mode=%s%s-%s ",
+         cfg->flag & IPERF_FLAG_LOCAL ? "local-":
+           cfg->flag & IPERF_FLAG_RPMSG ? "rpmsg-":"",
+         cfg->flag & IPERF_FLAG_TCP ? "tcp":"udp",
+         cfg->flag & IPERF_FLAG_SERVER ? "server":"client");
+
+  if (cfg->flag & IPERF_FLAG_LOCAL)
+    {
+      printf("path=%s, ", cfg->path);
+    }
+  else if (cfg->flag & IPERF_FLAG_RPMSG)
+    {
+      printf("cpu=%s, name=%s, ", cfg->host, cfg->path);
+    }
+  else
+    {
+      printf("sip=%" PRId32 ".%" PRId32 ".%" PRId32 ".%" PRId32 ":%d,"
+             "dip=%" PRId32 ".%" PRId32 ".%" PRId32 ".%" PRId32 ":%d, ",
+             cfg->sip & 0xff, (cfg->sip >> 8) & 0xff,
+             (cfg->sip >> 16) & 0xff, (cfg->sip >> 24) & 0xff, cfg->sport,
+             cfg->dip & 0xff, (cfg->dip >> 8) & 0xff,
+             (cfg->dip >> 16) & 0xff, (cfg->dip >> 24) & 0xff, cfg->dport);
+    }
+
+  printf("interval=%" PRId32 ", time=%" PRId32 "\n",
+         cfg->interval, cfg->time);
 }
 
 /****************************************************************************
@@ -113,6 +146,8 @@ int main(int argc, FAR char *argv[])
                            "run in client mode, connecting to <host>");
   iperf_args.server = arg_lit0("s", "server", "run in server mode");
   iperf_args.udp = arg_lit0("u", "udp", "use UDP rather than TCP");
+  iperf_args.local = arg_str0(NULL, "local", "<path>", "use local socket");
+  iperf_args.rpmsg = arg_str0(NULL, "rpmsg", "<name>", "use RPMsg socket");
   iperf_args.port = arg_int0("p", "port", "<port>",
                              "server port to listen on/connect to");
   iperf_args.interval = arg_int0("i", "interval", "<interval>",
@@ -122,48 +157,82 @@ int main(int argc, FAR char *argv[])
   iperf_args.abort = arg_lit0("a", "abort", "abort running iperf");
   iperf_args.end = arg_end(1);
 
+  /* Value of local is needed for server, optional for client. */
+
+  iperf_args.local->hdr.flag |= ARG_HASOPTVALUE;
+
   nerrors = arg_parse(argc, argv, (FAR void**) &iperf_args);
   if (nerrors != 0)
     {
       arg_print_errors(stderr, iperf_args.end, argv[0]);
-      iperf_showusage(argv[0], 0);
+      iperf_showusage(argv[0], &iperf_args, 0);
     }
 
   if (iperf_args.abort->count != 0)
     {
       iperf_stop();
       printf("ERROR: abort->count: %d\n", iperf_args.abort->count);
-      iperf_showusage(argv[0], 0);
+      iperf_showusage(argv[0], &iperf_args, 0);
     }
 
   if (((iperf_args.ip->count == 0) && (iperf_args.server->count == 0)) ||
          ((iperf_args.ip->count != 0) && (iperf_args.server->count != 0)))
     {
       printf("ERROR: should specific client/server mode\n");
-      iperf_showusage(argv[0], 0);
+      iperf_showusage(argv[0], &iperf_args, 0);
     }
 
   if (iperf_args.ip->count == 0)
     {
+      cfg.host  = "";
       cfg.flag |= IPERF_FLAG_SERVER;
     }
   else
     {
-      cfg.dip = inet_addr(iperf_args.ip->sval[0]);
+      cfg.dip   = inet_addr(iperf_args.ip->sval[0]);
+      cfg.host  = iperf_args.ip->sval[0];
       cfg.flag |= IPERF_FLAG_CLIENT;
     }
 
-  addr.s_addr = 0;
-  netlib_get_ipv4addr(DEVNAME, &addr);
-  if (addr.s_addr == 0)
+  if (iperf_args.local->count > 0)
     {
-      printf("ERROR: access IP is 0x00\n");
-      return -1;
+      cfg.flag |= IPERF_FLAG_LOCAL;
+      if (strlen(iperf_args.local->sval[0]) > 0)
+        {
+          /* iperf -s --local <path> or iperf -c <whatever> --local <path> */
+
+          cfg.path = iperf_args.local->sval[0];
+        }
+      else if (iperf_args.ip->count > 0)
+        {
+          /* iperf -c <path> --local */
+
+          cfg.path = iperf_args.ip->sval[0];
+        }
+      else
+        {
+          printf("ERROR: should specific local socket path\n");
+          iperf_showusage(argv[0], &iperf_args, 0);
+        }
     }
+  else if (iperf_args.rpmsg->count > 0)
+    {
+      cfg.flag |= IPERF_FLAG_RPMSG;
+      cfg.path  = iperf_args.rpmsg->sval[0];
+    }
+  else
+    {
+      netlib_get_ipv4addr(DEVNAME, &addr);
+      if (addr.s_addr == 0)
+        {
+          printf("ERROR: access IP is 0x00\n");
+          goto out;
+        }
 
-  printf("       IP: %s\n", inet_ntoa_r(addr, inetaddr, sizeof(inetaddr)));
+      printf("     IP: %s\n", inet_ntoa_r(addr, inetaddr, sizeof(inetaddr)));
 
-  cfg.sip = addr.s_addr;
+      cfg.sip = addr.s_addr;
+    }
 
   if (iperf_args.udp->count == 0)
     {
@@ -228,21 +297,11 @@ int main(int argc, FAR char *argv[])
         }
     }
 
-  arg_freetable((FAR void **)&iperf_args,
-                sizeof(iperf_args) / sizeof(FAR void *));
-
-  printf("\n mode=%s-%s "
-         "sip=%" PRId32 ".%" PRId32 ".%" PRId32 ".%" PRId32 ":%d,"
-         "dip=%" PRId32 ".%" PRId32 ".%" PRId32 ".%" PRId32 ":%d, "
-         "interval=%" PRId32 ", time=%" PRId32 "\n",
-         cfg.flag & IPERF_FLAG_TCP ?"tcp":"udp",
-         cfg.flag & IPERF_FLAG_SERVER ?"server":"client",
-         cfg.sip & 0xff, (cfg.sip >> 8) & 0xff, (cfg.sip >> 16) & 0xff,
-         (cfg.sip >> 24) & 0xff, cfg.sport,
-         cfg.dip & 0xff, (cfg.dip >> 8) & 0xff, (cfg.dip >> 16) & 0xff,
-         (cfg.dip >> 24) & 0xff, cfg.dport,
-         cfg.interval, cfg.time);
+  iperf_printcfg(&cfg);
   iperf_start(&cfg);
+
+out:
+  arg_freetable((FAR void **)&iperf_args, 1);
 
   return 0;
 }

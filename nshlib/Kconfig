@@ -9,7 +9,6 @@ config NSH_LIBRARY
 	bool "NSH Library"
 	default n
 	select NETUTILS_NETLIB if NET
-	select LIBC_NETDB if NET
 	select BOARDCTL if (!NSH_DISABLE_MKRD && !DISABLE_MOUNTPOINT) || NSH_ARCHINIT || NSH_ROMFSETC
 	select BOARDCTL_MKRD if !NSH_DISABLE_MKRD && !DISABLE_MOUNTPOINT
 	select BOARDCTL_ROMDISK if NSH_ROMFSETC
@@ -69,6 +68,12 @@ config NSH_PROMPT_STRING
 	default "nsh> "
 	---help---
 		Provide the shell prompt string, default is "nsh> ".
+
+config NSH_DISABLE_ECHOBACK
+	bool "Disable echoback"
+	default n
+	---help---
+		If this option is selected, the NSH disables echoback.
 
 choice
 	prompt "Command Line Editor"
@@ -359,6 +364,11 @@ config NSH_DISABLE_EXPORT
 	bool "Disable export"
 	default DEFAULT_SMALL
 
+config NSH_DISABLE_FDINFO
+	bool "Disable fdinfo"
+	default DEFAULT_SMALL
+	depends on FS_PROCFS
+
 config NSH_DISABLE_FREE
 	bool "Disable free"
 	default DEFAULT_SMALL
@@ -369,6 +379,10 @@ config NSH_DISABLE_GET
 
 config NSH_DISABLE_HELP
 	bool "Disable help"
+	default DEFAULT_SMALL
+
+config NSH_DISABLE_ERROR_PRINT
+	bool "Disable NSH Error Printing"
 	default DEFAULT_SMALL
 
 config NSH_DISABLE_HEXDUMP
@@ -476,6 +490,11 @@ config NSH_DISABLE_PASSWD
 	default DEFAULT_SMALL
 	depends on NSH_LOGIN_PASSWD && !FSUTILS_PASSWD_READONLY
 
+config NSH_DISABLE_PIDOF
+	bool "Disable pidof"
+	default DEFAULT_SMALL
+	depends on FS_PROCFS
+
 config NSH_DISABLE_PMCONFIG
 	bool "Disable pmconfig"
 	default DEFAULT_SMALL
@@ -518,6 +537,16 @@ config NSH_DISABLE_READLINK
 	bool "Disable readlink"
 	default DEFAULT_SMALL
 	depends on PSEUDOFS_SOFTLINKS
+
+config NSH_DISABLE_SWITCHBOOT
+	bool "Switch boot partition"
+	default DEFAULT_SMALL
+	depends on BOARDCTL_SWITCH_BOOT
+
+config NSH_DISABLE_BOOT
+	bool "Disable boot"
+	default DEFAULT_SMALL
+	depends on BOARDCTL_BOOT_IMAGE
 
 config NSH_DISABLE_REBOOT
 	bool "Disable reboot"
@@ -625,8 +654,7 @@ config NSH_DISABLE_XD
 
 config NSH_DISABLE_RESET_CAUSE
 	bool "Disable reset cause"
-	default n if !DEFAULT_SMALL
-	default y if DEFAULT_SMALL
+	default DEFAULT_SMALL
 	depends on BOARDCTL_RESET_CAUSE
 
 endmenu
@@ -977,7 +1005,7 @@ config NSH_USBCONDEV
 	---help---
 		If NSH_USBCONSOLE is set to 'y', then NSH_USBCONDEV must
 		also be set to select the USB device used to support the
-		NSH console.   This should be set to the quoted name of a
+		NSH console.  This should be set to the quoted name of a
 		read-/write-able USB driver.  Default: "/dev/ttyACM0".
 
 config USBDEV_MINOR
@@ -1027,7 +1055,7 @@ config NSH_ALTSTDIN
 		also be selected to enable use of an alternate character device
 		to support the NSH console. If CONFIG_NSH_ALTCONDEV is selected,
 		then NSH_ALTSTDIN must be set to select the "stdin" device to
-		support the NSH console.   This should be set to the quoted name
+		support the NSH console.  This should be set to the quoted name
 		of a readable character driver such as:
 
 			NSH_ALTSTDIN="/dev/ttyS1".
@@ -1043,7 +1071,7 @@ config NSH_ALTSTDOUT
 		also be selected to enable use of an alternate character device
 		to support the NSH console. If CONFIG_NSH_ALTCONDEV is selected,
 		then NSH_ALTSTDOUT must be set to select the "stdout" device to
-		support the NSH console.   This should be set to the quoted name
+		support the NSH console.  This should be set to the quoted name
 		of a write-able character driver such as:
 
 			NSH_ALTSTDIN="/dev/ttyS1".
@@ -1059,7 +1087,7 @@ config NSH_ALTSTDERR
 		also be selected to enable use of an alternate character device
 		to support the NSH console. If CONFIG_NSH_ALTCONDEV is selected,
 		then NSH_ALTSTDERR must be set to select the "stderr" device to
-		support the NSH console.   This should be set to the quoted name
+		support the NSH console.  This should be set to the quoted name
 		of a write-able character driver such as:
 
 			NSH_ALTSTDIN="/dev/ttyS1".
@@ -1088,7 +1116,7 @@ config NSH_USBKBD_DEVNAME
 	---help---
 		If NSH_USBKBD is set to 'y', then NSH_USBKBD_DEVNAME must also be
 		set to select the USB keyboard device used to support the NSH
-		console input.   This should be set to the quoted name of a read-
+		console input.  This should be set to the quoted name of a read-
 		able keyboard driver. Default: "/dev/kbda".
 
 endif #NSH_USBKBD

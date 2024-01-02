@@ -30,14 +30,56 @@
 #include <stddef.h>
 #include <setjmp.h>
 #include <stdint.h>
-#include <cmocka.h>
+#include <stdio.h>
+#include <syslog.h>
 #include <sys/wait.h>
-
 #include <builtin/builtin.h>
+#include <regex.h>
+#include <cmocka.h>
 
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
+
+static void cm_usage(void)
+{
+    char *mesg =
+        "an elegant unit testing framework for C "
+        "with support for mock objects\n"
+        "Usage: cmocka [OPTION [ARG]] ...\n"
+        " -?, --help       show this help statement\n"
+        " -l, --list       display only the names of testcases "
+        "and testsuite,\n"
+        "                  don't execute them\n"
+        " -t, --test A     only run cases where case function "
+        "name matches A pattern\n"
+        " -p, --skip B     don't run cases where case function "
+        "name matches B pattern\n"
+        " -s, --suite C    only run suites where PROGNAME "
+        "matches C pattern\n"
+        " -f, --output-path use xml report instead of standard "
+        "output\n"
+        "Example: cmocka --suite mm|sched "
+        "--test Test* --skip TestNuttxMm0[123]\n\n";
+    printf("%s", mesg);
+}
+
+static int cm_regexmatch(FAR const char *pattern, FAR const char *str)
+{
+  regex_t regex;
+  int ret;
+
+  ret = regcomp(&regex, pattern, REG_EXTENDED | REG_NOSUB);
+  if (ret != 0)
+    {
+      return 0;
+    }
+
+  ret = regexec(&regex, str, 0, NULL, 0);
+  regfree(&regex);
+
+  return ret == 0;
+}
 
 /****************************************************************************
  * cmocka_main
@@ -47,36 +89,58 @@ int main(int argc, FAR char *argv[])
 {
   const char prefix[] = CONFIG_TESTING_CMOCKA_PROGNAME"_";
   FAR const struct builtin_s *builtin;
-  int len = strlen(prefix);
+  int prefix_len  = strlen(prefix);
+  FAR char *testcase = NULL;
   FAR char *bypass[argc + 1];
-  FAR char *cases[argc + 1];
-  FAR char *skip[argc + 1];
+  FAR char *suite = NULL;
+  FAR char *skip = NULL;
+  FAR char *xml_path = NULL;
   int num_bypass = 1;
-  int num_cases = 0;
-  int num_skip = 0;
   int ret;
   int i;
-  int j;
+  int list_tests = 0;
 
-  if (strlen(argv[0]) < len - 1 ||
-      strncmp(argv[0], prefix, len - 1))
+  if (strlen(argv[0]) < prefix_len  - 1 ||
+      strncmp(argv[0], prefix, prefix_len  - 1))
     {
       return 0;
     }
 
-  memset(cases, 0, sizeof(cases));
-  memset(skip, 0, sizeof(skip));
   memset(bypass, 0, sizeof(bypass));
 
   for (i = 1; i < argc; i++)
     {
-      if (strcmp("--case", argv[i]) == 0)
+      if (strcmp("--help", argv[i]) == 0 || strcmp("-?", argv[i]) == 0)
         {
-          cases[num_cases++] = argv[++i];
+          cm_usage();
+          return 0;
         }
-      else if (strcmp("--skip", argv[i]) == 0)
+      else if (strcmp("--list", argv[i]) == 0 || strcmp("-l", argv[i]) == 0)
         {
-          skip[num_skip++] = argv[++i];
+          list_tests = 1;
+        }
+      else if (strcmp("--output-path", argv[i]) == 0
+               || strcmp("-f", argv[i]) == 0)
+        {
+          xml_path = argv[++i];
+        }
+      else if (strcmp("--test", argv[i]) == 0 || strcmp("-t", argv[i]) == 0)
+        {
+          testcase = argv[++i];
+        }
+      else if (strcmp("--suite", argv[i]) == 0 || strcmp("-s", argv[i]) == 0)
+        {
+          suite = argv[++i];
+        }
+      else if (strcmp("--skip", argv[i]) == 0 || strcmp("-p", argv[i]) == 0)
+        {
+          skip = argv[++i];
+        }
+      else if (argv[i][0] == '-')
+        {
+          printf("Unrecognized arguments: %s\nGet more"
+                 " infomation by --help\n", argv[i]);
+          return 0;
         }
       else
         {
@@ -84,31 +148,35 @@ int main(int argc, FAR char *argv[])
         }
     }
 
+  cmocka_set_test_filter(NULL);
   cmocka_set_skip_filter(NULL);
-  for (i = 0; skip[i]; i++)
+  cmocka_set_message_output(CM_OUTPUT_STDOUT);
+  cmocka_set_list_test(list_tests);
+
+  if (list_tests == 0)
     {
-      cmocka_set_skip_filter(skip[i]);
+      if (xml_path != NULL)
+        {
+          setenv("CMOCKA_XML_FILE", xml_path, 1);
+          cmocka_set_message_output(CM_OUTPUT_XML);
+        }
+
+      cmocka_set_test_filter(testcase);
+      cmocka_set_skip_filter(skip);
     }
 
+  print_message("Cmocka Test Start.");
   for (i = 0; (builtin = builtin_for_index(i)) != NULL; i++)
     {
       if (builtin->main == NULL ||
-          strlen(builtin->name) < len ||
-          strncmp(builtin->name, prefix, len))
+          strlen(builtin->name) < prefix_len  ||
+          strncmp(builtin->name, prefix, prefix_len))
         {
           continue;
         }
 
-      for (j = 0; cases[j]; j++)
-        {
-          if (strncmp(builtin->name + len,
-                cases[j], strlen(cases[j])) == 0)
-            {
-              break;
-            }
-        }
-
-      if (j && cases[j] == NULL)
+      if (suite != NULL &&
+          !cm_regexmatch(suite, builtin->name))
         {
           continue;
         }
@@ -121,5 +189,6 @@ int main(int argc, FAR char *argv[])
         }
     }
 
+  print_message("Cmocka Test Completed.");
   return 0;
 }

@@ -20,10 +20,12 @@
 
 include $(APPDIR)/Make.defs
 
-LTP_UNPACK   = ltp
-LTP_URL      = https://github.com/linux-test-project/ltp.git
+LTPS_VERSION     = 20230516
+LTP_DOWNLOAD_URL = https://github.com/linux-test-project/ltp/archive/refs/tags/
+LTP_UNPACK       = ltp
+LTP_URL          = https://github.com/linux-test-project/ltp.git
 
-TESTDIR      = $(LTP_UNPACK)/testcases/open_posix_testsuite
+TESTDIR          = $(LTP_UNPACK)/testcases/open_posix_testsuite
 
 ifneq ($(wildcard $(TESTDIR)),)
 ifeq ($(CONFIG_FS_AIO),)
@@ -102,74 +104,163 @@ BLACKWORDS  += "SA_ONSTACK"
 BLACKWORDS  += "MINSIGSTKSZ"
 BLACKWORDS  += "FPE_FLTINV"
 
-BLACKSRCS += testfrmw.c
-BLACKSRCS += 7-3-buildonly.c
-BLACKSRCS += 7-4-buildonly.c
-BLACKSRCS += 7-5-buildonly.c
-BLACKSRCS += 11-1-buildonly.c
-BLACKSRCS += 17-1-buildonly.c
 BLACKSRCS += 19-1-buildonly.c
 BLACKSRCS += 21-1-buildonly.c
-BLACKSRCS += 22-31-buildonly.c
-BLACKSRCS += 22-32-buildonly.c
-BLACKSRCS += 25-1-buildonly.c
 BLACKSRCS += 27-1-buildonly.c
+ifeq ($(CONFIG_LIBC_LOCALTIME),)
 BLACKSRCS += 34-1-buildonly.c
+BLACKSRCS += 35-3-buildonly.c
+endif
 BLACKSRCS += 35-1-buildonly.c
 BLACKSRCS += 35-2-buildonly.c
-BLACKSRCS += 27-2.c
 ifeq ($(CONFIG_PTHREAD_SPINLOCKS),)
 BLACKSRCS += 3-12-buildonly.c
 endif
-BLACKSRCS += 35-3-buildonly.c
+ifeq ($(CONFIG_SCHED_CHILD_STATUS),)
+BLACKSRCS += $(TESTDIR)/conformance/interfaces/pthread_exit/6-1.c
+BLACKSRCS += $(TESTDIR)/conformance/behavior/WIFEXITED/1-1.c
+BLACKSRCS += $(TESTDIR)/conformance/behavior/WIFEXITED/1-2.c
+endif
+ifeq ($(CONFIG_FS_TMPFS),)
+BLACKWORDS += lio_listio
+endif
+ifeq ($(CONFIG_SIG_EVTHREAD),)
+BLACKWORDS += fork
+endif
+ifneq ($(shell expr $(CONFIG_MQ_MAXMSGSIZE) \>= 64),1)
+BLACKWORDS += mq_close
+BLACKWORDS += mq_getattr
+BLACKWORDS += mq_notify
+BLACKWORDS += mq_open
+BLACKWORDS += mq_receive
+BLACKWORDS += mq_send
+BLACKWORDS += mq_setattr
+BLACKWORDS += mq_timedreceive
+BLACKWORDS += mq_timedsend
+BLACKWORDS += mq_unlink
+endif
+ifeq ($(CONFIG_PTHREAD_MUTEX_TYPES),)
+BLACKWORDS += pthread_mutexattr_settype
+endif
+ifeq ($(CONFIG_SCHED_SPORADIC),)
+BLACKSRCS += $(TESTDIR)/conformance/interfaces/sched_setscheduler/19-2.c
+BLACKSRCS += $(TESTDIR)/conformance/interfaces/sched_setscheduler/19-3.c
+BLACKSRCS += $(TESTDIR)/conformance/interfaces/sched_setscheduler/19-4.c
+endif
+ifeq ($(CONFIG_SIG_DEFAULT),)
+BLACKWORDS += SIGKILL
+BLACKWORDS += SIGSTOP
+endif
+ifeq ($(CONFIG_RR_INTERVAL),)
+BLACKSRCS += $(TESTDIR)/functional/threads/condvar/pthread_cond_wait_1.c
+endif
+ifeq ($(CONFIG_FS_NAMED_SEMAPHORES),)
+BLACKWORDS += sem_open
+BLACKWORDS += sem_close
+BLACKWORDS += sem_unlink
+endif
+ifeq ($(CONFIG_PIPES),)
+BLACKWORDS += pipe
+endif
+ifneq ($(shell expr $(CONFIG_LIBC_MAX_EXITFUNS) \>= 32),1)
+BLACKSRCS += $(TESTDIR)/conformance/interfaces/pthread_exit/4-1.c
+BLACKSRCS += $(TESTDIR)/conformance/interfaces/pthread_exit/5-1.c
+endif
+ifeq ($(CONFIG_CANCELLATION_POINTS),)
+BLACKSRCS += $(TESTDIR)/conformance/interfaces/pthread_exit/3-1.c
+endif
+ifneq ($(shell expr $(CONFIG_TLS_NELEM) \>= 16),1)
+BLACKSRCS += $(TESTDIR)/conformance/interfaces/pthread_setspecific/1-1.c
+endif
+ifeq ($(CONFIG_PTHREAD_SPINLOCKS),)
+BLACKWORDS += pthread_spin_lock
+endif
+ifeq ($(CONFIG_SCHED_WAITPID),)
+BLACKWORDS += waitpid
+endif
+ifeq ($(CONFIG_SCHED_USER_IDENTITY),)
+BLACKWORDS += setuid
+BLACKWORDS += setgid
+BLACKWORDS += getuid
+BLACKWORDS += getgid
+BLACKWORDS += seteuid
+BLACKWORDS += setegid
+BLACKWORDS += geteuid
+BLACKWORDS += getegid
+endif
+ifeq ($(CONFIG_TLS_NELEM),0)
+BLACKWORDS += pthread_key_create
+BLACKWORDS += pthread_key_delete
+BLACKWORDS += pthread_setspecific
+BLACKWORDS += pthread_getspecific
+endif
+ifeq ($(CONFIG_PTHREAD_CLEANUP_STACKSIZE),0)
+BLACKWORDS += pthread_cleanup_push
+BLACKWORDS += pthread_cleanup_pop
+endif
+ifeq ($(CONFIG_LIBC_EXECFUNCS),)
+BLACKWORDS += execl
+BLACKWORDS += execvp
+BLACKWORDS += execlp
+BLACKWORDS += execvpe
+endif
+ifeq ($(CONFIG_FS_SHMFS),)
+BLACKWORDS += shm_open
+BLACKWORDS += shm_unlink
+endif
+ifeq ($(LIBC_LOCALE_CATALOG),)
+BLACKWORDS += catopen
+BLACKWORDS += catgets
+BLACKWORDS += catclose
+endif
+ifeq ($(CONFIG_MM_SHM),)
+BLACKWORDS += shmget
+BLACKWORDS += shmat
+endif
 
-MAINWORDS    += "main("
+MAINWORDS += "main("
 
-LTP_ORIGS_1  := $(shell find $(TESTDIR) -name *.c | head -n 500)
-LTP_ORIGS_2  := $(shell find $(TESTDIR) -name *.c | head -n 1000|tail -n +501)
-LTP_ORIGS_3  := $(shell find $(TESTDIR) -name *.c | head -n 1500|tail -n +1001)
-LTP_ORIGS_4  := $(shell find $(TESTDIR) -name *.c | head -n 2000|tail -n +1501)
+LTP_ORIGS := $(shell find $(TESTDIR) -name *.c)
+ifneq ($(LTP_ORIGS),)
+$(eval $(call SPLITVARIABLE,ORIGS_SPILT,$(LTP_ORIGS),200))
+$(foreach BATCH, $(ORIGS_SPILT_TOTAL), \
+	$(foreach word, $(BLACKWORDS), $(eval BLACKLIST+=$(shell grep -lr $(word) $(ORIGS_SPILT_$(BATCH))))) \
+)
+endif
 
-$(foreach word, $(BLACKWORDS), $(eval BLACKLIST+=$(shell grep -lr $(word) $(LTP_ORIGS_1))))
-$(foreach src, $(BLACKSRCS), $(eval BLACKLIST+=$(filter %$(src),$(LTP_ORIGS_1))))
+$(foreach src, $(BLACKSRCS), $(eval BLACKLIST+=$(filter %$(src),$(LTP_ORIGS))))
 
-$(foreach word, $(BLACKWORDS), $(eval BLACKLIST+=$(shell grep -lr $(word) $(LTP_ORIGS_2))))
-$(foreach src, $(BLACKSRCS), $(eval BLACKLIST+=$(filter %$(src),$(LTP_ORIGS_2))))
+LTP_ORIGS := $(filter-out $(BLACKLIST), $(LTP_ORIGS))
+ifneq ($(LTP_ORIGS),)
+$(eval $(call SPLITVARIABLE,ORIGS_SPILT,$(LTP_ORIGS),200))
+$(foreach BATCH, $(ORIGS_SPILT_TOTAL), \
+	$(foreach word, $(MAINWORDS), $(eval LTP_MAINCSRCS+=$(shell grep -lr $(word) $(ORIGS_SPILT_$(BATCH))))) \
+)
+endif
 
-$(foreach word, $(BLACKWORDS), $(eval BLACKLIST+=$(shell grep -lr $(word) $(LTP_ORIGS_3))))
-$(foreach src, $(BLACKSRCS), $(eval BLACKLIST+=$(filter %$(src),$(LTP_ORIGS_3))))
+LTP_CSRCS := $(filter-out $(LTP_MAINCSRCS), $(LTP_ORIGS))
+ifneq ($(LTP_MAINCSRCS),)
+$(eval $(call SPLITVARIABLE,MAINCSRC_SPILT,$(LTP_MAINCSRCS),50))
+$(foreach BATCH, $(MAINCSRC_SPILT_TOTAL), \
+	$(eval PROGNAME+=$(basename $(shell echo $(MAINCSRC_SPILT_$(BATCH)) | xargs -n 1 | awk -F "[/]" '{print "ltp_"$$(NF-2)"_"$$(NF-1)"_"$$(NF)}' | sed s/-/_/g))) \
+)
+endif
 
-$(foreach word, $(BLACKWORDS), $(eval BLACKLIST+=$(shell grep -lr $(word) $(LTP_ORIGS_4))))
-$(foreach src, $(BLACKSRCS), $(eval BLACKLIST+=$(filter %$(src),$(LTP_ORIGS_4))))
-
-LTP_ORIGS_1  := $(filter-out $(BLACKLIST), $(LTP_ORIGS_1))
-LTP_ORIGS_2  := $(filter-out $(BLACKLIST), $(LTP_ORIGS_2))
-LTP_ORIGS_3  := $(filter-out $(BLACKLIST), $(LTP_ORIGS_3))
-LTP_ORIGS_4  := $(filter-out $(BLACKLIST), $(LTP_ORIGS_4))
-
-$(foreach word, $(MAINWORDS), $(eval LTP_MAINCSRCS_1+=$(shell grep -lr $(word) $(LTP_ORIGS_1))))
-$(foreach word, $(MAINWORDS), $(eval LTP_MAINCSRCS_2+=$(shell grep -lr $(word) $(LTP_ORIGS_2))))
-$(foreach word, $(MAINWORDS), $(eval LTP_MAINCSRCS_3+=$(shell grep -lr $(word) $(LTP_ORIGS_3))))
-$(foreach word, $(MAINWORDS), $(eval LTP_MAINCSRCS_4+=$(shell grep -lr $(word) $(LTP_ORIGS_4))))
-
-LTP_CSRCS_1  := $(filter-out $(LTP_MAINCSRCS_1), $(LTP_ORIGS_1))
-LTP_CSRCS_2  := $(filter-out $(LTP_MAINCSRCS_2), $(LTP_ORIGS_2))
-LTP_CSRCS_3  := $(filter-out $(LTP_MAINCSRCS_3), $(LTP_ORIGS_3))
-LTP_CSRCS_4  := $(filter-out $(LTP_MAINCSRCS_4), $(LTP_ORIGS_4))
-
-
-PROGNAME     := $(basename $(shell echo $(LTP_MAINCSRCS_1) | xargs -n 1 | awk -F "[/]" '{print "ltp_"$$(NF-2)"_"$$(NF-1)"_"$$(NF)}' | sed s/-/_/g))
-PROGNAME     += $(basename $(shell echo $(LTP_MAINCSRCS_2) | xargs -n 1 | awk -F "[/]" '{print "ltp_"$$(NF-2)"_"$$(NF-1)"_"$$(NF)}' | sed s/-/_/g))
-PROGNAME     += $(basename $(shell echo $(LTP_MAINCSRCS_3) | xargs -n 1 | awk -F "[/]" '{print "ltp_"$$(NF-2)"_"$$(NF-1)"_"$$(NF)}' | sed s/-/_/g))
-PROGNAME     += $(basename $(shell echo $(LTP_MAINCSRCS_4) | xargs -n 1 | awk -F "[/]" '{print "ltp_"$$(NF-2)"_"$$(NF-1)"_"$$(NF)}' | sed s/-/_/g))
-MAINSRC       = $(LTP_MAINCSRCS_1) $(LTP_MAINCSRCS_2) $(LTP_MAINCSRCS_3) $(LTP_MAINCSRCS_4)
+MAINSRC       = $(LTP_MAINCSRCS)
+ifneq ($(CONFIG_NET_CAN),)
+PROGNAME     += can_rcv_own_msgs
+PROGNAME     += can_filter
+MAINSRC      += $(TESTDIR)/../network/can/filter-tests/can_filter.c
+MAINSRC      += $(TESTDIR)/../network/can/filter-tests/can_rcv_own_msgs.c
+endif
 PRIORITY      = SCHED_PRIORITY_DEFAULT
 STACKSIZE     = $(CONFIG_DEFAULT_TASK_STACKSIZE)
 MODULE        = $(CONFIG_TESTING_LTP)
 
-CSRCS        := $(LTP_CSRCS_1) $(LTP_CSRCS_2) $(LTP_CSRCS_3) $(LTP_CSRCS_4)
+CSRCS        := $(LTP_CSRCS)
 CFLAGS       += -I$(CURDIR)
 CFLAGS       += -I$(TESTDIR)/include
+CFLAGS       += -I$(TESTDIR)/../../include
 endif
 
 # Relax warning checks to avoid expected compile errors:
@@ -179,11 +270,29 @@ CFLAGS += -Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable
 # Should be removed if possible in the future
 CFLAGS += -Wno-incompatible-pointer-types -Wno-overflow -Wno-int-to-pointer-cast
 
-$(LTP_UNPACK):
-	$(Q) echo "git clone $(LTP_URL)"
-	$(Q) git clone $(LTP_URL)
-	$(Q) git -C $(LTP_UNPACK) am < 0001-Fix-static-struct-warning.patch
-	$(Q) git -C $(LTP_UNPACK) am < 0002-Use-ifdef-instead-of-if-for-__linux__.patch
+# Specific compilation errors ignored in MacOS platform
+ifneq ($(CONFIG_HOST_MACOS),)
+CFLAGS += -Wno-integer-overflow -Wno-absolute-value
+endif
+
+ltp-$(LTPS_VERSION).zip:
+	$(call DOWNLOAD,$(LTP_DOWNLOAD_URL),$(LTPS_VERSION).zip, ltp.zip)
+
+$(LTP_UNPACK): ltp-$(LTPS_VERSION).zip
+	$(Q) echo "dowload $(LTP_DOWNLOAD_URL)$(LTPS_VERSION).zip"
+	$(Q) unzip -o ltp.zip
+	$(Q) rm -f ltp.zip
+	$(Q) mv ltp-$(LTPS_VERSION) $(LTP_UNPACK)
+	$(Q) patch -d $(LTP_UNPACK) -p1 < 0001-pthread_rwlock_unlock-follow-linux.patch
+	$(Q) patch -d $(LTP_UNPACK) -p1 < 0002-Use-ifdef-instead-of-if-for-__linux__.patch
+	$(Q) patch -d $(LTP_UNPACK) -p1 < 0003-LTP-Re-init-static-variable-to-avoid-errors-during-m.patch
+	$(Q) patch -d $(LTP_UNPACK) -p1 < 0004-test-update-ltp-test-case.patch
+	$(Q) patch -d $(LTP_UNPACK) -p1 < 0005-ltp-update-pthread_cond_timedwait-testcase.patch
+	$(Q) patch -d $(LTP_UNPACK) -p1 < 0006-test-modified-ltp-rwlock-need-init.patch
+	$(Q) patch -d $(LTP_UNPACK) -p1 < 0007-pthread_kill-add-usleep-aviod-semcount-overturn.patch
+	$(Q) patch -d $(LTP_UNPACK) -p1 < 0008-test-ltp-fix-ltp_interfaces_sigaction_23_10-deadloop.patch
+	$(Q) patch -d $(LTP_UNPACK) -p1 < 0009-ltp-modify-user-code-for-fdcheck-compatibility.patch
+	$(Q) patch -d $(LTP_UNPACK) -p1 < 0010-ltp-fix-build-warning.patch
 
 # Download and unpack tarball if no git repo found
 ifeq ($(wildcard $(LTP_UNPACK)/.git),)
