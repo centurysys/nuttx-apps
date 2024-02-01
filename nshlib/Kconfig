@@ -359,6 +359,10 @@ config NSH_DISABLE_EXIT
 	bool "Disable exit"
 	default DEFAULT_SMALL && !NSH_TELNET
 
+config NSH_DISABLE_EXPR
+	bool "Disable expr"
+	default DEFAULT_SMALL
+
 config NSH_DISABLE_EXPORT
 	bool "Disable export"
 	default DEFAULT_SMALL
@@ -564,6 +568,11 @@ config NSH_DISABLE_ROUTE
 	bool "Disable delroute"
 	depends on FS_PROCFS && NET_ROUTE && !FS_PROCFS_EXCLUDE_NET && !FS_PROCFS_EXCLUDE_ROUTE
 	default DEFAULT_SMALL
+
+config NSH_DISABLE_RPMSG
+	bool "Disable rpmsg"
+	default DEFAULT_SMALL
+	depends on RPMSG
 
 config NSH_DISABLE_RPTUN
 	bool "Disable rptun"
