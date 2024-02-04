@@ -43,7 +43,7 @@ int i2ccmd_dev(FAR struct i2ctool_s *i2ctool, int argc, FAR char **argv)
 {
   struct i2c_msg_s msg;
   FAR char *ptr;
-  uint8_t regaddr;
+  uint8_t regaddr, cmds[2];
   uint8_t saveaddr;
   long first;
   long last;
@@ -146,13 +146,24 @@ int i2ccmd_dev(FAR struct i2ctool_s *i2ctool, int argc, FAR char **argv)
 
           /* Set up data structures */
 
-          regaddr       = i2ctool->regaddr;
-
           msg.frequency = i2ctool->freq;
           msg.addr      = addr;
-          msg.flags     = I2C_M_READ;
-          msg.buffer    = &regaddr;
-          msg.length    = 1;
+          if (addr == 0x14)
+            {
+              /* LTC2487 workaround */
+              cmds[0]    = 0x80;
+              cmds[1]    = 0x00;
+              msg.buffer = cmds;
+              msg.flags  = 0;
+              msg.length = 2;
+            }
+          else
+            {
+              regaddr    = i2ctool->regaddr;
+              msg.buffer = &regaddr;
+              msg.flags  = I2C_M_READ;
+              msg.length = 1;
+            }
 
           ret = i2cdev_transfer(fd, &msg, 1);
 
