@@ -1,0 +1,14 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+if ARCH_BOARD_MAS1XX
+
+config CENTURYSYS_SHUTDOWN
+	tristate "\"Shutdown\" utility"
+	default n
+	---help---
+		Enable the "Shutdown Board" utility
+
+endif
