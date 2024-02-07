@@ -1,5 +1,5 @@
 # ##############################################################################
-# apps/benchmarks/spinlock_bench/CMakeLists.txt
+# apps/testing/smp/CMakeLists.txt
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more contributor
 # license agreements.  See the NOTICE file distributed with this work for
@@ -18,38 +18,14 @@
 #
 # ##############################################################################
 
-if(CONFIG_BENCHMARK_SPINLOCK)
-
-  # ############################################################################
-  # Config and Fetch Coremark application
-  # ############################################################################
-
-  set(SPINLOCKAPP_DIR ${CMAKE_CURRENT_LIST_DIR})
-
-  # ############################################################################
-  # Sources
-  # ############################################################################
-
-  set(CSRCS ${SPINLOCKAPP_DIR}/spinlock_bench.c)
-
-  # ############################################################################
-  # Applications Configuration
-  # ############################################################################
-
+if(CONFIG_TESTING_SMP)
   nuttx_add_application(
     NAME
-    spinlock_bench
-    PRIORITY
-    ${CONFIG_SPINLOCK_PRIORITY}
-    STACKSIZE
-    ${CONFIG_SPINLOCK_STACKSIZE}
-    MODULE
-    ${CONFIG_BENCHMARK_SPINLOCK}
-    COMPILE_FLAGS
-    ${CFLAGS}
+    ${CONFIG_TESTING_SMP_PROGNAME}
     SRCS
-    ${CSRCS}
-    INCLUDE_DIRECTORIES
-    ${INCDIR})
-
+    smp_main.c
+    STACKSIZE
+    ${CONFIG_TESTING_SMP_STACKSIZE}
+    PRIORITY
+    ${CONFIG_TESTING_SMP_PRIORITY})
 endif()
