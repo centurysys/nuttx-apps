@@ -1,5 +1,5 @@
 # ##############################################################################
-# apps/benchmarks/spinlock_bench/CMakeLists.txt
+# apps/wireless/ieee802154/i8sak/CMakeLists.txt
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more contributor
 # license agreements.  See the NOTICE file distributed with this work for
@@ -18,38 +18,37 @@
 #
 # ##############################################################################
 
-if(CONFIG_BENCHMARK_SPINLOCK)
+if(CONFIG_IEEE802154_I8SAK)
 
-  # ############################################################################
-  # Config and Fetch Coremark application
-  # ############################################################################
-
-  set(SPINLOCKAPP_DIR ${CMAKE_CURRENT_LIST_DIR})
-
-  # ############################################################################
-  # Sources
-  # ############################################################################
-
-  set(CSRCS ${SPINLOCKAPP_DIR}/spinlock_bench.c)
-
-  # ############################################################################
-  # Applications Configuration
-  # ############################################################################
+  # Application info
 
   nuttx_add_application(
     NAME
-    spinlock_bench
-    PRIORITY
-    ${CONFIG_SPINLOCK_PRIORITY}
-    STACKSIZE
-    ${CONFIG_SPINLOCK_STACKSIZE}
-    MODULE
-    ${CONFIG_BENCHMARK_SPINLOCK}
-    COMPILE_FLAGS
-    ${CFLAGS}
+    ${CONFIG_IEEE802154_I8SAK_PROGNAME}
     SRCS
-    ${CSRCS}
-    INCLUDE_DIRECTORIES
-    ${INCDIR})
+    i8sak_main.c
+    STACKSIZE
+    ${CONFIG_IEEE802154_I8SAK_STACKSIZE}
+    PRIORITY
+    ${CONFIG_IEEE802154_I8SAK_PRIORITY})
+
+  # IEEE 802.15.4 SAK (swiss army knife)
+
+  set(CSRCS
+      i8sak_acceptassoc.c
+      i8sak_assoc.c
+      i8sak_scan.c
+      i8sak_blaster.c
+      i8sak_poll.c
+      i8sak_sniffer.c
+      i8sak_startpan.c
+      i8sak_tx.c
+      i8sak_get.c
+      i8sak_set.c
+      i8sak_reset.c
+      i8sak_regdump.c
+      i8sak_events.c)
+
+  target_sources(apps PRIVATE ${CSRCS})
 
 endif()
