@@ -5,11 +5,12 @@
 
 if ARCH_BOARD_MAS1XX
 
-config CENTURYSYS_SHUTDOWN
-	tristate "\"Shutdown\" utility"
+config CENTURYSYS_RTCWAKE
+	tristate "\"rtcwake\" utility"
 	default n
+	select CENTURYSYS_LIB_SCHEDULE
 	select CENTURYSYS_LIB_POWER
 	---help---
-		Enable the "Shutdown Board" utility
+		Enable the "RTC Wakeup" utility
 
 endif

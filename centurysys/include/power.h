@@ -1,5 +1,5 @@
 /****************************************************************************
- * apps/centurysys/shutdown/shutdown.c
+ * apps/centurysys/include/power.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,36 +18,44 @@
  *
  ****************************************************************************/
 
+#ifndef __APPS_CENTURYSYS_LIB_POWER_H
+#define __APPS_CENTURYSYS_LIB_POWER_H
+
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 
-#include <nuttx/config.h>
-#include <stdio.h>
-
-#include "power.h"
+#include <nuttx/timers/rtc.h>
 
 /****************************************************************************
- * Public Functions
+ * Pre-processor Definitions
  ****************************************************************************/
+
+#ifdef BIT
+#undef BIT
+#endif
+#define BIT(n) (1 << n)
 
 /****************************************************************************
- * hello_main
+ * Public Types
  ****************************************************************************/
 
-int main(int argc, FAR char *argv[])
+typedef enum
 {
-  int ret = -ENOTTY;
+  WKUP_RTC    = BIT(1),
+  WKUP_OPTSW  = BIT(2),
+  WKUP_MSP430 = BIT(3),
+} wakeup_source;
 
-  uint32_t wkup_src = WKUP_RTC | WKUP_OPTSW;
+/****************************************************************************
+ * Public Function Prototypes
+ ****************************************************************************/
 
-  ret = enable_wakeup(wkup_src);
+int enable_wakeup(uint32_t sources);
+int disable_wakeup(uint32_t sources);
+int get_wakeup(uint32_t *sources);
+void board_powerdown(void);
 
-  if (ret == OK)
-    {
-      board_powerdown();
-      /* not reached */
-    }
+int set_rtc_alarm(struct rtc_time *time);
 
-  return ret;
-}
+#endif /* __APPS_CENTURYSYS_LIB_POWER_H */

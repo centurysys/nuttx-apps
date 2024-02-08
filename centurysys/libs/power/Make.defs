@@ -1,5 +1,5 @@
 ############################################################################
-# apps/centurysys/Makefile
+# apps/centurysys/libs/power/Make.defs
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -18,6 +18,6 @@
 #
 ############################################################################
 
-MENUDESC = "Centurysys MA-S1xx Specific"
-
-include $(APPDIR)/Directory.mk
+ifneq ($(CONFIG_CENTURYSYS_LIB_POWER),)
+CONFIGURED_APPS += $(APPDIR)/centurysys/libs/power
+endif

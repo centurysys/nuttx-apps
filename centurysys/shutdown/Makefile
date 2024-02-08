@@ -20,6 +20,8 @@
 
 include $(APPDIR)/Make.defs
 
+CFLAGS += -I $(APPDIR)/centurysys/include
+
 # Hello, World! built-in application info
 
 PROGNAME  = shutdown
