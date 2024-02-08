@@ -8,6 +8,7 @@ if ARCH_BOARD_MAS1XX
 config CENTURYSYS_SHUTDOWN
 	tristate "\"Shutdown\" utility"
 	default n
+	select CENTURYSYS_LIB_POWER
 	---help---
 		Enable the "Shutdown Board" utility
 

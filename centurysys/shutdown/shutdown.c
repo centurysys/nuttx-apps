@@ -25,9 +25,7 @@
 #include <nuttx/config.h>
 #include <stdio.h>
 
-#include <nuttx/board.h>
-#include <sys/boardctl.h>
-#include <arch/board/boardctl.h>
+#include "power.h"
 
 /****************************************************************************
  * Public Functions
@@ -41,13 +39,15 @@ int main(int argc, FAR char *argv[])
 {
   int ret = -ENOTTY;
 
-#ifdef CONFIG_BOARDCTL_IOCTL
-  ret = board_ioctl(BIOC_ENABLE_WAKEUP, WKUPEN_OPTSW | WKUPEN_ALARM);
-  printf("wakeup enable -> %d\n", ret);
-  fflush(stdout);
+  uint32_t wkup_src = WKUP_RTC | WKUP_OPTSW;
 
-  ret = board_ioctl(BIOC_SHUTDOWN, NULL);
-#endif
+  ret = enable_wakeup(wkup_src);
+
+  if (ret == OK)
+    {
+      board_powerdown();
+      /* not reached */
+    }
 
   return ret;
 }
