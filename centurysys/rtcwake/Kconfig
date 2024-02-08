@@ -9,6 +9,7 @@ config CENTURYSYS_RTCWAKE
 	tristate "\"rtcwake\" utility"
 	default n
 	select CENTURYSYS_LIB_SCHEDULE
+	select CENTURYSYS_LIB_POWER
 	---help---
 		Enable the "RTC Wakeup" utility
 
