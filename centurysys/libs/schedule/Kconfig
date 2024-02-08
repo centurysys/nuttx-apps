@@ -1,0 +1,7 @@
+if ARCH_BOARD_MAS1XX
+
+config CENTURYSYS_LIB_SCHEDULE
+	tristate "Calc Schedule library"
+	default n
+
+endif
