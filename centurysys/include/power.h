@@ -25,6 +25,8 @@
  * Included Files
  ****************************************************************************/
 
+#include <nuttx/timers/rtc.h>
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -53,5 +55,7 @@ int enable_wakeup(uint32_t sources);
 int disable_wakeup(uint32_t sources);
 int get_wakeup(uint32_t *sources);
 void board_powerdown(void);
+
+int set_rtc_alarm(struct rtc_time *time);
 
 #endif /* __APPS_CENTURYSYS_LIB_POWER_H */

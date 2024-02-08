@@ -26,8 +26,11 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <debug.h>
 
 #include <nuttx/board.h>
+#include <nuttx/timers/rtc.h>
+#include <nuttx/timers/dsk324sr.h>
 
 #include "boardctl.h"
 #include "power.h"
@@ -44,13 +47,14 @@ struct wkup_sources
 {
   uint32_t api;
   uint32_t hw;
+  char *str;
 };
 
 static struct wkup_sources srcs[] =
 {
-  { .api = WKUP_RTC, .hw = WKUPEN_ALARM },
-  { .api = WKUP_OPTSW, .hw = WKUPEN_OPTSW },
-  { .api = WKUP_MSP430, .hw = WKUPEN_MSP430 },
+  { .api = WKUP_RTC, .hw = WKUPEN_ALARM, .str = "RTC" },
+  { .api = WKUP_OPTSW, .hw = WKUPEN_OPTSW, .str = "OPT SW" },
+  { .api = WKUP_MSP430, .hw = WKUPEN_MSP430, .str = "MSP430" },
 };
 
 /****************************************************************************
@@ -143,3 +147,29 @@ void board_powerdown(void)
   boardctl(BIOC_SHUTDOWN, (uintptr_t)0);
 }
 
+int set_rtc_alarm(struct rtc_time *time)
+{
+  int fd, ret;
+  struct rtc_wkalrm alarm;
+
+  fd = open("/dev/rtc0", O_RDONLY);
+
+  if (fd < 0)
+    {
+      return -EINVAL;
+    }
+
+  memcpy(&alarm.time, time, sizeof(struct rtc_time));
+  alarm.time.tm_sec = 0;
+
+  ret = ioctl(fd, RTC_ALM_SET, (uintptr_t)&alarm);
+
+  if (ret < 0)
+    {
+      _err("ioctl(RTC_ALM_SET) failed, \"%s\"\n", strerror(errno));
+    }
+
+  close(fd);
+
+  return ret;
+}
