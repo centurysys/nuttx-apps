@@ -1,0 +1,15 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+if ARCH_BOARD_MAS1XX
+
+config CENTURYSYS_RTCWAKE
+	tristate "\"rtcwake\" utility"
+	default n
+	select CENTURYSYS_LIB_SCHEDULE
+	---help---
+		Enable the "RTC Wakeup" utility
+
+endif

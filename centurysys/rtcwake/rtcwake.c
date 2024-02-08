@@ -95,6 +95,11 @@ static int test_rtc_alarm(int fd)
                  interval, next, timbuf);
           printf(" Alarm: Day: %02d, Time: %02d:%02d\n",
                  alarm->tm_mday, alarm->tm_hour, alarm->tm_min);
+          if (schedule.skipped)
+            {
+              printf(" Alarm Skipped, sleeptime: %d [sec]\n",
+                     schedule.wait_sec);
+            }
         }
     }
 

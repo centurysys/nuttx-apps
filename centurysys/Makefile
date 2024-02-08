@@ -18,6 +18,6 @@
 #
 ############################################################################
 
-MENUDESC = "MA-S1xx Specific"
+MENUDESC = "Centurysys MA-S1xx Specific"
 
 include $(APPDIR)/Directory.mk
