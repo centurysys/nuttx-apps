@@ -51,15 +51,16 @@
  ****************************************************************************/
 
 static FAR const char connect_script[] =
-  "ECHO ON "
   "TIMEOUT 30 "
-  "\"\" ATE1 "
-  "OK AT+CGDCONT=1,\\\"IP\\\",\\\"internet\\\" "
+  "\"\" ATE0 "
+  "OK AT+CGDCONT=1,\\\"IP\\\",\\\"soracom.io\\\" "
+  "OK AT$QCPDPP=1,1,\\\"sora\\\",\\\"sora\\\" "
   "OK ATD*99***1# "
   "CONNECT \\c";
 
 static FAR const char disconnect_script[] =
   "\"\" ATZ "
+  "OK ATE1 "
   "OK \\c";
 
 /****************************************************************************
@@ -76,10 +77,10 @@ int main(int argc, char *argv[])
   {
     .disconnect_script = disconnect_script,
     .connect_script = connect_script,
-    .ttyname = "/dev/ttyS1",
+    .ttyname = "/dev/ttyACM2",
 #ifdef CONFIG_NETUTILS_PPPD_PAP
-    .pap_username = "user",
-    .pap_password = "pass",
+    .pap_username = "sora",
+    .pap_password = "sora",
 #endif
   };
 

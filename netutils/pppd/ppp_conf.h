@@ -41,7 +41,7 @@
  ****************************************************************************/
 
 #define IPCP_RETRY_COUNT        5
-#define IPCP_TIMEOUT            5
+#define IPCP_TIMEOUT            2
 #define IPV6CP_RETRY_COUNT      5
 #define IPV6CP_TIMEOUT          5
 #define LCP_RETRY_COUNT         5
@@ -51,16 +51,18 @@
 #define LCP_ECHO_INTERVAL       20
 
 #define PPP_IP_TIMEOUT          (6*3600)
-#define PPP_MAX_CONNECT         15
+#define PPP_MAX_CONNECT         3
 
 #define xxdebug_printf          ninfo
 #define debug_printf            ninfo
 
-#define PPP_RX_BUFFER_SIZE      1024 //1024  //GD 2048 for 1280 IPv6 MTU
+#define PPP_RX_BUFFER_SIZE      2048 //1024  //GD 2048 for 1280 IPv6 MTU
 
-#define AHDLC_TX_OFFLINE        5
+#define AHDLC_TX_OFFLINE        32
 
 #define IPCP_GET_PEER_IP        1
+#define IPCP_GET_PRI_DNS        1
+#define IPCP_GET_SEC_DNS        1
 
 #define PPP_STATISTICS          1
 #define PPP_DEBUG               defined(CONFIG_DEBUG_NET_INFO)

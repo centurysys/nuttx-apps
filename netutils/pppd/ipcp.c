@@ -47,6 +47,7 @@
 #include "ipcp.h"
 #include "ppp.h"
 #include "ahdlc.h"
+#include "debug.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -131,12 +132,21 @@ void ipcp_rx(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer,
 {
   FAR uint8_t *bptr = buffer;
   uint16_t len;
+  char buf[256], *ptr;
+  int wlen;
+
+  ptr = buf;
 
   DEBUG1(("IPCP len %d\n", count));
+
+  wlen = sprintf(ptr, "rcvd [IPCP");
+  ptr += wlen;
 
   switch (*bptr++)
     {
     case CONF_REQ:
+      wlen = sprintf(ptr, " ConfReq id=0x%x", *((uint8_t *) bptr));
+      ptr += wlen;
 
       /* Parse request and see if we can ACK it */
 
@@ -224,12 +234,19 @@ void ipcp_rx(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer,
           /* If we get here then we are OK, lets send an ACK and tell the
            * rest of our modules our negotiated config.
            */
+          strcat(ptr, "]");
+          _info("%s\n", buf);
 
           ctx->ipcp_state |= IPCP_RX_UP;
           DEBUG1(("Send IPCP ACK!\n"));
           bptr = buffer;
           *bptr++ = CONF_ACK;   /* Write Conf_ACK */
+
+          wlen = sprintf(buf, "sent [IPCP ConfAck id=0x%x]", *((uint8_t *) bptr));
+
           bptr++;               /* Skip ID (send same one) */
+
+          _info("%s\n", buf);
 
           /* Set stuff */
 
@@ -251,6 +268,9 @@ void ipcp_rx(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer,
 
     case CONF_ACK:             /* config Ack */
       DEBUG1(("CONF ACK\n"));
+
+      wlen = sprintf(ptr, " ConfAck id=0x%x", *((uint8_t *) bptr));
+      ptr += wlen;
 
       /* Parse out the results Dump the ID and get the length. */
 
@@ -279,6 +299,14 @@ void ipcp_rx(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer,
               ((FAR uint8_t *)&ctx->local_ip)[1] = *bptr++;
               ((FAR uint8_t *)&ctx->local_ip)[2] = *bptr++;
               ((FAR uint8_t *)&ctx->local_ip)[3] = *bptr++;
+
+              wlen = sprintf(ptr, " <addr %d.%d.%d.%d>",
+                             ((uint8_t*)&ctx->local_ip)[0],
+                             ((uint8_t*)&ctx->local_ip)[1],
+                             ((uint8_t*)&ctx->local_ip)[2],
+                             ((uint8_t*)&ctx->local_ip)[3]);
+              ptr += wlen;
+
               break;
 
 #  ifdef IPCP_GET_PRI_DNS
@@ -288,6 +316,14 @@ void ipcp_rx(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer,
               ((FAR uint8_t *)&ctx->pri_dns_addr)[1] = *bptr++;
               ((FAR uint8_t *)&ctx->pri_dns_addr)[2] = *bptr++;
               ((FAR uint8_t *)&ctx->pri_dns_addr)[3] = *bptr++;
+
+              wlen = sprintf(ptr, " <ms-dns1 %d.%d.%d.%d>",
+                             ((uint8_t*)&ctx->pri_dns_addr)[0],
+                             ((uint8_t*)&ctx->pri_dns_addr)[1],
+                             ((uint8_t*)&ctx->pri_dns_addr)[2],
+                             ((uint8_t*)&ctx->pri_dns_addr)[3]);
+              ptr += wlen;
+
               break;
 #  endif
 
@@ -298,6 +334,14 @@ void ipcp_rx(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer,
               ((FAR uint8_t *)&ctx->sec_dns_addr)[1] = *bptr++;
               ((FAR uint8_t *)&ctx->sec_dns_addr)[2] = *bptr++;
               ((FAR uint8_t *)&ctx->sec_dns_addr)[3] = *bptr++;
+
+              wlen = sprintf(ptr, " <ms-dns2 %d.%d.%d.%d>",
+                             ((uint8_t*)&ctx->sec_dns_addr)[0],
+                             ((uint8_t*)&ctx->sec_dns_addr)[1],
+                             ((uint8_t*)&ctx->sec_dns_addr)[2],
+                             ((uint8_t*)&ctx->sec_dns_addr)[3]);
+              ptr += wlen;
+
               break;
 #  endif
 
@@ -320,10 +364,44 @@ void ipcp_rx(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer,
       printip(ctx->sec_dns_addr);
 #endif
       DEBUG1(("\n"));
+
+      strcat(ptr, "]");
+      _info("%s\n", buf);
+
+      _info("local  IP address %d.%d.%d.%d\n",
+            ((uint8_t*)&ctx->local_ip)[0],
+            ((uint8_t*)&ctx->local_ip)[1],
+            ((uint8_t*)&ctx->local_ip)[2],
+            ((uint8_t*)&ctx->local_ip)[3]);
+      _info("remote IP address 10.64.64.64\n");
+      _info("primary   DNS address %d.%d.%d.%d\n",
+             ((uint8_t*)&ctx->pri_dns_addr)[0],
+             ((uint8_t*)&ctx->pri_dns_addr)[1],
+             ((uint8_t*)&ctx->pri_dns_addr)[2],
+             ((uint8_t*)&ctx->pri_dns_addr)[3]);
+      _info("secondary DNS address %d.%d.%d.%d\n",
+            ((uint8_t*)&ctx->sec_dns_addr)[0],
+            ((uint8_t*)&ctx->sec_dns_addr)[1],
+            ((uint8_t*)&ctx->sec_dns_addr)[2],
+            ((uint8_t*)&ctx->sec_dns_addr)[3]);
+
+      //netlib_ifup((char*)ctx->ifname);
+      //netlib_set_ipv4addr((char*)ctx->ifname, &ctx->local_ip);
+
+#ifdef IPCP_GET_PRI_DNS
+      //netlib_set_ipv4dnsaddr(&ctx->pri_dns_addr);
+#endif
+#ifdef IPCP_GET_SEC_DNS
+      //netlib_set_ipv4dnsaddr(&ctx->sec_dns_addr);
+#endif
+
       break;
 
     case CONF_NAK:             /* Config Nack */
       DEBUG1(("CONF NAK\n"));
+
+      wlen = sprintf(ptr, " ConfNak id=0x%0x", *((uint8_t *) bptr));
+      ptr += wlen;
 
       /* Dump the ID */
 
@@ -351,8 +429,16 @@ void ipcp_rx(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer,
               ((FAR uint8_t *)&ctx->local_ip)[2] = (char)*bptr++;
               ((FAR uint8_t *)&ctx->local_ip)[3] = (char)*bptr++;
 
+              wlen = sprintf(ptr, " <addr %d.%d.%d.%d>",
+                             ((uint8_t*)&ctx->local_ip)[0],
+                             ((uint8_t*)&ctx->local_ip)[1],
+                             ((uint8_t*)&ctx->local_ip)[2],
+                             ((uint8_t*)&ctx->local_ip)[3]);
+              ptr += wlen;
+
               netlib_ifup((FAR char *)ctx->ifname);
               netlib_set_ipv4addr((FAR char *)ctx->ifname, &ctx->local_ip);
+              ctx->ipcp_state |= IPCP_NAK_RECEIVED;
               break;
 
 #ifdef IPCP_GET_PRI_DNS
@@ -363,6 +449,14 @@ void ipcp_rx(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer,
               ((FAR uint8_t *)&ctx->pri_dns_addr)[2] = *bptr++;
               ((FAR uint8_t *)&ctx->pri_dns_addr)[3] = *bptr++;
               netlib_set_ipv4dnsaddr(&ctx->pri_dns_addr);
+
+              wlen = sprintf(ptr, " <ms-dns1 %d.%d.%d.%d>",
+                             ((uint8_t*)&ctx->pri_dns_addr)[0],
+                             ((uint8_t*)&ctx->pri_dns_addr)[1],
+                             ((uint8_t*)&ctx->pri_dns_addr)[2],
+                             ((uint8_t*)&ctx->pri_dns_addr)[3]);
+              ptr += wlen;
+
               break;
 #endif
 
@@ -374,6 +468,14 @@ void ipcp_rx(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer,
               ((FAR uint8_t *)&ctx->sec_dns_addr)[2] = *bptr++;
               ((FAR uint8_t *)&ctx->sec_dns_addr)[3] = *bptr++;
               netlib_set_ipv4dnsaddr(&ctx->sec_dns_addr);
+
+              wlen = sprintf(ptr, " <ms-dns2 %d.%d.%d.%d>",
+                             ((uint8_t*)&ctx->sec_dns_addr)[0],
+                             ((uint8_t*)&ctx->sec_dns_addr)[1],
+                             ((uint8_t*)&ctx->sec_dns_addr)[2],
+                             ((uint8_t*)&ctx->sec_dns_addr)[3]);
+              ptr += wlen;
+
               break;
 #endif
 
@@ -392,10 +494,15 @@ void ipcp_rx(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer,
       printip(ctx->sec_dns_addr);
 #endif
       DEBUG1(("\n"));
+      strcat(ptr, "]");
+      _info("%s\n", buf);
       break;
 
     case CONF_REJ:             /* Config Reject */
       DEBUG1(("CONF REJ\n"));
+
+      wlen = sprintf(ptr, " ConfRej id=0x%0x", *((uint8_t *) bptr));
+      ptr += wlen;
 
       /* Remove the offending options */
 
@@ -439,6 +546,10 @@ void ipcp_rx(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer,
               DEBUG1(("IPCP this shouldn't happen 3\n"));
             }
         }
+
+      strcat(ptr, "]");
+      _info("%s\n", buf);
+
       break;
 
     default:
@@ -455,6 +566,10 @@ void ipcp_task(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer)
   FAR uint8_t *bptr;
   uint16_t t;
   IPCPPKT *pkt;
+  char buf[256], *ptr;
+  int len;
+
+  ptr = buf;
 
   /* IPCP tx not up and hasn't timed out then lets see if we need to send a
    * request
@@ -465,7 +580,8 @@ void ipcp_task(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer)
     {
       /* Check if we have a request pending */
 
-      if ((ppp_arch_clock_seconds() - ctx->ipcp_prev_seconds) > IPCP_TIMEOUT)
+      if (((ppp_arch_clock_seconds() - ctx->ipcp_prev_seconds) > IPCP_TIMEOUT) ||
+          ((ctx->ipcp_state & IPCP_NAK_RECEIVED) != 0))
         {
           ctx->ipcp_prev_seconds = ppp_arch_clock_seconds();
 
@@ -477,6 +593,9 @@ void ipcp_task(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer)
 
           pkt->code = CONF_REQ;
           pkt->id = ctx->ppp_id;
+
+          len = sprintf(ptr, "sent [IPCP ConfReq id=0x%x", ctx->ppp_id);
+          ptr += len;
 
           bptr = pkt->data;
 
@@ -491,6 +610,13 @@ void ipcp_task(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer)
           *bptr++ = (uint8_t)((FAR uint8_t *)&ctx->local_ip)[2];
           *bptr++ = (uint8_t)((FAR uint8_t *)&ctx->local_ip)[3];
 
+          len = sprintf(ptr, " <addr %d.%d.%d.%d>",
+                        (uint8_t)((uint8_t*)&ctx->local_ip)[0],
+                        (uint8_t)((uint8_t*)&ctx->local_ip)[1],
+                        (uint8_t)((uint8_t*)&ctx->local_ip)[2],
+                        (uint8_t)((uint8_t*)&ctx->local_ip)[3]);
+          ptr += len;
+
 #ifdef IPCP_GET_PRI_DNS
           if ((ctx->ipcp_state & IPCP_PRI_DNS_BIT) == 0)
             {
@@ -502,6 +628,13 @@ void ipcp_task(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer)
               *bptr++ = ((FAR uint8_t *)&ctx->pri_dns_addr)[1];
               *bptr++ = ((FAR uint8_t *)&ctx->pri_dns_addr)[2];
               *bptr++ = ((FAR uint8_t *)&ctx->pri_dns_addr)[3];
+
+              len = sprintf(ptr, " <ms-dns1 %d.%d.%d.%d>",
+                            ((uint8_t*)&ctx->pri_dns_addr)[0],
+                            ((uint8_t*)&ctx->pri_dns_addr)[1],
+                            ((uint8_t*)&ctx->pri_dns_addr)[2],
+                            ((uint8_t*)&ctx->pri_dns_addr)[3]);
+              ptr += len;
             }
 #endif
 
@@ -516,8 +649,16 @@ void ipcp_task(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer)
               *bptr++ = ((FAR uint8_t *)&ctx->sec_dns_addr)[1];
               *bptr++ = ((FAR uint8_t *)&ctx->sec_dns_addr)[2];
               *bptr++ = ((FAR uint8_t *)&ctx->sec_dns_addr)[3];
+
+              len = sprintf(ptr, " <ms-dns2 %d.%d.%d.%d>",
+                            ((uint8_t*)&ctx->sec_dns_addr)[0],
+                            ((uint8_t*)&ctx->sec_dns_addr)[1],
+                            ((uint8_t*)&ctx->sec_dns_addr)[2],
+                            ((uint8_t*)&ctx->sec_dns_addr)[3]);
+              ptr += len;
             }
 #endif
+          strcat(ptr, "]");
 
           /* Write length */
 
@@ -528,6 +669,7 @@ void ipcp_task(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer)
           pkt->len = htons(t);
 
           DEBUG1(("\n**Sending IPCP Request packet\n"));
+          _info("%s\n", buf);
 
           /* Send packet ahdlc_txz(procol,header,data,headerlen,datalen); */
 

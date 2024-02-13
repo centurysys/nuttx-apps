@@ -48,6 +48,7 @@
 #include "ppp.h"
 #include "pap.h"
 #include "lcp.h"
+#include "debug.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -99,6 +100,9 @@ void pap_rx(struct ppp_context_s *ctx, FAR uint8_t * buffer, uint16_t count)
 
       /* Display message if debug */
 
+      _info("rcvd [PAP AuthAck id=0x%x \"\"]\n", ctx->ppp_id);
+      _info("PAP authentication succeeded\n");
+
       bptr += 3;
       len = *bptr++;
       *(bptr + len) = 0;
@@ -131,6 +135,10 @@ void pap_task(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer)
   FAR uint8_t *bptr;
   uint16_t t;
   PAPPKT *pkt;
+  char buf[256], *ptr;
+  int wlen;
+
+  ptr = buf;
 
   /* If LCP is up and PAP negotiated, try to bring up PAP */
 
@@ -158,6 +166,9 @@ void pap_task(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer)
           pkt->id = ctx->ppp_id;
           bptr = pkt->data;
 
+          wlen = sprintf(ptr, "sent [PAP AuthReq id=0x%x", ctx->ppp_id);
+          ptr += wlen;
+
           /* Write options */
 
           /* Write peer-ID length */
@@ -174,6 +185,10 @@ void pap_task(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer)
 
           t = strlen((char *)ctx->settings->pap_password);
           *bptr++ = (uint8_t)t;
+
+          wlen = sprintf(ptr, " user=\"%s\" password=<hidden>]",
+                         ctx->settings->pap_username);
+          ptr += wlen;
 
           /* Write passwd */
 
@@ -193,6 +208,8 @@ void pap_task(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer)
           /* Send packet */
 
           ahdlc_tx(ctx, PAP, buffer, 0, t, 0);
+
+          _info("%s\n", buf);
 
           ctx->pap_retry++;
 

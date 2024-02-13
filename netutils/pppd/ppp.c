@@ -49,6 +49,7 @@
 #include "ahdlc.h"
 #include "ipcp.h"
 #include "lcp.h"
+#include "debug.h"
 
 #ifdef CONFIG_NETUTILS_PPPD_PAP
 #  include "pap.h"
@@ -245,6 +246,7 @@ void ppp_poll(FAR struct ppp_context_s *ctx)
 
   /* Call the lcp task to bring up the LCP layer */
 
+  //_info("LCP task\n");
   lcp_task(ctx, ctx->ip_buf);
 
   /* If LCP is up, neg next layer */

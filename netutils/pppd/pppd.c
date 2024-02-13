@@ -51,6 +51,7 @@
 #include <errno.h>
 #include <poll.h>
 #include <time.h>
+#include <signal.h>
 #include <debug.h>
 #include <unistd.h>
 
@@ -64,6 +65,20 @@
 #include "netutils/pppd.h"
 
 /****************************************************************************
+ * Pre-processor Definitions
+ ****************************************************************************/
+
+#ifndef SIGTERM
+#define SIGTERM 15
+#endif
+
+/****************************************************************************
+ * Private Data
+ ****************************************************************************/
+
+volatile static int sig_received;
+
+/****************************************************************************
  * External Functions
  ****************************************************************************/
 
@@ -74,6 +89,36 @@ void ppp_arch_modem_reset(const char *tty);
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
+
+/****************************************************************************
+ * Name: sig_handler
+ ****************************************************************************/
+
+static void sig_handler(int signo, siginfo_t *info, void *ucontext)
+{
+  sig_received = signo;
+}
+
+/****************************************************************************
+ * Name: setup_signal
+ ****************************************************************************/
+
+static void setup_signal(void)
+{
+  struct sigaction sa;
+
+  sig_received = 0;
+
+  memset(&sa, 0, sizeof(struct sigaction));
+
+  sigemptyset(&sa.sa_mask);
+  sa.sa_sigaction = sig_handler;
+
+  if (sigaction(SIGTERM, &sa, NULL) < 0)
+    {
+      _err("pppd: sigaction() failed.\n");
+    }
+}
 
 /****************************************************************************
  * Name: make_nonblock
@@ -198,6 +243,39 @@ static uint8_t ppp_check_errors(FAR struct ppp_context_s *ctx)
  ****************************************************************************/
 
 /****************************************************************************
+ * Name: ppp_disconnect
+ ****************************************************************************/
+
+void ppp_disconnect(struct ppp_context_s *ctx)
+{
+  int ret, modem;
+  const struct pppd_settings_s *pppd_settings = ctx->settings;
+
+  netlib_ifdown((char*)ctx->ifname);
+
+  lcp_disconnect(ctx, ++ctx->ppp_id);
+  sleep(1);
+  lcp_disconnect(ctx, ++ctx->ppp_id);
+  sleep(1);
+  write(ctx->ctl.fd, "~+++", 4);
+  sleep(2);
+
+  if (pppd_settings->disconnect_script)
+    {
+      ret = chat(&ctx->ctl, pppd_settings->disconnect_script);
+      if (ret < 0)
+        {
+          _info("disconnect script failed\n");
+        }
+
+      modem = TIOCM_DTR;
+      ret = ioctl(ctx->ctl.fd, TIOCMBIC, (unsigned long) &modem);
+    }
+
+  ctx->ip_len = 0;
+}
+
+/****************************************************************************
  * Name: ppp_reconnect
  ****************************************************************************/
 
@@ -208,13 +286,14 @@ void ppp_reconnect(FAR struct ppp_context_s *ctx)
   const struct pppd_settings_s *pppd_settings = ctx->settings;
   netlib_ifdown((char *)ctx->ifname);
 
+  _info("pppd started.\n");
+
   lcp_disconnect(ctx, ++ctx->ppp_id);
-  sleep(1);
+  usleep(100);
   lcp_disconnect(ctx, ++ctx->ppp_id);
-  sleep(1);
+  usleep(100);
   write(ctx->ctl.fd, "+++", 3);
-  sleep(2);
-  write(ctx->ctl.fd, "ATE1\r\n", 6);
+  usleep(100);
 
   if (pppd_settings->disconnect_script)
     {
@@ -321,6 +400,8 @@ int pppd(const struct pppd_settings_s *pppd_settings)
   int ret;
   FAR struct ppp_context_s *ctx;
 
+  setup_signal();
+
   ctx = (struct ppp_context_s *)malloc(sizeof(struct ppp_context_s));
   memset(ctx, 0, sizeof(struct ppp_context_s));
   strlcpy((char *)ctx->ifname, "ppp%d", sizeof(ctx->ifname));
@@ -341,8 +422,8 @@ int pppd(const struct pppd_settings_s *pppd_settings)
       return 2;
     }
 
-  ctx->ctl.echo = true;
-  ctx->ctl.verbose = true;
+  ctx->ctl.echo = false;
+  ctx->ctl.verbose = false;
   ctx->ctl.timeout = 30;
 
   fds[0].fd = ctx->if_fd;
@@ -374,9 +455,19 @@ int pppd(const struct pppd_settings_s *pppd_settings)
 
       ppp_poll(ctx);
 
-      if (ppp_check_errors(ctx))
+      if (ppp_check_errors(ctx) || sig_received != 0)
         {
-          ppp_reconnect(ctx);
+          _info("Connection Terminated.\n");
+
+          if (sig_received != 0)
+            {
+              ppp_disconnect(ctx);
+              break;
+            }
+          else
+            {
+              ppp_reconnect(ctx);
+            }
         }
       else
         {

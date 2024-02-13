@@ -49,6 +49,7 @@
 #include "ppp.h"
 #include "ahdlc.h"
 #include "lcp.h"
+#include "debug.h"
 
 #include "netutils/pppd.h"
 
@@ -118,6 +119,10 @@ void lcp_rx(struct ppp_context_s *ctx, uint8_t * buffer, uint16_t count)
   uint8_t id;
   uint16_t len;
   uint16_t j;
+  char buf[256], *ptr;
+  int wlen;
+
+  ptr = buf;
 
   switch (*bptr++)
     {
@@ -131,6 +136,9 @@ void lcp_rx(struct ppp_context_s *ctx, uint8_t * buffer, uint16_t count)
       len |= *bptr++;
 
       /* len -= 2; */
+
+      wlen = sprintf(ptr, "rcvd [LCP ConfReq id=0x%x", id);
+      ptr += wlen;
 
       /* In case of new peer connection */
 
@@ -167,6 +175,9 @@ void lcp_rx(struct ppp_context_s *ctx, uint8_t * buffer, uint16_t count)
                       ctx->ppp_tx_mru = ((int)*bptr++) << 8;
                       ctx->ppp_tx_mru |= *bptr++;
                       DEBUG1(("<mru %d> ", ctx->ppp_tx_mru));
+
+                      wlen = sprintf(ptr, " <mru %d>", ctx->ppp_tx_mru);
+                      ptr += wlen;
                     }
                   else
                     {
@@ -180,6 +191,9 @@ void lcp_rx(struct ppp_context_s *ctx, uint8_t * buffer, uint16_t count)
                   j += *bptr++;
                   j += *bptr++;
                   j += *bptr++;
+
+                  wlen = sprintf(ptr, " <asyncmap 0x%x>", j);
+                  ptr += wlen;
 
                   if (j == 0)
                     {
@@ -219,6 +233,9 @@ void lcp_rx(struct ppp_context_s *ctx, uint8_t * buffer, uint16_t count)
 
                       DEBUG1(("<auth pap> "));
                       ctx->lcp_state |= LCP_RX_AUTH;
+
+                      wlen = sprintf(ptr, " <auth pap>");
+                      ptr += wlen;
                     }
                   else
                     {
@@ -230,6 +247,9 @@ void lcp_rx(struct ppp_context_s *ctx, uint8_t * buffer, uint16_t count)
                       *tptr++ = 0x4;
                       *tptr++ = 0xc0;
                       *tptr++ = 0x23;
+
+                      wlen = sprintf(ptr, " <auth \?\?\?>");
+                      ptr += wlen;
                     }
                   break;
 #endif                                 /* CONFIG_NETUTILS_PPPD_PAP */
@@ -240,6 +260,10 @@ void lcp_rx(struct ppp_context_s *ctx, uint8_t * buffer, uint16_t count)
                   /* Compare incoming number to our number */
 
                   bptr++; /* For now just dump */
+
+                  wlen = sprintf(ptr, " <magic 0x%lx>", *((uint32_t *) bptr));
+                  ptr += wlen;
+
                   bptr++;
                   bptr++;
                   bptr++;
@@ -250,15 +274,24 @@ void lcp_rx(struct ppp_context_s *ctx, uint8_t * buffer, uint16_t count)
                   bptr++;
                   DEBUG1(("<pcomp> "));
                   ctx->ahdlc_flags |= PPP_PFC;
+
+                  wlen = sprintf(ptr, " <pcomp>");
+                  ptr += wlen;
                   break;
 
                 case LPC_ACFC:
                   bptr++;
                   DEBUG1(("<accomp> "));
                   ctx->ahdlc_flags |= PPP_ACFC;
+
+                  wlen = sprintf(ptr, " <accomp>");
+                  ptr += wlen;
                   break;
                 }
             }
+
+          strcat(ptr, "]");
+          _info("%s\n", buf);
 
           /* Error? if we we need to send a config Reject ++++ this is good
            * for a subroutine.
@@ -272,6 +305,10 @@ void lcp_rx(struct ppp_context_s *ctx, uint8_t * buffer, uint16_t count)
 
               bptr = buffer;
               *bptr++ = CONF_NAK;   /* Write Conf_rej */
+
+              sprintf(buf, "sent [LCP ConfNak id=0x%x]", *((uint8_t *) bptr));
+              _info("%s\n", buf);
+
               bptr++;               /* tptr++; skip over ID */
 
               /* Write new length */
@@ -299,6 +336,10 @@ void lcp_rx(struct ppp_context_s *ctx, uint8_t * buffer, uint16_t count)
               DEBUG1(("\nSend ACK!\n"));
               bptr = buffer;
               *bptr++ = CONF_ACK;  /* Write Conf_ACK */
+
+              sprintf(buf, "sent [LCP ConfAck id=0x%x]", *((uint8_t *) bptr));
+              _info("%s\n", buf);
+
               bptr++;              /* Skip ID (send same one) */
 
               /* Set stuff */
@@ -335,6 +376,9 @@ void lcp_rx(struct ppp_context_s *ctx, uint8_t * buffer, uint16_t count)
 
           DEBUG1((">>>>>>>> good ACK id up! %d\n", ctx->ppp_id));
 
+          sprintf(buf, "rcvd [LCP ConfAck id=0x%x]", ctx->ppp_id);
+          _info("%s\n", buf);
+
           /* Copy negotiated values over */
 
           ctx->lcp_state |= LCP_TX_UP;
@@ -348,6 +392,10 @@ void lcp_rx(struct ppp_context_s *ctx, uint8_t * buffer, uint16_t count)
     case CONF_NAK:             /* Config Nack */
       DEBUG1(("LCP-CONF NAK\n"));
       ctx->ppp_id++;
+
+      sprintf(buf, "rcvd [LCP ConfNak id=0x%x]", *((uint8_t *) bptr));
+      _info("%s\n", buf);
+
       break;
 
     case CONF_REJ:             /* Config Reject */
@@ -358,6 +406,12 @@ void lcp_rx(struct ppp_context_s *ctx, uint8_t * buffer, uint16_t count)
     case TERM_REQ:             /* Terminate Request */
       DEBUG1(("LCP-TERM-REQ -"));
       bptr = buffer;
+
+      sprintf(buf, "rcvd [LCP ConfRej id=0x%x]", *((uint8_t *) bptr));
+      _info("%s\n", buf);
+      sprintf(buf, "sent [LCP TermAck id=0x%x]", *((uint8_t *) bptr));
+      _info("%s\n", buf);
+
       *bptr++ = TERM_ACK;       /* Write TERM_ACK */
 
       /* Write the reject frame */
@@ -495,6 +549,10 @@ void lcp_task(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer)
   FAR uint8_t *bptr;
   uint16_t t;
   LCPPKT *pkt;
+  char buf[256], *ptr;
+  int wlen;
+
+  ptr = buf;
 
   /* lcp tx not up and hasn't timed out then lets see if we need to send a
    * request
@@ -518,6 +576,9 @@ void lcp_task(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer)
 
           pkt->code = CONF_REQ;
           pkt->id = ctx->ppp_id;
+
+          wlen = sprintf(ptr, "sent [LCP ConfReq <asyncmap 0x0>");
+          ptr += wlen;
 
           bptr = pkt->data;
 
@@ -589,6 +650,9 @@ void lcp_task(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer)
           pkt->len = htons(t);  /* length here - code and ID + */
 
           DEBUG1((" len %d\n", t));
+
+          strcat(ptr, "]");
+          _info("%s\n", buf);
 
           /* Send packet
            * Send packet ahdlc_txz(procol,header,data,headerlen,datalen);
