@@ -65,6 +65,7 @@
 #define IPCP_TX_TIMEOUT       0x08
 #define IPCP_PRI_DNS_BIT      0x10
 #define IPCP_SEC_DNS_BIT      0x20
+#define IPCP_NAK_RECEIVED     0x80
 
 /****************************************************************************
  * Public Types

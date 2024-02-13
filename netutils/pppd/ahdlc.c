@@ -44,6 +44,7 @@
 
 #include "ppp_conf.h"
 #include "ppp.h"
+#include "debug.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -355,8 +356,8 @@ uint8_t ahdlc_tx(struct ppp_context_s *ctx, uint16_t protocol,
   if (AHDLC_TX_OFFLINE && (ctx->ahdlc_tx_offline++ > AHDLC_TX_OFFLINE))
     {
       ctx->ahdlc_tx_offline = 0;
-      DEBUG1(("\nAHDLC_TX to many outstanding TX packets => "
-              "ppp_reconnect()\n"));
+      _info("AHDLC_TX too many outstanding TX packets => "
+            "ppp_reconnect()\n");
       ppp_reconnect(ctx);
       return 0;
     }
