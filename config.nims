@@ -53,6 +53,7 @@ type
     debugSymbols: bool
     ramSize: int
     isSim: bool
+    time64: bool
 
 proc killoBytes(bytes: int): int =
   result = (bytes / 1024).int
@@ -91,10 +92,13 @@ proc read_config(cfg: string): DotConfig =
       result.debugSymbols = true
     of "RAM_SIZE":
       result.ramSize = keyval[1].parseInt
+    of "SYSTEM_TIME64":
+      result.time64 = true
   echo "* arch:    " & result.arch
   echo "* opt:     " & $result.opt
   echo "* debug:   " & $result.debugSymbols
   echo "* ramSize: " & $result.ramSize
+  echo "* time64:  " & $result.time64
 
 func bool2onoff(b: bool): string =
   result = if b: "on" else: "off"
@@ -105,6 +109,8 @@ proc setup_cfg(cfg: DotConfig) =
     switch("define", "release")
     switch("define", "danger")
     switch("opt", "size")
+  if cfg.time64:
+    switch("define", "nimUse64BitCTime")
   if cfg.debugSymbols:
     # use native debugger (gdb)
     switch("debugger", "native")
