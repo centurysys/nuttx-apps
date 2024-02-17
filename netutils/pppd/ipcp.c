@@ -385,14 +385,14 @@ void ipcp_rx(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer,
             ((uint8_t*)&ctx->sec_dns_addr)[2],
             ((uint8_t*)&ctx->sec_dns_addr)[3]);
 
-      //netlib_ifup((char*)ctx->ifname);
-      //netlib_set_ipv4addr((char*)ctx->ifname, &ctx->local_ip);
+      netlib_ifup((char*)ctx->ifname);
+      netlib_set_ipv4addr((char*)ctx->ifname, &ctx->local_ip);
 
 #ifdef IPCP_GET_PRI_DNS
-      //netlib_set_ipv4dnsaddr(&ctx->pri_dns_addr);
+      netlib_set_ipv4dnsaddr(&ctx->pri_dns_addr);
 #endif
 #ifdef IPCP_GET_SEC_DNS
-      //netlib_set_ipv4dnsaddr(&ctx->sec_dns_addr);
+      netlib_set_ipv4dnsaddr(&ctx->sec_dns_addr);
 #endif
 
       break;
@@ -436,8 +436,8 @@ void ipcp_rx(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer,
                              ((uint8_t*)&ctx->local_ip)[3]);
               ptr += wlen;
 
-              netlib_ifup((FAR char *)ctx->ifname);
-              netlib_set_ipv4addr((FAR char *)ctx->ifname, &ctx->local_ip);
+              //netlib_ifup((FAR char *)ctx->ifname);
+              //netlib_set_ipv4addr((FAR char *)ctx->ifname, &ctx->local_ip);
               ctx->ipcp_state |= IPCP_NAK_RECEIVED;
               break;
 
@@ -448,7 +448,7 @@ void ipcp_rx(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer,
               ((FAR uint8_t *)&ctx->pri_dns_addr)[1] = *bptr++;
               ((FAR uint8_t *)&ctx->pri_dns_addr)[2] = *bptr++;
               ((FAR uint8_t *)&ctx->pri_dns_addr)[3] = *bptr++;
-              netlib_set_ipv4dnsaddr(&ctx->pri_dns_addr);
+              //netlib_set_ipv4dnsaddr(&ctx->pri_dns_addr);
 
               wlen = sprintf(ptr, " <ms-dns1 %d.%d.%d.%d>",
                              ((uint8_t*)&ctx->pri_dns_addr)[0],
@@ -467,7 +467,7 @@ void ipcp_rx(FAR struct ppp_context_s *ctx, FAR uint8_t * buffer,
               ((FAR uint8_t *)&ctx->sec_dns_addr)[1] = *bptr++;
               ((FAR uint8_t *)&ctx->sec_dns_addr)[2] = *bptr++;
               ((FAR uint8_t *)&ctx->sec_dns_addr)[3] = *bptr++;
-              netlib_set_ipv4dnsaddr(&ctx->sec_dns_addr);
+              //netlib_set_ipv4dnsaddr(&ctx->sec_dns_addr);
 
               wlen = sprintf(ptr, " <ms-dns2 %d.%d.%d.%d>",
                              ((uint8_t*)&ctx->sec_dns_addr)[0],

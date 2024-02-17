@@ -26,6 +26,7 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
+#include <stdbool.h>
 #include <time.h>
 
 /****************************************************************************
@@ -65,6 +66,9 @@ struct pppd_settings_s
 
   FAR const char *connect_script;
   FAR const char *disconnect_script;
+
+  bool persist;
+  int holdoff;
 };
 
 /****************************************************************************

@@ -82,6 +82,8 @@ int main(int argc, char *argv[])
     .pap_username = "sora",
     .pap_password = "sora",
 #endif
+    .holdoff = 5,
+    .persist = false,
   };
 
   return pppd(&pppd_settings);

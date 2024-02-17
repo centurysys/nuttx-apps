@@ -466,7 +466,20 @@ int pppd(const struct pppd_settings_s *pppd_settings)
             }
           else
             {
-              ppp_reconnect(ctx);
+              if (ctx->settings->persist)
+                {
+                  if (ctx->settings->holdoff > 0)
+                    {
+                      _info("Wait %d seconds.\n", ctx->settings->holdoff);
+                      sleep(ctx->settings->holdoff);
+                    }
+
+                  ppp_reconnect(ctx);
+                }
+              else
+                {
+                  break;
+                }
             }
         }
       else
