@@ -254,11 +254,11 @@ void ppp_disconnect(struct ppp_context_s *ctx)
   netlib_ifdown((char*)ctx->ifname);
 
   lcp_disconnect(ctx, ++ctx->ppp_id);
-  sleep(1);
+  usleep(100);
   lcp_disconnect(ctx, ++ctx->ppp_id);
-  sleep(1);
-  write(ctx->ctl.fd, "~+++", 4);
-  sleep(2);
+  usleep(100);
+  write(ctx->ctl.fd, "+++", 3);
+  usleep(100);
 
   if (pppd_settings->disconnect_script)
     {
@@ -455,31 +455,29 @@ int pppd(const struct pppd_settings_s *pppd_settings)
 
       ppp_poll(ctx);
 
+      if (sig_received != 0)
+        {
+          _info("Signal Received: %d\n", sig_received);
+        }
+
       if (ppp_check_errors(ctx) || sig_received != 0)
         {
           _info("Connection Terminated.\n");
 
-          if (sig_received != 0)
+          if (sig_received != 0 || !ctx->settings->persist)
             {
               ppp_disconnect(ctx);
               break;
             }
           else
             {
-              if (ctx->settings->persist)
+              if (ctx->settings->holdoff > 0)
                 {
-                  if (ctx->settings->holdoff > 0)
-                    {
-                      _info("Wait %d seconds.\n", ctx->settings->holdoff);
-                      sleep(ctx->settings->holdoff);
-                    }
+                  _info("Wait %d seconds.\n", ctx->settings->holdoff);
+                  sleep(ctx->settings->holdoff);
+                }
 
-                  ppp_reconnect(ctx);
-                }
-              else
-                {
-                  break;
-                }
+              ppp_reconnect(ctx);
             }
         }
       else
@@ -499,6 +497,9 @@ int pppd(const struct pppd_settings_s *pppd_settings)
             }
         }
     }
+
+  close(ctx->ctl.fd);
+  close(ctx->if_fd);
 
   return 1;
 }

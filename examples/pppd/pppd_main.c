@@ -59,7 +59,8 @@ static FAR const char connect_script[] =
   "CONNECT \\c";
 
 static FAR const char disconnect_script[] =
-  "\"\" ATZ "
+  "TIMEOUT 5 "
+  "\"\" ATH "
   "OK ATE1 "
   "OK \\c";
 
