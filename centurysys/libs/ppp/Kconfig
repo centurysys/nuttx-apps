@@ -1,0 +1,7 @@
+if ARCH_BOARD_MAS1XX
+
+config CENTURYSYS_LIB_PPP
+	tristate "PPPD Management library"
+	default n
+
+endif
