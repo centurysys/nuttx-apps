@@ -257,7 +257,7 @@ void ppp_disconnect(struct ppp_context_s *ctx)
   usleep(100);
   lcp_disconnect(ctx, ++ctx->ppp_id);
   usleep(100);
-  write(ctx->ctl.fd, "+++", 3);
+  write(ctx->ctl.fd, "+++\r\n", 5);
   usleep(100);
 
   if (pppd_settings->disconnect_script)
@@ -279,7 +279,7 @@ void ppp_disconnect(struct ppp_context_s *ctx)
  * Name: ppp_reconnect
  ****************************************************************************/
 
-void ppp_reconnect(FAR struct ppp_context_s *ctx)
+void ppp_reconnect(FAR struct ppp_context_s *ctx, bool first)
 {
   int ret;
   int retry = PPP_MAX_CONNECT;
@@ -292,15 +292,19 @@ void ppp_reconnect(FAR struct ppp_context_s *ctx)
   usleep(100);
   lcp_disconnect(ctx, ++ctx->ppp_id);
   usleep(100);
-  write(ctx->ctl.fd, "+++", 3);
-  usleep(100);
 
-  if (pppd_settings->disconnect_script)
+  if (!first)
     {
-      ret = chat(&ctx->ctl, pppd_settings->disconnect_script);
-      if (ret < 0)
+      //write(ctx->ctl.fd, "+++\r\n", 5);
+      //usleep(100);
+
+      if (pppd_settings->disconnect_script)
         {
-          debug_printf("ppp: disconnect script failed\n");
+          ret = chat(&ctx->ctl, pppd_settings->disconnect_script);
+          if (ret < 0)
+            {
+              debug_printf("ppp: disconnect script failed\n");
+            }
         }
     }
 
@@ -319,11 +323,11 @@ void ppp_reconnect(FAR struct ppp_context_s *ctx)
 #ifdef PPP_ARCH_HAVE_MODEM_RESET
                   ppp_arch_modem_reset(pppd_settings->ttyname);
 #endif
-                  sleep(45);
+                  sleep(30);
                 }
               else
                 {
-                  sleep(10);
+                  sleep(pppd_settings->holdoff);
                 }
             }
         }
@@ -433,7 +437,7 @@ int pppd(const struct pppd_settings_s *pppd_settings)
   fds[1].events = POLLIN;
 
   ppp_init(ctx);
-  ppp_reconnect(ctx);
+  ppp_reconnect(ctx, true);
 
   while (1)
     {
@@ -477,7 +481,7 @@ int pppd(const struct pppd_settings_s *pppd_settings)
                   sleep(ctx->settings->holdoff);
                 }
 
-              ppp_reconnect(ctx);
+              ppp_reconnect(ctx, false);
             }
         }
       else

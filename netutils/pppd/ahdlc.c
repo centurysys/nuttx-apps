@@ -358,7 +358,7 @@ uint8_t ahdlc_tx(struct ppp_context_s *ctx, uint16_t protocol,
       ctx->ahdlc_tx_offline = 0;
       _info("AHDLC_TX too many outstanding TX packets => "
             "ppp_reconnect()\n");
-      ppp_reconnect(ctx);
+      ppp_reconnect(ctx, false);
       return 0;
     }
 

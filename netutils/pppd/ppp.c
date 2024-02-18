@@ -222,7 +222,7 @@ void ppp_poll(FAR struct ppp_context_s *ctx)
   ++ctx->ip_no_data_time;
   if (ctx->ip_no_data_time > PPP_IP_TIMEOUT)
     {
-      ppp_reconnect(ctx);
+      ppp_reconnect(ctx, false);
       return;
     }
 
