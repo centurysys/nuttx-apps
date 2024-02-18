@@ -508,7 +508,7 @@ static int chat_expect(FAR struct chat *priv, FAR const char *s)
 
   /* Get initial time and set the end time */
 
-  clock_gettime(CLOCK_REALTIME, (FAR struct timespec *)&abstime);
+  clock_gettime(CLOCK_MONOTONIC, (FAR struct timespec *)&abstime);
   endtime.tv_sec  = abstime.tv_sec + priv->ctl.timeout;
   endtime.tv_nsec = abstime.tv_nsec;
 
@@ -541,7 +541,7 @@ static int chat_expect(FAR struct chat *priv, FAR const char *s)
 
           /* Update current time */
 
-          clock_gettime(CLOCK_REALTIME, (FAR struct timespec *)&abstime);
+          clock_gettime(CLOCK_MONOTONIC, (FAR struct timespec *)&abstime);
         }
     }
 
