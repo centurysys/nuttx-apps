@@ -35,7 +35,9 @@
 #include <netpacket/netlink.h>
 
 #include <debug.h>
+
 #include <nuttx/board.h>
+#include <arch/board/board.h>
 #include <nuttx/leds/userled.h>
 
 /****************************************************************************
@@ -89,7 +91,7 @@ static void handle_event_addr(struct task_data *self, char *ifname,
 
   if ((self->ppp_stat == false) && (new_del == true))
     {
-      userled_set_t set = 1;
+      userled_set_t set = BOARD_MOBILE0_G_BIT;
       _info("PPP up detected.\n");
 
       ioctl(self->led_fd, ULEDIOC_SETALL, set);
