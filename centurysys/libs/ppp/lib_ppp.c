@@ -52,6 +52,7 @@ static const char disconnect_script[] =
 
 static bool running = false;
 static struct pppd_settings_s settings;
+static int pppd_pid = ERROR;
 
 /****************************************************************************
  * Private Functions
@@ -67,7 +68,10 @@ static int spawn_pppd(int argc, char **argv)
     }
 
   running = true;
+
   ret = pppd(&settings);
+
+  pppd_pid = ERROR;
   running = false;
 
   return ret;
@@ -114,6 +118,24 @@ int launch_pppd(char *tty, char *account, char *password, bool use_pap,
   else
     {
       _info("pppd started, pid = %d\n", pid);
+      pppd_pid = pid;
       return pid;
     }
+}
+
+int get_pppd_pid(void)
+{
+  return pppd_pid;
+}
+
+int terminate_pppd(void)
+{
+  int ret = ERROR;
+
+  if (pppd_pid > 0)
+    {
+      ret = kill(pppd_pid, SIGTERM);
+    }
+
+  return ret;
 }

@@ -35,5 +35,7 @@
 
 int launch_pppd(char *tty, char *account, char *password, bool use_pap,
                 bool persist);
+int get_pppd_pid(void);
+int terminate_pppd(void);
 
 #endif /* __APPS_CENTURYSYS_LIB_PPP_H */
