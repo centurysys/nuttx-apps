@@ -288,13 +288,13 @@ void ppp_reconnect(FAR struct ppp_context_s *ctx, bool first)
 
   _info("pppd started.\n");
 
-  lcp_disconnect(ctx, ++ctx->ppp_id);
-  usleep(100);
-  lcp_disconnect(ctx, ++ctx->ppp_id);
-  usleep(100);
-
   if (!first)
     {
+      lcp_disconnect(ctx, ++ctx->ppp_id);
+      usleep(100);
+      lcp_disconnect(ctx, ++ctx->ppp_id);
+      usleep(100);
+
       //write(ctx->ctl.fd, "+++\r\n", 5);
       //usleep(100);
 
