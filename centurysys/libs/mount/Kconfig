@@ -1,0 +1,7 @@
+if ARCH_BOARD_MAS1XX
+
+config CENTURYSYS_LIB_MOUNT
+	tristate "filesystem mount/umount Management library"
+	default n
+
+endif
