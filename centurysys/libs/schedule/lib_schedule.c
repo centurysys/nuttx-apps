@@ -25,6 +25,7 @@
 #include <nuttx/config.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <debug.h>
 #include <sys/ioctl.h>
 
 #include <nuttx/timers/rtc.h>
@@ -56,6 +57,34 @@ static time_t calc_next_schedule(struct tm *current, time_t interval)
   return time_sched;
 }
 
+static int i2c_bus_reset(int bus)
+{
+  char path[16];
+  char *result_txt;
+  char msg[128];
+  int fd, ret;
+
+  sprintf(path, "/dev/i2c%d", bus);
+  fd = open(path, O_RDONLY);
+
+  if (fd < 0)
+    {
+      _err("could not open i2c device.");
+      return ERROR;
+    }
+
+  ret = ioctl(fd, I2CIOC_RESET, 0);
+
+  result_txt = ret >= 0 ? "succeed" : "fail";
+  sprintf(msg, "reset I2C-bus %sed\n", result_txt);
+  printf(msg);
+  _info("%s", msg);
+
+  close(fd);
+
+  return ret;
+}
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -63,7 +92,7 @@ static time_t calc_next_schedule(struct tm *current, time_t interval)
 int get_next_schedule(time_t interval, time_t minimum_diff,
                       struct schedule_s *sched)
 {
-  int fd, ret;
+  int fd, ret, retry = 3;;
   struct rtc_time rtctime;
   time_t now, next, diff;
   bool skipped = false;
@@ -73,6 +102,7 @@ int get_next_schedule(time_t interval, time_t minimum_diff,
       return -EFAULT;
     }
 
+retry:
   fd = open("/dev/rtc0", O_RDONLY);
   if (fd < 0)
     {
@@ -84,7 +114,18 @@ int get_next_schedule(time_t interval, time_t minimum_diff,
 
   if (ret < 0)
     {
-      printf("failed to get RTC time.\n");
+      printf("failed to get RTC time (retry: %d).\n", retry);
+      close(fd);
+
+      usleep(10 * 1000);
+      i2c_bus_reset(1);
+
+      if (--retry > 0)
+        {
+          usleep(10 * 1000);
+          goto retry;
+        }
+
       return ret;
     }
 
