@@ -107,7 +107,6 @@ proc setup_cfg(cfg: DotConfig) =
   switch("cpu", cfg.arch)
   if cfg.opt == oSize:
     switch("define", "release")
-    switch("define", "danger")
     switch("opt", "size")
   if cfg.time64:
     switch("define", "nimUse64BitCTime")
