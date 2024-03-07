@@ -1,5 +1,5 @@
 ############################################################################
-# apps/examples/embedlog/Makefile
+# apps/examples/settings/Makefile
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -20,19 +20,15 @@
 
 include $(APPDIR)/Make.defs
 
-# embedlog example built-in application info
+# settings built-in application info
 
-PROGNAME = $(CONFIG_EXAMPLES_EMBEDLOG_PROGNAME)
-PRIORITY = $(CONFIG_EXAMPLES_EMBEDLOG_PRIORITY)
-STACKSIZE = $(CONFIG_EXAMPLES_EMBEDLOG_STACKSIZE)
-MODULE = $(CONFIG_EXAMPLES_EMBEDLOG)
+PROGNAME = $(CONFIG_EXAMPLES_SETTINGS_PROGNAME)
+PRIORITY = $(CONFIG_EXAMPLES_SETTINGS_PRIORITY)
+STACKSIZE = $(CONFIG_EXAMPLES_SETTINGS_STACKSIZE)
+MODULE = $(CONFIG_EXAMPLES_SETTINGS)
 
-ifeq ($(CONFIG_EXAMPLES_EMBEDLOG_STRIP_ALL_STRINGS),y)
-  CFLAGS += -DDISABLE_ALL_EMBEDLOG
-endif
+# Settings Example
 
-# embedlog Example
-
-MAINSRC = embedlog_main.c
+MAINSRC = settings_main.c
 
 include $(APPDIR)/Application.mk
