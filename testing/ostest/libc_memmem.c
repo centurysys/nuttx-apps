@@ -1,5 +1,5 @@
 /****************************************************************************
- * apps/examples/hello_wasm/hello_main.c
+ * apps/testing/ostest/libc_memmem.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -22,18 +22,49 @@
  * Included Files
  ****************************************************************************/
 
-#include <stdio.h>
+#include <nuttx/config.h>
+#include <assert.h>
+#include <string.h>
+
+#include "ostest.h"
 
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
 
-/****************************************************************************
- * hello_main
- ****************************************************************************/
-
-int main(int argc, FAR char *argv[])
+int memmem_test(void)
 {
-  printf("Hello, WebAssembly!!\n");
-  return 0;
+  char *haystack = "hello";
+  char *s;
+
+  s = memmem(haystack, 5, "hel", 3);
+  ASSERT(s == haystack);
+
+  s = memmem(haystack, 5, "lo", 2);
+  ASSERT(s == haystack + 3);
+
+  s = memmem(haystack, 5, "hello", 5);
+  ASSERT(s == haystack);
+
+  /* Compare '\0' bytes at string ends. */
+
+  s = memmem(haystack, 6, "o", 2);
+  ASSERT(s == haystack + 4);
+
+  /* Must not find needle that is right after end of haystack. */
+
+  s = memmem("helloX", 5, "X", 1);
+  ASSERT(s == NULL);
+
+  /* Too long needle should return NULL. */
+
+  s = memmem(haystack, 5, "hellohello", 10);
+  ASSERT(s == NULL);
+
+  /* Zero length needle is deemed to reside at start of haystack. */
+
+  s = memmem(haystack, 5, "", 0);
+  ASSERT(s == haystack);
+
+  return OK;
 }
