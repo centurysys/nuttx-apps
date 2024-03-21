@@ -1,5 +1,5 @@
 ############################################################################
-# apps/examples/hello_rust/Makefile
+# apps/testing/nand_sim/Makefile
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -20,17 +20,11 @@
 
 include $(APPDIR)/Make.defs
 
-# Hello, Rust! built-in application info
+PROGNAME = nand
+PRIORITY = SCHED_PRIORITY_DEFAULT
+STACKSIZE = $(CONFIG_TESTING_NAND_SIM_STACK)
+MODULE = $(CONFIG_TESTING_NAND_SIM)
 
-PROGNAME  = $(CONFIG_EXAMPLES_HELLO_RUST_PROGNAME)
-PRIORITY  = $(CONFIG_EXAMPLES_HELLO_RUST_PRIORITY)
-STACKSIZE = $(CONFIG_EXAMPLES_HELLO_RUST_STACKSIZE)
-MODULE    = $(CONFIG_EXAMPLES_HELLO_RUST)
-
-# Hello, Rust! Example
-
-MAINSRC = hello_rust_main.rs
-
-RUSTFLAGS += -C panic=abort -O
+MAINSRC  = nand_sim_main.c
 
 include $(APPDIR)/Application.mk

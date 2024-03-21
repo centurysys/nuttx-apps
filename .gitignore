@@ -39,5 +39,7 @@ Make.dep
 .dirlinks
 .vscode
 .DS_Store
+build
+.ccls-cache
+compile_commands.json
 .vscode-ctags
-
