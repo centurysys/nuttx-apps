@@ -24,9 +24,13 @@
 
 #include <nuttx/config.h>
 #include <stdio.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
 #include <sys/boardctl.h>
+
+#include <nuttx/timers/watchdog.h>
 
 #include "libmount.h"
 #include "power.h"
@@ -109,6 +113,8 @@ static int parse_args(int argc, char **argv, struct parameter *param)
 int main(int argc, FAR char *argv[])
 {
   int ret;
+  int fd;
+  int count;
   struct parameter param;
 
   ret = parse_args(argc, argv, &param);
@@ -122,9 +128,40 @@ int main(int argc, FAR char *argv[])
       usage(argv[0]);
     }
 
+  fd = open("/dev/watchdog0", O_RDONLY);
+  if (fd < 0)
+    {
+      printf("open Watchdog Timer device failed.\n");
+      return ERROR;
+    }
+
+  ret = ioctl(fd, WDIOC_SETTIMEOUT, 10UL * 1000);
+  if (ret < 0)
+    {
+      printf("ioctl(WDIOC_SETTIMEOUT) failed: %d\n", errno);
+      goto errout_with_dev;
+    }
+
+  ret = ioctl(fd, WDIOC_START, 0);
+  if (ret < 0)
+    {
+      printf("ioctl(WDIOC_START) failed: %d\n", errno);
+      goto errout_with_dev;
+    }
+
   printf("timeout: %lld\n", param.timeout);
 
-  sleep(param.timeout);
+  for (count = 0; count < param.timeout; count++)
+    {
+      sleep(1);
+
+      ret = ioctl(fd, WDIOC_KEEPALIVE, 0);
+      if (ret < 0)
+        {
+          printf("ioctl(WDIOC_KEEPALIVE) failed, %d\n", errno);
+          goto errout_with_dev;
+        }
+    }
 
   if (param.verbose)
     {
@@ -137,5 +174,7 @@ int main(int argc, FAR char *argv[])
       boardctl(BOARDIOC_RESET, 0);
     }
 
+errout_with_dev:
+  close(fd);
   return ret;
 }
